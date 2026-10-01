@@ -1,0 +1,18 @@
+import {makeClock,remainingMs,pauseClock,startClock,addTime,resetClock,formatTime,validateClocks} from '../timer-model.js';
+import {defaultState,validateState} from '../model.js';
+import assert from 'node:assert/strict';
+const tests=[];
+function test(name,fn){try{fn();tests.push({name,pass:true});}catch(error){tests.push({name,pass:false,error:error.message});}}
+test('Countdown uses a deadline and does not drift when ticks are skipped',()=>{const clocks={a:makeClock(60)};startClock(clocks,'a',100000);assert.equal(remainingMs(clocks.a,130250),29750);assert.equal(remainingMs(clocks.a,200000),0);});
+test('Pause freezes remaining time; resume uses only remaining time',()=>{const clocks={a:makeClock(60)};startClock(clocks,'a',100000);pauseClock(clocks.a,120000);assert.equal(remainingMs(clocks.a,180000),40000);startClock(clocks,'a',200000);assert.equal(remainingMs(clocks.a,205000),35000);});
+test('Starting another timer pauses the previous one',()=>{const clocks={a:makeClock(60),b:makeClock(30)};startClock(clocks,'a',100000);startClock(clocks,'b',110000);assert.equal(clocks.a.deadline,null);assert.equal(clocks.a.remaining,50000);assert.equal(clocks.b.deadline,140000);});
+test('Starting an already running clock does not restart it',()=>{const clocks={a:makeClock(60)};startClock(clocks,'a',100000);startClock(clocks,'a',110000);assert.equal(clocks.a.deadline,160000);});
+test('Add time works while running and while paused',()=>{const clocks={a:makeClock(60)};startClock(clocks,'a',100000);addTime(clocks.a,30,120000);assert.equal(remainingMs(clocks.a,120000),70000);pauseClock(clocks.a,130000);addTime(clocks.a,30,200000);assert.equal(clocks.a.remaining,90000);assert.equal(clocks.a.deadline,null);});
+test('Expired clocks never become negative; adding time makes them usable',()=>{const c=makeClock(1);c.deadline=1000;pauseClock(c,2000);assert.equal(c.remaining,0);addTime(c,30,3000);assert.equal(c.remaining,30000);});
+test('Reset restores configured duration and a rematch can use 30 seconds',()=>{const c=makeClock(60);c.remaining=12000;c.deadline=99999;resetClock(c);assert.equal(c.remaining,60000);assert.equal(c.deadline,null);resetClock(c,30);assert.equal(c.duration,30000);});
+test('Zero-limit timers cannot be started',()=>{assert.equal(startClock({a:makeClock(0)},'a',1000),false);});
+test('Display rounds up fractional seconds and handles more than an hour',()=>{assert.equal(formatTime(59001),'01:00');assert.equal(formatTime(1),'00:01');assert.equal(formatTime(0),'00:00');assert.equal(formatTime(3660000),'61:00');});
+test('Timer data round trips in event backup; old backups migrate',()=>{const s=defaultState();s.timers['tug:prelim']=makeClock(60,'green|white');startClock(s.timers,'tug:prelim',100000);assert.deepEqual(validateState(JSON.parse(JSON.stringify(s))).timers,s.timers);delete s.timers;assert.deepEqual(validateState(s).timers,{});});
+test('Malformed timer keys, negative times and two running timers are rejected',()=>{assert.throws(()=>validateClocks({evil:makeClock(60)}));assert.throws(()=>validateClocks({'relay:0':makeClock(-1)}));const a=makeClock(60);a.deadline=100000;assert.throws(()=>validateClocks({'relay:0':a,'relay:1':a}));});
+for(const t of tests)console.log(`${t.pass?'PASS':'FAIL'} ${t.name}${t.error?' — '+t.error:''}`);
+if(tests.some(t=>!t.pass))process.exitCode=1;

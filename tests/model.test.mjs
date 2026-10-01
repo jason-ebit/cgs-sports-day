@@ -1,0 +1,32 @@
+import * as m from '../model.js';
+
+const tests=[];
+function test(name, run){try{run();tests.push({name,pass:true});}catch(e){tests.push({name,pass:false,error:e.message});}}
+function equal(a,b){if(JSON.stringify(a)!==JSON.stringify(b))throw Error(`Expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);}
+function throws(fn){let caught=false;try{fn();}catch{caught=true;}if(!caught)throw Error('Expected rejection');}
+function clone(v){return JSON.parse(JSON.stringify(v));}
+test('Fresh event contains no results or awarded points',()=>{const s=m.defaultState();equal(m.championship(s).completed,0);equal(m.totals(s,'basket'),Array(5).fill(null));});
+test('Five seeds place 4 and 5 in preliminary; top three get byes',()=>{equal(m.seededSlots(m.defaultState().teams),['green','white','red','blue','yellow']);});
+test('Duplicate or missing seeds are rejected',()=>{const s=m.defaultState();s.teams[0].seed=2;throws(()=>m.seededSlots(s.teams));s.teams[0].seed=null;throws(()=>m.seededSlots(s.teams));});
+test('Every random draw contains each team once',()=>{for(let i=0;i<1000;i++)equal(m.validSlots(m.shuffled(m.TEAM_IDS)),true);});
+test('Manual duplicate assignment swaps slots without duplicating teams',()=>{const s=m.defaultState();s.tug.slots=[...m.TEAM_IDS];m.assignSlot(s.tug,0,'blue');equal(s.tug.slots,['blue','red','yellow','green','white']);});
+test('Manual assignment handles empty slots',()=>{const t=m.defaultState().tug;m.assignSlot(t,0,'red');m.assignSlot(t,1,'red');equal(t.slots,[null,'red',null,null,null]);});
+test('Unlocked and unresolved matches reject winners',()=>{const t=m.defaultState().tug;t.slots=[...m.TEAM_IDS];throws(()=>m.setWinner(t,'prelim','red'));t.locked=true;throws(()=>m.setWinner(t,'final','red'));throws(()=>m.assignSlot(t,1,'red'));});
+test('Final is reached only through real opponents',()=>{const t=m.defaultState().tug;t.slots=[...m.TEAM_IDS];t.locked=true;m.setWinner(t,'prelim','red');equal(m.matchTeams(t,'semi1'),['yellow','red']);m.setWinner(t,'semi1','red');m.setWinner(t,'semi2','white');equal(m.matchTeams(t,'final'),['red','white']);m.setWinner(t,'final','white');equal(t.winners.final,'white');throws(()=>m.setWinner(t,'final','blue'));});
+test('Upstream correction clears only dependent matches',()=>{const t=m.defaultState().tug;t.slots=[...m.TEAM_IDS];t.locked=true;m.setWinner(t,'prelim','red');m.setWinner(t,'semi1','red');m.setWinner(t,'semi2','white');m.setWinner(t,'final','white');m.setWinner(t,'prelim','blue');equal(t.winners,{prelim:'blue',semi1:null,semi2:'white',final:null});});
+test('Ball Basket uses best count, retains zero, waits for both attempts',()=>{const s=m.defaultState();s.basket.scores=[[0,0],[10,7],[4,20],[null,9],[1,2]];equal(m.totals(s,'basket'),[0,10,20,null,2]);});
+test('Relay converts round placements to points before totaling',()=>{const s=m.defaultState();s.relay.scores[0]=[1,3,5];equal(m.totals(s,'relay')[0],9);});
+test('Seventh borrow round is included only when configured',()=>{const s=m.defaultState();s.borrow.scores[0]=[5,5,5,5,5,5,2];equal(m.totals(s,'borrow')[0],30);s.borrow.rounds=7;equal(m.totals(s,'borrow')[0],32);});
+test('Tied or missing totals never fabricate unique placements',()=>{equal(m.placementsFromTotals([5,4,3,2,2]),null);equal(m.placementsFromTotals([5,4,3,2,null]),null);equal(m.placementsFromTotals([10,50,30,40,20]),[5,1,3,2,4]);});
+test('Championship converts scores; raw counts never leak into total',()=>{const s=m.defaultState();s.basket.scores=[[100,99],[80,70],[60,50],[40,30],[20,10]];const c=m.championship(s);equal(c.completed,1);equal(c.rows.map(r=>r.total),[5,4,3,2,1]);equal(c.complete,false);});
+test('Cavalry and tug places require a recorded rule and complete places',()=>{const s=m.defaultState();s.placements.tug.values=[1,2,3,4,5];equal(m.championship(s).completed,0);s.placements.tug.rule='Playoffs completed';equal(m.championship(s).completed,1);});
+test('Default and completed bracket backups round trip',()=>{const s=m.defaultState();equal(m.validateState(clone(s)),s);s.tug.slots=[...m.TEAM_IDS];s.tug.locked=true;m.setWinner(s.tug,'prelim','red');m.setWinner(s.tug,'semi1','red');m.setWinner(s.tug,'semi2','white');m.setWinner(s.tug,'final','white');equal(m.validateState(clone(s)),s);});
+test('Import rejects duplicate slots, impossible winners and negative scores',()=>{let s=m.defaultState();s.tug.slots=['red','red',null,null,null];throws(()=>m.validateState(s));s=m.defaultState();s.tug.winners.final='red';throws(()=>m.validateState(s));s=m.defaultState();s.basket.scores[0][0]=-1;throws(()=>m.validateState(s));});
+test('Import rejects duplicate relay places and inactive cavalry eliminations',()=>{let s=m.defaultState();s.relay.scores[0][0]=1;s.relay.scores[1][0]=1;throws(()=>m.validateState(s));s=m.defaultState();s.cavalry.divisions.women.eliminated=['red'];throws(()=>m.validateState(s));});
+test('Cavalry team selection no longer requires eligibility counts',()=>{const s=m.defaultState();s.cavalry.divisions.men.active=['red'];equal(m.validateState(s).cavalry.divisions.men.active,['red']);});
+test('Malformed backups cannot introduce arbitrary keys',()=>{const s=m.defaultState();s.untrusted='ignore me';equal(m.validateState(s).untrusted,undefined);throws(()=>m.validateState({version:2}));});
+test('Tie-break decisions preserve raw scores and untied order',()=>{const s=m.defaultState();s.basket.scores=[[10,10],[10,10],[8,8],[6,6],[4,4]];s.placements.basket={rule:'Blue won the playoff',values:[2,1,3,4,5]};equal(m.approvedPlaces(s,'basket'),[2,1,3,4,5]);equal(m.totals(s,'basket'),[10,10,8,6,4]);equal(m.championship(s).completed,1);s.placements.basket.values=[3,1,2,4,5];equal(m.approvedPlaces(s,'basket'),null);});
+test('Older backups without tie-break fields remain readable',()=>{const s=m.defaultState();delete s.placements.borrow;delete s.placements.basket;delete s.placements.relay;equal(m.validateState(s).placements.borrow.values,Array(5).fill(null));});
+export const results=tests;
+export const passed=tests.every(t=>t.pass);
+if(typeof process!=='undefined'&&process.argv?.[1]?.endsWith('model.test.mjs')){for(const t of tests)console.log(`${t.pass?'PASS':'FAIL'} ${t.name}${t.error?' — '+t.error:''}`);if(!passed)process.exitCode=1;}

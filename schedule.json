@@ -1,0 +1,122 @@
+{
+  "title": "CG SPORTS DAY",
+  "dateLabel": "OCT 25",
+  "year": null,
+  "weekday": null,
+  "venue": "대현산배수지공원",
+  "timezone": "Asia/Seoul",
+  "teams": [
+    "Red",
+    "Blue",
+    "Yellow",
+    "Green",
+    "White"
+  ],
+  "schedule": [
+    {
+      "start": "11:40",
+      "end": "12:00",
+      "title": "Committee Setup",
+      "durationMinutes": 20,
+      "highlight": null
+    },
+    {
+      "start": "12:00",
+      "end": "12:15",
+      "title": "Registration / Team Draw",
+      "durationMinutes": 15,
+      "highlight": null
+    },
+    {
+      "start": "12:15",
+      "end": "12:20",
+      "title": "Opening / Safety",
+      "durationMinutes": 5,
+      "highlight": null
+    },
+    {
+      "start": "12:20",
+      "end": "12:25",
+      "title": "Group Warm-Up",
+      "durationMinutes": 5,
+      "highlight": null
+    },
+    {
+      "start": "12:25",
+      "end": "12:45",
+      "title": "Borrow-a-Thing",
+      "durationMinutes": 20,
+      "highlight": null
+    },
+    {
+      "start": "12:45",
+      "end": "13:10",
+      "title": "Ball Basket",
+      "durationMinutes": 25,
+      "highlight": null
+    },
+    {
+      "start": "13:10",
+      "end": "13:30",
+      "title": "Break",
+      "durationMinutes": 20,
+      "highlight": "yellow"
+    },
+    {
+      "start": "13:30",
+      "end": "14:15",
+      "title": "Cavalry Game",
+      "durationMinutes": 45,
+      "highlight": null
+    },
+    {
+      "start": "14:15",
+      "end": "14:50",
+      "title": "Tug-of-War",
+      "durationMinutes": 35,
+      "highlight": null
+    },
+    {
+      "start": "14:50",
+      "end": "15:20",
+      "title": "Team Relay",
+      "durationMinutes": 30,
+      "highlight": null
+    },
+    {
+      "start": "15:20",
+      "end": "15:30",
+      "title": "Event Buffer",
+      "durationMinutes": 10,
+      "highlight": null
+    },
+    {
+      "start": "15:30",
+      "end": "15:40",
+      "title": "Results / Prizes",
+      "durationMinutes": 10,
+      "highlight": "green"
+    },
+    {
+      "start": "15:40",
+      "end": "15:50",
+      "title": "Group Photo",
+      "durationMinutes": 10,
+      "highlight": null
+    },
+    {
+      "start": "15:50",
+      "end": "16:00",
+      "title": "Cleanup",
+      "durationMinutes": 10,
+      "highlight": null
+    },
+    {
+      "start": "16:00",
+      "end": "16:00",
+      "title": "Finish",
+      "durationMinutes": 0,
+      "highlight": "pink"
+    }
+  ]
+}

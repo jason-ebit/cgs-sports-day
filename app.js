@@ -1,0 +1,187 @@
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, setWinner, assignSlot, totals, placementsFromTotals, approvedPlaces, championship, validateState } from './model.js?v=3';
+import { roundDone, cavalryPoints } from './rounds.js?v=3';
+import { createLiveDesk } from './live.js?v=3';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=3';
+import { icon } from './icons.js?v=3';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE } from './content.js?v=3';
+import { renderMedia, downloadBlob } from './media.js?v=3';
+
+const $ = selector => document.querySelector(selector);
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const KEY = 'cg-sports-day-v1';
+let state = defaultState(), saveAvailable = true, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
+try { const saved = localStorage.getItem(KEY); if (saved) state = validateState(JSON.parse(saved)); } catch { saveAvailable = false; }
+const response = await fetch('./schedule.json');
+if (!response.ok) throw Error('Could not load the approved schedule.');
+const schedule = (await response.json()).schedule;
+const dialog = $('#detail-dialog'), body = $('#detail-body');
+const team = id => state.teams.find(t => t.id === id);
+const dot = id => `<span class="dot ${id === 'white' ? 'white' : ''}" style="--team-color:${COLOURS[TEAM_IDS.indexOf(id)]}"></span>`;
+const teamLabel = id => `<span class="score-team">${dot(id)}<span>${esc(team(id)?.name || '—')}</span></span>`;
+const teamDots = (ids = TEAM_IDS) => ids.map(id => `<span class="team-dot-label">${dot(id)}<span class="team-name">${esc(team(id).name)}</span></span>`).join('');
+const note = (title, text, pending = false) => `<section class="note-card ${pending ? 'pending' : ''}"><h3>${esc(title)}</h3><p>${esc(text)}</p></section>`;
+const numberInput = (label, value, attrs = '', max = 100, min = 0) => `<label class="field">${esc(label)}<input type="number" inputmode="numeric" min="${min}" max="${max}" step="1" value="${value ?? ''}" ${attrs}></label>`;
+function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('visible'); clearTimeout(toast.timer); toast.timer = setTimeout(() => $('#toast').classList.remove('visible'), 3000); }
+function save() {
+  try { localStorage.setItem(KEY, JSON.stringify(state)); saveAvailable = true; } catch { saveAvailable = false; }
+  $('#save-state').textContent = saveAvailable ? 'Saved on this device' : 'Not saved · export a backup';
+  $('#panel-save').textContent = saveAvailable ? 'Changes save on this device' : 'Storage unavailable · export a backup';
+}
+function miniBracket() {
+  const s = state.tug.slots, n = (id, fallback) => esc(team(id)?.name.slice(0, 12) || fallback);
+  return `<svg class="mini-bracket" viewBox="0 0 300 94" aria-label="Preliminary to two semifinals to final"><path d="M70 19h15v10h15M70 44h15V29M70 76h30M162 29h18v22h20M162 76h18V51"/><rect x="0" y="7" width="70" height="24" rx="5"/><rect x="0" y="32" width="70" height="24" rx="5"/><rect x="0" y="64" width="70" height="24" rx="5"/><rect x="100" y="17" width="62" height="24" rx="5"/><rect x="100" y="64" width="62" height="24" rx="5"/><rect x="200" y="39" width="98" height="24" rx="5"/><text x="35" y="23" text-anchor="middle">${n(s[0],'Draw 1')}</text><text x="35" y="48" text-anchor="middle">${n(s[1],'Draw 2')}</text><text x="35" y="80" text-anchor="middle">3 byes</text><text x="131" y="33" text-anchor="middle">Semi 1</text><text x="131" y="80" text-anchor="middle">Semi 2</text><text x="249" y="55" text-anchor="middle">${n(state.tug.winners.final,'Final')}</text></svg>`;
+}
+function renderPoster() {
+  $('#schedule-list').innerHTML = schedule.map((e, i) => `<button class="schedule-row ${e.highlight || ''}" data-open="event:${i}" aria-label="${esc(e.title)}, ${e.start}${e.durationMinutes ? ' to '+e.end : ''}. Open notes and controls"><span class="time">${e.start}${e.durationMinutes ? ' – '+e.end : ''}</span><span class="event-icon">${icon(EVENT_ICONS[i])}</span><span class="event-title">${esc(e.title)}</span></button>`).join('');
+  $('#team-legend').innerHTML = teamDots();
+  const head = (g, n) => `<div class="game-head"><span class="game-number">${n}</span>${icon(g)}<h3>${GAME_NAMES[g]}</h3></div>`;
+  $('#game-grid').innerHTML = `
+    <button class="game-card" data-open="event:4">${head('borrow',1)}<p class="game-kicker">ALL FIVE TEAMS TOGETHER</p><div class="game-team-row">${teamDots()}</div><p class="game-copy">6–7 rounds · cumulative points</p><div class="game-bottom">Total points → placing</div></button>
+    <button class="game-card" data-open="event:5">${head('basket',2)}<p class="game-kicker">TEAMS TAKE TURNS</p><div class="game-team-row">${teamDots(['yellow','white','red','green','blue'])}</div><p class="game-copy">2 attempts per team</p><div class="game-bottom">Best score → placing</div></button>
+    <button class="game-card" data-open="event:7">${head('cavalry',3)}<p class="game-kicker">ALL-IN BATTLE</p><div class="cavalry-arena"><div class="arena-ring">${TEAM_IDS.map(dot).join('')}<span>ALL TEAMS</span></div></div><p class="game-copy">Same-gender rounds · last horse wins</p><div class="game-bottom">Elimination order → points</div></button>
+    <button class="game-card" data-open="event:8">${head('tug',4)}<p class="game-kicker">DRAWN TOURNAMENT BRACKET</p>${miniBracket()}<p class="game-copy">1 preliminary · 2 semis · final</p><div class="game-bottom">${state.tug.locked ? 'Draw locked · view bracket' : 'Draw opponents → bracket'}</div></button>
+    <button class="game-card relay" data-open="event:9"><div class="relay-left">${head('relay',5)}<p class="game-kicker">ALL FIVE TEAMS RACE</p><div class="relay-lanes">${TEAM_IDS.map(id=>`<div class="lane">${dot(id)}<span class="lane-name">${esc(team(id).name)}</span><span class="lane-line"></span></div>`).join('')}</div><div class="game-bottom">3-round points → placing</div></div><div class="relay-rounds"><h4>Relay Rounds</h4>${['Baton Relay','Three-Legged Relay','Spoon & Ball Relay'].map((s,i)=>`<div class="relay-round"><span class="game-number">${i+1}</span><span>${esc(s)}</span></div>`).join('')}</div></button>`;
+  document.querySelectorAll('.game-card').forEach(card=>{
+    if(!card.classList.contains('relay')){
+      const summary=document.createElement('div');summary.className='game-summary';
+      [...card.children].filter(child=>!child.matches('.game-head,.game-bottom')).forEach(child=>summary.append(child));
+      card.querySelector('.game-bottom').before(summary);
+    }
+    card.insertAdjacentHTML('beforeend','<span class="ongoing-status" hidden></span>');
+  });
+  requestAnimationFrame(fitPoster);
+  document.querySelectorAll('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
+}
+function openPanel(key, initialTab = null) {
+  if (!dialog.open) returnFocus = document.activeElement;
+  current = key; const gameIndex=key.startsWith('event:')?Number(key.split(':')[1]):null;
+  if(EVENT_GAMES[gameIndex])live.resume(gameIndex);
+  tab = initialTab || (EVENT_GAMES[gameIndex]?'timer':'notes'); renderPanel();
+  if (!dialog.open) dialog.showModal();
+  $('#close-detail').focus();
+}
+function restoreFocus(){ if(returnFocus?.isConnected) returnFocus.focus(); else if(returnFocus?.dataset.open) document.querySelector(`[data-open="${CSS.escape(returnFocus.dataset.open)}"]`)?.focus(); }
+function closePanel() { dialog.close(); restoreFocus(); }
+function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
+function eventNotes(index,game) {return bullets('At a glance',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
+function committeePanel(index) {return bullets('Do / watch for',COMMITTEE[index])+`<label class="field">Committee reminder<textarea class="compact-textarea" data-event-note="${index}" maxlength="2000" placeholder="Optional reminder · exclude private health details">${esc(state.notes[index]||'')}</textarea></label><p class="help">Saved locally; excluded from public posters.</p>`;}
+function gameSheet(game) {
+  if(game!=='tug')return scorePanel(game);
+  if(game==='tug')return `<div class="section-label">MATCH RESULTS <span class="badge">Auto-saved</span></div><div class="score-table-wrap"><table class="score-table match-sheet"><thead><tr><th>Match</th><th>Opponents</th><th>Winner</th><th></th></tr></thead><tbody>${MATCH_KEYS.map(k=>{const pair=matchTeams(state.tug,k),ready=state.tug.locked&&pair.every(Boolean);return `<tr><td>${MATCH_NAMES[k]}</td><td>${pair.map(id=>esc(team(id)?.name||'TBD')).join(' vs ')}</td><td>${state.tug.winners[k]?teamLabel(state.tug.winners[k]):'—'}</td><td><button class="text-button" data-live-match="${k}" ${ready?'':'disabled'}>${state.tug.winners[k]?'Review':'Run'} ↗</button></td></tr>`;}).join('')}</tbody></table></div><p class="help">Winners advance automatically. Championship places 3–5 require an agreed rule.</p><button class="secondary" data-open="results">Championship points →</button>`;
+
+}
+function renderPanel() {
+  const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
+  const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
+  $('#detail-title').textContent = event?.title || ({ teams:'Team desk', results:'Championship', media:'Share the day', data:'Backup & restore' })[current];
+  $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : 'CG SPORTS DAY / OCT 25';
+  const tabs=[['timer','Timer & scoring'],...(game==='tug'?[['play','Bracket']]:[]),...(game?[['scores','Scores']]:[]),['notes','Format'],['committee','Committee']];
+  dialog.classList.toggle('game-dialog',Boolean(game));
+  if(tab==='play'&&game&&game!=='tug')tab=game==='cavalry'?'timer':'scores';
+  $('#detail-tabs').innerHTML=event?tabs.map(([key,label])=>`<button data-tab="${key}" class="${tab===key?'active':''}" aria-pressed="${tab===key}">${label}</button>`).join(''):'';
+  if(event) {
+    if(tab==='committee')body.innerHTML=committeePanel(eventIndex);
+    else if(tab==='timer')body.innerHTML=live.panel(eventIndex);
+    else if(tab==='scores'&&game)body.innerHTML=gameSheet(game);
+    else if(tab==='play'&&game)body.innerHTML=tugPanel();
+    else body.innerHTML=eventNotes(eventIndex,game);
+    if(game&&tab!=='timer')body.insertAdjacentHTML('afterbegin',live.rounds(eventIndex));
+  } else if(current==='teams') body.innerHTML=teamsPanel();
+  else if(current==='results') body.innerHTML=resultsPanel();
+  else if(current==='data') body.innerHTML=dataPanel();
+  else if(current==='media') { body.innerHTML=mediaPanel(); updateMedia(); }
+}
+function teamsPanel() {
+  return note('Five colours. Your teams.','Enter names, leaders and actual participant counts. Seeds are optional for a random draw; “Use seeds” places 4 vs 5 in the preliminary, with seeds 1, 2 and 3 receiving byes.') + state.teams.map((t,i)=>`<section class="team-edit"><h3 class="team-edit-title">${dot(t.id)}${t.id[0].toUpperCase()+t.id.slice(1)} team</h3><div class="field-row"><label class="field">Team name<input data-team="${i}" data-field="name" maxlength="24" value="${esc(t.name)}" required></label><label class="field">Leader<input data-team="${i}" data-field="leader" maxlength="60" placeholder="TBA" value="${esc(t.leader)}"></label>${numberInput('Members',t.participants,`data-team="${i}" data-field="participants"`)}${numberInput('Seed',t.seed,`data-team="${i}" data-field="seed"`,5,1)}</div></section>`).join('')+'<p class="help">Team changes keep existing results attached to their colour. Duplicate seeds are checked before a seeded draw. Cavalry arena teams are selected in its timer tab.</p><div class="button-row"><button class="primary" data-action="go-draw">Open tug-of-war draw ↗</button></div>';
+}
+function tugPanel() {
+  const t=state.tug, labels=['Prelim · A','Prelim · B','Semi 1 · bye','Semi 2 · A / bye','Semi 2 · B / bye'];
+  const match=(key,label,placeholders)=>{const pair=matchTeams(t,key);return `<div class="match" data-match-card="${key}"><div class="match-label">${label}<span>60s ↗</span></div>${pair.map((id,i)=>`<button data-live-match="${key}" ${!t.locked||pair.some(x=>!x)?'disabled':''} class="${t.winners[key]===id&&id?'winner':''}" aria-label="${esc(label+': open timer for '+pair.map(t=>team(t)?.name||'TBD').join(' vs '))}">${id?dot(id):''}<span>${esc(team(id)?.name||placeholders[i])}</span></button>`).join('')}</div>`;};
+  return `<details class="draw-settings" ${t.locked?'':'open'}><summary>${t.locked?'Draw locked · view / edit':'Set up the draw'}</summary><div class="section-label">THE DRAW <span class="badge ${t.locked?'':'pending'}">${t.locked?'Locked':'Draft · not locked'}</span></div><p class="help">Draw five unique slots, assign them manually, or use your team seeds. Selecting an assigned team swaps its slot.</p><div class="button-row"><button class="primary" data-action="random-draw" ${t.locked?'disabled':''}>Draw opponents</button><button class="secondary" data-action="seed-draw" ${t.locked?'disabled':''}>Use seeds</button><button class="secondary" data-action="lock-draw" ${!t.locked&&!validSlots(t.slots)?'disabled':''}>${t.locked?'Unlock & edit':'Lock draw'}</button></div><div class="seed-grid">${labels.map((label,i)=>`<div class="field"><span>${label}</span><div class="team-choices slot-choices" role="group" aria-label="${label}">${TEAM_IDS.map(id=>`<button class="team-choice ${t.slots[i]===id?'selected':''}" data-assign-slot="${i}" data-team-id="${id}" aria-label="${label}: ${esc(team(id).name)}" aria-pressed="${t.slots[i]===id}" ${t.locked?'disabled':''}>${dot(id)}<span>${esc(team(id).name)}</span></button>`).join('')}</div></div>`).join('')}</div></details><div class="section-label">THE BRACKET <span class="badge">Select match to time & score</span></div><div class="bracket-scroll"><div class="bracket"><div class="bracket-column"><h4>PRELIMINARY</h4>${match('prelim','P · Preliminary',['Draw 1','Draw 2'])}<p class="byes-note">Three drawn teams advance<br>directly to the semifinals.</p></div><div class="bracket-column"><h4>SEMIFINALS</h4>${match('semi1','S1 · Semifinal',['Draw 3 · bye','Winner P'])}${match('semi2','S2 · Semifinal',['Draw 4 · bye','Draw 5 · bye'])}</div><div class="bracket-column"><h4>FINAL</h4>${match('final','F · Final',['Winner S1','Winner S2'])}</div></div></div>${t.winners.final?`<div class="champion">${icon('trophy')}${esc(team(t.winners.final).name)} wins the final</div>`:''}<div class="button-row">${(()=>{const next=MATCH_KEYS.find(k=>t.locked&&matchTeams(t,k).every(Boolean)&&!t.winners[k]);return next?`<button class="primary" data-live-match="${next}">Run ${MATCH_NAMES[next].toLowerCase()} · ${matchTeams(t,next).map(id=>esc(team(id).name)).join(' vs ')} ↗</button>`:'';})()}<button class="secondary" data-tab="scores">Score sheet →</button></div><p class="help">Winners save to Scores. Lower places need an agreed rule.</p><p class="help">Changing an earlier winner clears affected later results and approved tug-of-war placements.</p>${Object.values(t.winners).some(Boolean)?'<button class="text-button" data-action="clear-matches">Clear match results</button>':''}`;
+}
+function scorePanel(game) {
+  const labels=game==='borrow'?Array.from({length:state.borrow.rounds},(_,i)=>'R'+(i+1)):game==='basket'?['Attempt 1','Attempt 2']:game==='cavalry'?['R1 · Women','R2 · Men']:['Baton','3-legged','Spoon'];
+  const values=totals(state,game),places=placementsFromTotals(values)||approvedPlaces(state,game);
+  const rows=game==='cavalry'?TEAM_IDS.map((_,i)=>['women','men'].map(d=>cavalryPoints(state,d)[i])):state[game].scores;
+  return `<div class="section-label">SCORE SHEET <span class="badge">Auto-saved from match desk</span></div>${game==='borrow'?`<div class="button-row"><button class="${state.borrow.rounds===6?'primary':'secondary'}" data-borrow-rounds="6">6 rounds</button><button class="${state.borrow.rounds===7?'primary':'secondary'}" data-borrow-rounds="7">7 · contingency</button></div>`:''}<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th>${labels.map(l=>`<th>${l}</th>`).join('')}<th>${game==='basket'?'Best':'Total'}</th></tr></thead><tbody>${state.teams.map((t,i)=>`<tr><td>${teamLabel(t.id)}</td>${labels.map((label,j)=>`<td>${rows[i][j]===null?'—':game==='relay'?'#'+rows[i][j]:rows[i][j]}</td>`).join('')}<td><strong>${values[i]??'—'}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Enter results in Timer & scoring. Finished rounds are locked; use Reset there to correct a result.</p><button class="secondary" data-tab="timer">Timer & scoring →</button><div class="section-label">GAME PLACING</div>${places?state.teams.map((t,i)=>({id:t.id,place:places[i]})).sort((a,b)=>a.place-b.place).map(t=>`<div class="result-line">${teamLabel(t.id)}<span>#${t.place} · ${6-t.place} championship pts</span></div>`).join(''):note(values.some(v=>v===null)?'Waiting for scores':'Tie to resolve',values.some(v=>v===null)?'Complete every round to calculate final placing.':'Resolve tied totals in Championship. Raw scores stay unchanged.',true)}${!places&&values.every(v=>v!==null)?'<button class="primary" data-open="results">Resolve tie →</button>':''}`;
+}
+function resultsPanel() {
+  const c=championship(state);
+  return note(c.complete?'All five categories recorded':`${c.completed} of 5 categories recorded`,c.complete?'Totals use championship placement points. Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Totals are provisional. Finish game scoring and resolve ties / tug-of-war placements before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td>${teamLabel(r.id)}</td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">A dash means unresolved. Completed categories award 5 / 4 / 3 / 2 / 1 points; raw scores stay within each game.</p><div class="button-row">${['borrow','basket','cavalry','relay'].map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]} ↗</button>`).join('')}</div>${['tug',...['borrow','basket','cavalry','relay'].filter(g=>totals(state,g).every(v=>v!==null)&&!placementsFromTotals(totals(state,g)))].map(g=>`<div class="section-label">${GAME_NAMES[g].toUpperCase()} · APPROVED PLACES</div>${note('Organiser decision needed',g==='tug'?'The bracket alone cannot resolve all five places. Record the agreed placement / playoff decision below. Shared placing is not converted automatically.':'Record the tie-break decision and all five final places. Keep higher-scoring teams ahead; only tied teams may change order. Raw scores remain unchanged.',true)}<label class="field">Agreed rule / tie-break decision<textarea data-placement-rule="${g}" maxlength="1200" placeholder="Record the organiser’s decision before awarding points…">${esc(state.placements[g].rule)}</textarea></label><div class="seed-grid" style="margin-top:12px">${state.teams.map((t,i)=>`<label class="field">${esc(t.name)}<select data-placement="${g}" data-row="${i}"><option value="">Unresolved</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${state.placements[g].values[i]===n?'selected':''}>Place ${n}</option>`).join('')}</select></label>`).join('')}</div>`).join('')}<p class="help">Only a complete set of unique places with a recorded rule awards points. Shared places remain unresolved in this version.</p>`;
+}
+function dataPanel() { return note('Your event, on this device','Changes are saved in this browser. Export a JSON backup to move between devices. There is no live sync. Backups include leaders and organiser notes; poster images exclude them.')+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+note('Start fresh','Reset clears this browser’s teams, scores, draw and notes. Download a backup first if you want to keep them.')+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
+function mediaPanel() { return note('A clean version to share','Download a high-resolution PNG. The full poster follows the reference layout; the phone poster fits a 9:16 story. Both include the approved schedule, team names and game formats. Private notes and leaders are excluded.')+`<div class="field-row"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
+async function updateMedia(){const token=++mediaToken;try{mediaCanvas=await renderMedia({state,schedule,size:exportSize});if(token!==mediaToken||current!=='media')return;$('#export-preview').replaceChildren(mediaCanvas);$('#download-media').disabled=false;$('#download-media').textContent='Download PNG ↓';}catch(e){if(current==='media')$('#export-preview').textContent='Image could not be generated. Please try again.';console.error(e);}}
+async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
+function changed(refresh=true){save();renderPoster();if(refresh)renderPanel();}
+function invalidatePlaces(game){state.placements[game].values=Array(5).fill(null);}
+async function recordTugWinner(match,id) {
+  if(state.tug.winners[match]){toast('This match is completed. Reset it to change the result.');return false;}
+  if(state.tug.winners[match]&&!await confirmChange('Change this winner? Dependent matches and approved tug-of-war placements will be cleared.'))return false;
+  setWinner(state.tug,match,id);if(state.timers['tug:'+match])pauseClock(state.timers['tug:'+match]);invalidatePlaces('tug');
+  const affected=match==='prelim'?['semi1','final']:['semi1','semi2'].includes(match)?['final']:[];
+  affected.forEach(k=>delete state.timers['tug:'+k]);
+  save();renderPoster();return true;
+}
+const live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open)renderPanel();},toast,confirmChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable});
+document.addEventListener('click',async event=>{
+  const el=event.target.closest('button,[data-open]');if(!el)return;
+  try {
+    if(el.dataset.open){openPanel(el.dataset.open);return;}
+    if(el.dataset.tab){tab=el.dataset.tab;renderPanel();return;}
+    if(el.dataset.scoreOpen){openPanel('event:'+GAME_EVENTS[el.dataset.scoreOpen],'play');return;}
+    if(el.dataset.assignSlot!==undefined){assignSlot(state.tug,Number(el.dataset.assignSlot),el.dataset.teamId);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();return;}
+    if(el.dataset.borrowRounds){state.borrow.rounds=Number(el.dataset.borrowRounds);if(state.borrow.rounds===6&&state.timers['borrow:6'])pauseClock(state.timers['borrow:6']);invalidatePlaces('borrow');changed();return;}
+    if(el.dataset.winner){if(await recordTugWinner(el.dataset.winner,el.dataset.teamId))renderPanel();return;}
+    switch(el.dataset.action){
+      case 'go-draw':openPanel('event:8','play');break;
+      case 'random-draw':if(!state.tug.locked){state.tug.slots=shuffled(TEAM_IDS);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Opponents drawn. Review and lock the draw.');}break;
+      case 'seed-draw':if(!state.tug.locked){state.tug.slots=seededSlots(state.teams);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Seeded draw ready. Review and lock it.');}break;
+      case 'lock-draw':if(state.tug.locked){if(!await confirmChange('Unlock the draw? All match results and approved tug-of-war placements will be cleared.'))return;state.tug.locked=false;clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');}else if(validSlots(state.tug.slots))state.tug.locked=true;changed();break;
+      case 'clear-matches':if(await confirmChange('Clear all tug-of-war winners and approved placements? The locked draw will stay.')){clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();}break;
+      case 'export-json':downloadBlob(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'cg-sports-day-backup.json');break;
+      case 'reset-all':if(await confirmChange('Reset all event data on this device? Teams, scores, notes and the draw will be cleared. Save a JSON backup first to keep them.')){state=defaultState();changed();toast('Event data reset.');}break;
+      case 'download-media':if(mediaCanvas)mediaCanvas.toBlob(blob=>{if(blob)downloadBlob(blob,`cg-sports-day-${exportSize}.png`);else toast('Image export failed. Please try again.');},'image/png');break;
+    }
+  }catch(e){toast(e.message);}
+});
+document.addEventListener('change',async event=>{
+  const el=event.target,d=el.dataset;if(el.closest('[data-live-event]'))return;let n=el.value===''?null:Number(el.value);
+  try {
+    if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
+    if(d.team!==undefined){const t=state.teams[Number(d.team)];if(d.field==='name'&&!el.value.trim()){el.value=t.name;toast('Team names cannot be blank.');return;}t[d.field]=['seed','participants'].includes(d.field)?n:el.value.trim();changed(false);}
+    else if(d.placement){const p=state.placements[d.placement];if(n!==null&&p.values.some((v,i)=>i!==Number(d.row)&&v===n)){toast('Each team needs a unique final place.');renderPanel();return;}p.values[Number(d.row)]=n;changed();}
+    else if(d.placementRule){state.placements[d.placementRule].rule=el.value;changed();}
+    else if(el.id==='export-size'){exportSize=el.value;renderPanel();}
+    else if(el.id==='import-file'){
+      const file=el.files[0];if(!file)return;if(file.size>100000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
+      const imported=validateState(JSON.parse(await file.text()));
+      if(await confirmChange('Replace this device’s event data with the validated backup? Export your current data first if you want to keep it.')){state=imported;changed();toast('Backup restored.');}
+      el.value='';
+    }
+  }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}
+});
+document.addEventListener('input',event=>{const d=event.target.dataset;if(d.eventNote!==undefined){state.notes[d.eventNote]=event.target.value;save();}});
+$('#close-detail').addEventListener('click',closePanel);
+dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closePanel();}});
+dialog.addEventListener('close',restoreFocus);
+let fitEnabled=true;
+function fitPoster(){
+  const viewport=$('#poster-viewport'),poster=$('#poster');
+  document.body.classList.toggle('fit-home',fitEnabled);
+  poster.style.removeProperty('transform');poster.style.removeProperty('width');
+  if(!fitEnabled){viewport.style.removeProperty('height');return;}
+  const available=Math.max(420,innerHeight-$('.toolbar').offsetHeight-$('#home-shortcuts').offsetHeight);
+  viewport.style.height=available+'px';
+}
+$('#fit-toggle').addEventListener('click',()=>{fitEnabled=!fitEnabled;$('#fit-toggle').textContent=fitEnabled?'Expand layout':'Fit screen';$('#fit-toggle').setAttribute('aria-pressed',String(!fitEnabled));fitPoster();});
+document.querySelectorAll('[data-home-view-button]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.homeView=button.dataset.homeViewButton;document.querySelectorAll('[data-home-view-button]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));fitPoster();}));
+window.addEventListener('resize',fitPoster);document.fonts.ready.then(fitPoster);
+renderPoster();
+if(!saveAvailable){$('#save-state').textContent='Saved data unavailable';toast('Saved data could not be loaded. Export a backup before resetting.');}else $('#save-state').textContent='Saved on this device';
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').catch(() => {});
+  });
+}

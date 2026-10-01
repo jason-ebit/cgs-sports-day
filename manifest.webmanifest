@@ -1,0 +1,24 @@
+{
+  "name": "CG Sports Day Event Desk",
+  "short_name": "Sports Day",
+  "description": "Offline-ready sports day rundown, timers, brackets and scoring.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f3f0e8",
+  "theme_color": "#35473e",
+  "icons": [
+    {
+      "src": "assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
