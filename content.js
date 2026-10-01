@@ -2,6 +2,33 @@ export const EVENT_ICONS=['setup','people','flag','warmup','borrow','basket','br
 export const EVENT_GAMES={4:'borrow',5:'basket',7:'cavalry',8:'tug',9:'relay'};
 export const GAME_EVENTS={borrow:4,basket:5,cavalry:7,tug:8,relay:9};
 export const GAME_NAMES={borrow:'Borrow-a-Thing',basket:'Ball Basket',cavalry:'Cavalry Game',tug:'Tug-of-War',relay:'Team Relay'};
+export const SUPPLIES={
+ have:[
+  {name:'Mat'},
+  {name:'Whistle ×1'},
+  {name:'Icebox'},
+  {name:'Transport cart'},
+  {name:'Umbrellas'},
+  {name:'Pens / markers'},
+  {name:'Phones / timer'},
+  {name:'Equipment bags'},
+ ],
+ get:[
+  {name:'Coated work gloves',links:[{label:'Coupang',url:'https://www.coupang.com/vp/products/7897300869'}]},
+  {name:'Cones',links:[{label:'Coupang',url:'https://www.coupang.com/vp/products/8508042796'}]},
+  {name:'Lightweight ping-pong balls',detail:'Basket + Relay',links:[{label:'Coupang',url:'https://www.coupang.com/vp/products/8371729751'}]},
+  {name:'Batons',links:[{label:'Coupang',url:'https://www.coupang.com/vp/products/8710269702'}]},
+  {name:'Hachimaki / rider cloth',detail:'Riders only · linked alternative is 소고띠',links:[{label:'Gmarket alt.',url:'https://item.gmarket.co.kr/Item?goodsCode=3112127158'}]},
+  {name:'Colour draw sticks',detail:'Separate men’s / women’s pools',action:'Prepare'},
+  {name:'Borrow-a-Thing cards',detail:'~45 cards; 30–35 used',action:'Print / prepare'},
+  {name:'Lightweight laundry basket',action:'Find / borrow'},
+  {name:'Tug-of-war rope',detail:'Check suitability before use',action:'Find / borrow'},
+  {name:'Soft quick-release leg ties',detail:'Three-legged relay',action:'Find / borrow'},
+  {name:'Spoons',detail:'1 per team',action:'Find / borrow'},
+  {name:'Food & water',action:'Arrange'},
+  {name:'Winner coupons / gift vouchers',action:'Planned'},
+ ],
+};
 export const NOTES=[
  ['Committee in at 11:40; field and gear ready by 12:00.','Check judges, first aid and the water station.'],
  ['Five mixed teams, around 6–8 people each.','Draw colour sticks from separate men’s and women’s pools.','Leaders count their team and sort substitutions.'],

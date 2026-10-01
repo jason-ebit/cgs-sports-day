@@ -3,7 +3,7 @@ import { roundDone, cavalryPoints } from './rounds.js?v=3';
 import { createLiveDesk } from './live.js?v=3';
 import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=3';
 import { icon } from './icons.js?v=3';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS } from './content.js?v=3';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES } from './content.js?v=3';
 import { renderMedia, downloadBlob } from './media.js?v=3';
 
 const $ = selector => document.querySelector(selector);
@@ -68,6 +68,10 @@ function restoreFocus(){ if(returnFocus?.isConnected) returnFocus.focus(); else 
 function closePanel() { dialog.close(); restoreFocus(); }
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
+function inventoryPanel() {
+  const row=item=>`<li class="inventory-row"><span class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span>${item.links?`<span class="inventory-links">${item.links.map(link=>`<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(item.name+' · '+link.label+' · opens in a new tab')}">${esc(link.label)} <span aria-hidden="true">↗</span></a>`).join('')}</span>`:item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;
+  return `<section class="committee-inventory" aria-labelledby="inventory-title"><h3 id="inventory-title">Items &amp; shopping links</h3><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(row).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(row).join('')}</ul></section></div><p class="help">Bring what we have; buy, borrow or prepare what’s missing. Links are from the handover.</p></section>`;
+}
 function committeePanel(index = null) {
   const general=index===null;
   if(general&&department==='all')department='director';
@@ -77,7 +81,9 @@ function committeePanel(index = null) {
   const key=general?'general':String(index);
   const value=selected?state.committeeNotes[selected.id]?.[key]:state.notes[index];
   const gameLinks=general?`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`:'';
-  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${department===item.id}" class="${department===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${items.length?bullets(selected?.name||'Everyone',items):'<p class="committee-empty">No extra task for this event.</p>'}${gameLinks}<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
+  const reminder=selected?.id==='director'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Items &amp; shopping links →</button>'):`<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
+  const extras=selected?.id==='director'?reminder+gameLinks:gameLinks+reminder;
+  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${department===item.id}" class="${department===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${items.length?bullets(selected?.name||'Everyone',items):'<p class="committee-empty">No extra task for this event.</p>'}${extras}`;
 }
 function gameSheet(game) {
   if(game!=='tug')return scorePanel(game);

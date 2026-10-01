@@ -86,6 +86,25 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .committee-event-links{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 18px}
 .committee-event-links .section-label{flex-basis:100%;margin:0 0 2px}
 .committee-event-links button{font-size:10px;padding:8px 10px;border-radius:9px;min-height:36px}
+.committee-inventory{margin:16px 0 0}
+.committee-inventory>h3{font-size:12px;margin:0 0 10px}
+.inventory-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:12px;align-items:start}
+.inventory-group{border:1px solid #dce3d7;border-radius:12px;background:#f5f7ef;padding:12px 14px;min-width:0}
+.inventory-group h4{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;margin:0 0 9px;color:#42563f}
+.inventory-group h4>span{font-size:10px;font-weight:400;color:#7b8875}
+.inventory-group ul{list-style:none;margin:0;padding:0}
+.inventory-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #e1e7dc;min-width:0}
+.inventory-item{min-width:0;overflow-wrap:anywhere}
+.inventory-item strong{display:block;font-size:11px;font-weight:400;line-height:1.45}
+.inventory-item small{display:block;font-size:9px;color:#77816f;line-height:1.45;margin-top:2px}
+.inventory-links{flex-shrink:0}
+.inventory-links a{display:inline-block;border:1px solid #cdd8c6;border-radius:7px;padding:7px 8px;background:#fcfcf8;color:#48653e;font-size:10px;white-space:nowrap;text-decoration:none}
+.inventory-links a:hover{background:#e9efdf}
+.inventory-links a:focus-visible{outline:2px solid #829374;outline-offset:2px}
+.inventory-action{flex-shrink:0;font-size:9px;color:#78856f;white-space:nowrap}
+.inventory-have ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
+.inventory-have .inventory-row{justify-content:flex-start;min-height:39px}
+@media(max-width:760px){.inventory-grid{grid-template-columns:1fr;gap:10px}.inventory-group{padding:11px 12px}.inventory-row{gap:8px}.inventory-links a{padding:7px;font-size:9px}}
 .schedule-row:is(.yellow,.green,.pink) .event-icon{background:transparent}
 .legend-dots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 .legend-dots .team-dot-label{width:100%;min-width:0}
