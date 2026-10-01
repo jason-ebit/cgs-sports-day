@@ -112,72 +112,69 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  .fit-home .legend-dots .team-name{text-align:center}
 }
 
-/* The date card stays secondary to the title; media exports keep their own sizing. */
+/* Compact date details; media exports keep their own sizing. */
 @media screen{
- body:not(.fit-home) .date-card{width:300px;padding:13px 21px;border-radius:17px}
- body:not(.fit-home) .date-top{gap:22px;padding-bottom:9px}
- body:not(.fit-home) .date-top>span{font-size:38px}
- body:not(.fit-home) .date-top strong{font-size:33px}
- body:not(.fit-home) .date-top div>span{font-size:22px}
- body:not(.fit-home) .venue{gap:11px;padding-top:11px}
- body:not(.fit-home) .venue>span{font-size:35px}
- body:not(.fit-home) .venue strong{font-size:20px}
- .fit-home .date-card{gap:15px;padding:12px 16px}
- .fit-home .date-top{gap:9px}
- .fit-home .date-top>span{font-size:25px}
- .fit-home .date-top strong{font-size:22px}
- .fit-home .date-top div>span{font-size:12px}
- .fit-home .venue{gap:7px;padding:3px 0 3px 15px;min-height:34px}
- .fit-home .venue>span{font-size:21px}
- .fit-home .venue strong{font-size:14px}
+ body:not(.fit-home) .date-card{width:210px;padding:9px 15px;border-radius:12px}
+ body:not(.fit-home) .date-top{gap:15px;padding-bottom:6px}
+ body:not(.fit-home) .date-top>span{font-size:27px}
+ body:not(.fit-home) .date-top strong{font-size:23px;letter-spacing:-.7px}
+ body:not(.fit-home) .date-top div>span{font-size:15px}
+ body:not(.fit-home) .venue{gap:8px;padding-top:8px}
+ body:not(.fit-home) .venue>span{font-size:24px}
+ body:not(.fit-home) .venue strong{font-size:14px}
+ .fit-home .date-card{gap:10px;padding:8px 11px;border-radius:9px}
+ .fit-home .date-top{gap:6px}
+ .fit-home .date-top>span{font-size:18px}
+ .fit-home .date-top strong{font-size:16px;letter-spacing:-.4px}
+ .fit-home .date-top div>span{font-size:10px}
+ .fit-home .venue{gap:5px;padding:2px 0 2px 11px;min-height:24px}
+ .fit-home .venue>span{font-size:15px}
+ .fit-home .venue strong{font-size:12px}
 }
 @media screen and (min-width:761px) and (max-width:1200px){
- body:not(.fit-home) .date-card{width:234px;padding:10px 15px;border-radius:14px}
- body:not(.fit-home) .date-top{gap:16px}
- body:not(.fit-home) .date-top>span{font-size:29px}
- body:not(.fit-home) .date-top strong{font-size:26px}
- body:not(.fit-home) .date-top div>span{font-size:17px}
- body:not(.fit-home) .venue>span{font-size:26px}
- body:not(.fit-home) .venue strong{font-size:15px}
+ body:not(.fit-home) .date-card{width:164px;padding:7px 10px;border-radius:10px}
+ body:not(.fit-home) .date-top{gap:11px}
+ body:not(.fit-home) .date-top>span{font-size:20px}
+ body:not(.fit-home) .date-top strong{font-size:18px}
+ body:not(.fit-home) .date-top div>span{font-size:12px}
+ body:not(.fit-home) .venue>span{font-size:18px}
+ body:not(.fit-home) .venue strong{font-size:11px}
 }
 @media screen and (min-width:761px) and (max-width:1050px){
- .fit-home .date-card{gap:11px;padding:10px 12px}
- .fit-home .date-top strong{font-size:20px}
- .fit-home .venue{padding-left:11px}
- .fit-home .venue strong{font-size:13px}
-}
-@media screen and (min-width:761px) and (max-width:900px){
- body:not(.fit-home) .date-card{width:215px;padding-inline:13px}
- body:not(.fit-home) .date-top>span{font-size:26px}
- body:not(.fit-home) .date-top strong{font-size:23px}
- body:not(.fit-home) .date-top div>span{font-size:15px}
- body:not(.fit-home) .venue strong{font-size:14px}
-}
-@media screen and (max-width:760px){
- body:not(.fit-home) .date-card{width:100%;margin-top:14px;padding:10px 12px;gap:11px;border-radius:11px}
- body:not(.fit-home) .date-top{gap:10px;padding:0}
- body:not(.fit-home) .date-top>span{font-size:24px}
- body:not(.fit-home) .date-top strong{font-size:16px}
- body:not(.fit-home) .date-top div>span{font-size:10px}
- body:not(.fit-home) .venue{gap:7px;padding:2px 0 2px 11px}
- body:not(.fit-home) .venue>span{font-size:21px}
- body:not(.fit-home) .venue strong{font-size:12px}
- .fit-home .date-card{margin-top:10px;gap:11px;padding:8px 11px}
- .fit-home .date-top{gap:7px}
- .fit-home .date-top>span{font-size:20px}
- .fit-home .date-top strong{font-size:14px}
- .fit-home .date-top div>span{font-size:10px}
- .fit-home .venue{gap:6px;padding:2px 0 2px 11px;min-height:29px}
- .fit-home .venue>span{font-size:18px}
+ .fit-home .date-card{gap:8px;padding:7px 9px}
+ .fit-home .date-top strong{font-size:15px}
+ .fit-home .venue{padding-left:8px}
  .fit-home .venue strong{font-size:11px}
 }
+@media screen and (min-width:761px) and (max-width:900px){
+ body:not(.fit-home) .date-card{width:158px;padding-inline:9px}
+ body:not(.fit-home) .date-top>span{font-size:18px}
+ body:not(.fit-home) .date-top strong{font-size:16px}
+ body:not(.fit-home) .date-top div>span{font-size:11px}
+ body:not(.fit-home) .venue strong{font-size:10px}
+}
+@media screen and (max-width:760px){
+ body:not(.fit-home) .date-card{width:max-content;max-width:100%;margin-top:10px;padding:6px 9px;gap:9px;border-radius:8px}
+ body:not(.fit-home) .date-top{gap:6px;padding:0;flex:0 0 auto}
+ body:not(.fit-home) .date-top>span{font-size:17px}
+ body:not(.fit-home) .date-top strong{font-size:12px;letter-spacing:-.3px}
+ body:not(.fit-home) .date-top div>span{font-size:10px}
+ body:not(.fit-home) .venue{gap:5px;padding:2px 0 2px 9px}
+ body:not(.fit-home) .venue>span{font-size:15px}
+ body:not(.fit-home) .venue strong{font-size:10px}
+ .fit-home .date-card{width:max-content;max-width:100%;margin-top:8px;gap:9px;padding:6px 9px}
+ .fit-home .date-top{gap:6px;flex:0 0 auto}
+ .fit-home .date-top>span{font-size:16px}
+ .fit-home .date-top strong{font-size:12px;letter-spacing:-.3px}
+ .fit-home .date-top div>span{font-size:10px}
+ .fit-home .venue{gap:5px;padding:2px 0 2px 9px;min-height:24px}
+ .fit-home .venue>span{font-size:15px}
+ .fit-home .venue strong{font-size:10px}
+}
 @media screen and (max-width:760px) and (max-height:760px){
- .fit-home .date-card{margin-top:8px;padding-block:6px}
+ .fit-home .date-card{margin-top:7px}
 }
 @media screen and (max-width:359px){
- body:not(.fit-home) .date-card{gap:9px;padding-inline:10px}
- body:not(.fit-home) .venue{gap:6px;padding-left:9px}
- body:not(.fit-home) .venue strong{font-size:11px}
- .fit-home .date-card{gap:9px;padding-inline:10px}
- .fit-home .venue{padding-left:9px}
+ body:not(.fit-home) .date-card,.fit-home .date-card{gap:8px;padding-inline:8px}
+ body:not(.fit-home) .venue,.fit-home .venue{padding-left:8px}
 }

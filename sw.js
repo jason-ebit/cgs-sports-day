@@ -1,4 +1,4 @@
-const CACHE = 'cg-sports-day-v8';
+const CACHE = 'cg-sports-day-v9';
 const APP_SHELL = [
   './',
   './index.html',
