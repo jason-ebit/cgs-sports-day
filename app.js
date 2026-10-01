@@ -3,13 +3,14 @@ import { roundDone, cavalryPoints } from './rounds.js?v=3';
 import { createLiveDesk } from './live.js?v=3';
 import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=3';
 import { icon } from './icons.js?v=3';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE } from './content.js?v=3';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS } from './content.js?v=3';
 import { renderMedia, downloadBlob } from './media.js?v=3';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const KEY = 'cg-sports-day-v1';
 let state = defaultState(), saveAvailable = true, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
+let department = 'all';
 try { const saved = localStorage.getItem(KEY); if (saved) state = validateState(JSON.parse(saved)); } catch { saveAvailable = false; }
 const response = await fetch('./schedule.json');
 if (!response.ok) throw Error('Could not load the approved schedule.');
@@ -33,7 +34,10 @@ function miniBracket() {
 }
 function renderPoster() {
   $('#schedule-list').innerHTML = schedule.map((e, i) => `<button class="schedule-row ${e.highlight || ''}" data-open="event:${i}" aria-label="${esc(e.title)}, ${e.start}${e.durationMinutes ? ' to '+e.end : ''}. Open notes and controls"><span class="time">${e.start}${e.durationMinutes ? ' – '+e.end : ''}</span><span class="event-icon">${icon(EVENT_ICONS[i])}</span><span class="event-title">${esc(e.title)}</span></button>`).join('');
-  $('#team-legend').innerHTML = teamDots();
+  $('#team-legend').innerHTML = TEAM_IDS.map(id=>{
+    const label=team(id).leader.trim()||id[0].toUpperCase()+id.slice(1);
+    return `<span class="team-dot-label">${dot(id)}<span class="team-name" title="${esc(label)}">${esc(label)}</span></span>`;
+  }).join('');
   const head = (g, n) => `<div class="game-head"><span class="game-number">${n}</span>${icon(g)}<h3>${GAME_NAMES[g]}</h3></div>`;
   $('#game-grid').innerHTML = `
     <button class="game-card" data-open="event:4">${head('borrow',1)}<p class="game-kicker">ALL FIVE TEAMS TOGETHER</p><div class="game-team-row">${teamDots()}</div><p class="game-copy">6–7 rounds · cumulative points</p><div class="game-bottom">Total points → placing</div></button>
@@ -63,8 +67,17 @@ function openPanel(key, initialTab = null) {
 function restoreFocus(){ if(returnFocus?.isConnected) returnFocus.focus(); else if(returnFocus?.dataset.open) document.querySelector(`[data-open="${CSS.escape(returnFocus.dataset.open)}"]`)?.focus(); }
 function closePanel() { dialog.close(); restoreFocus(); }
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
-function eventNotes(index,game) {return bullets('At a glance',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
-function committeePanel(index) {return bullets('Do / watch for',COMMITTEE[index])+`<label class="field">Committee reminder<textarea class="compact-textarea" data-event-note="${index}" maxlength="2000" placeholder="Optional reminder · exclude private health details">${esc(state.notes[index]||'')}</textarea></label><p class="help">Saved locally; excluded from public posters.</p>`;}
+function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
+function committeePanel(index = null) {
+  const general=index===null;
+  if(general&&department==='all')department='director';
+  const selected=DEPARTMENTS.find(item=>item.id===department);
+  const tabs=[...(general?[]:[{id:'all',name:'All'}]),...DEPARTMENTS];
+  const items=selected?(general?selected.general:selected.notes[index]):COMMITTEE[index];
+  const key=general?'general':String(index);
+  const value=selected?state.committeeNotes[selected.id]?.[key]:state.notes[index];
+  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${department===item.id}" class="${department===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${items.length?bullets(selected?.name||'Everyone',items):'<p class="committee-empty">No extra task for this event.</p>'}<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
+}
 function gameSheet(game) {
   if(game!=='tug')return scorePanel(game);
   if(game==='tug')return `<div class="section-label">MATCH RESULTS <span class="badge">Auto-saved</span></div><div class="score-table-wrap"><table class="score-table match-sheet"><thead><tr><th>Match</th><th>Opponents</th><th>Winner</th><th></th></tr></thead><tbody>${MATCH_KEYS.map(k=>{const pair=matchTeams(state.tug,k),ready=state.tug.locked&&pair.every(Boolean);return `<tr><td>${MATCH_NAMES[k]}</td><td>${pair.map(id=>esc(team(id)?.name||'TBD')).join(' vs ')}</td><td>${state.tug.winners[k]?teamLabel(state.tug.winners[k]):'—'}</td><td><button class="text-button" data-live-match="${k}" ${ready?'':'disabled'}>${state.tug.winners[k]?'Review':'Run'} ↗</button></td></tr>`;}).join('')}</tbody></table></div><p class="help">Winners advance automatically. Championship places 3–5 require an agreed rule.</p><button class="secondary" data-open="results">Championship points →</button>`;
@@ -73,7 +86,7 @@ function gameSheet(game) {
 function renderPanel() {
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
-  $('#detail-title').textContent = event?.title || ({ teams:'Team desk', results:'Championship', media:'Share the day', data:'Backup & restore' })[current];
+  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : 'CG SPORTS DAY / OCT 25';
   const tabs=[['timer','Timer & scoring'],...(game==='tug'?[['play','Bracket']]:[]),...(game?[['scores','Scores']]:[]),['notes','Format'],['committee','Committee']];
   dialog.classList.toggle('game-dialog',Boolean(game));
@@ -87,12 +100,13 @@ function renderPanel() {
     else body.innerHTML=eventNotes(eventIndex,game);
     if(game&&tab!=='timer')body.insertAdjacentHTML('afterbegin',live.rounds(eventIndex));
   } else if(current==='teams') body.innerHTML=teamsPanel();
+  else if(current==='committee') body.innerHTML=committeePanel();
   else if(current==='results') body.innerHTML=resultsPanel();
   else if(current==='data') body.innerHTML=dataPanel();
   else if(current==='media') { body.innerHTML=mediaPanel(); updateMedia(); }
 }
 function teamsPanel() {
-  return note('Five colours. Your teams.','Enter names, leaders and actual participant counts. Seeds are optional for a random draw; “Use seeds” places 4 vs 5 in the preliminary, with seeds 1, 2 and 3 receiving byes.') + state.teams.map((t,i)=>`<section class="team-edit"><h3 class="team-edit-title">${dot(t.id)}${t.id[0].toUpperCase()+t.id.slice(1)} team</h3><div class="field-row"><label class="field">Team name<input data-team="${i}" data-field="name" maxlength="24" value="${esc(t.name)}" required></label><label class="field">Leader<input data-team="${i}" data-field="leader" maxlength="60" placeholder="TBA" value="${esc(t.leader)}"></label>${numberInput('Members',t.participants,`data-team="${i}" data-field="participants"`)}${numberInput('Seed',t.seed,`data-team="${i}" data-field="seed"`,5,1)}</div></section>`).join('')+'<p class="help">Team changes keep existing results attached to their colour. Duplicate seeds are checked before a seeded draw. Cavalry arena teams are selected in its timer tab.</p><div class="button-row"><button class="primary" data-action="go-draw">Open tug-of-war draw ↗</button></div>';
+  return bullets('Team setup',['Add names, leaders and headcounts. The colour legend shows the leader’s name.','Seeds are optional. Use seeds puts 4 vs 5 in the prelim; 1–3 get byes.']) + state.teams.map((t,i)=>`<section class="team-edit"><h3 class="team-edit-title">${dot(t.id)}${t.id[0].toUpperCase()+t.id.slice(1)} team</h3><div class="field-row"><label class="field">Team name<input data-team="${i}" data-field="name" maxlength="24" value="${esc(t.name)}" required></label><label class="field">Leader<input data-team="${i}" data-field="leader" maxlength="60" placeholder="TBA" value="${esc(t.leader)}"></label>${numberInput('Members',t.participants,`data-team="${i}" data-field="participants"`)}${numberInput('Seed',t.seed,`data-team="${i}" data-field="seed"`,5,1)}</div></section>`).join('')+'<p class="help">Scores stay with their colour when names change. Pick Cavalry teams in Timer & scoring.</p><div class="button-row"><button class="primary" data-action="go-draw">Open tug-of-war draw ↗</button></div>';
 }
 function tugPanel() {
   const t=state.tug, labels=['Prelim · A','Prelim · B','Semi 1 · bye','Semi 2 · A / bye','Semi 2 · B / bye'];
@@ -109,8 +123,8 @@ function resultsPanel() {
   const c=championship(state);
   return note(c.complete?'All five categories recorded':`${c.completed} of 5 categories recorded`,c.complete?'Totals use championship placement points. Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Totals are provisional. Finish game scoring and resolve ties / tug-of-war placements before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td>${teamLabel(r.id)}</td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">A dash means unresolved. Completed categories award 5 / 4 / 3 / 2 / 1 points; raw scores stay within each game.</p><div class="button-row">${['borrow','basket','cavalry','relay'].map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]} ↗</button>`).join('')}</div>${['tug',...['borrow','basket','cavalry','relay'].filter(g=>totals(state,g).every(v=>v!==null)&&!placementsFromTotals(totals(state,g)))].map(g=>`<div class="section-label">${GAME_NAMES[g].toUpperCase()} · APPROVED PLACES</div>${note('Organiser decision needed',g==='tug'?'The bracket alone cannot resolve all five places. Record the agreed placement / playoff decision below. Shared placing is not converted automatically.':'Record the tie-break decision and all five final places. Keep higher-scoring teams ahead; only tied teams may change order. Raw scores remain unchanged.',true)}<label class="field">Agreed rule / tie-break decision<textarea data-placement-rule="${g}" maxlength="1200" placeholder="Record the organiser’s decision before awarding points…">${esc(state.placements[g].rule)}</textarea></label><div class="seed-grid" style="margin-top:12px">${state.teams.map((t,i)=>`<label class="field">${esc(t.name)}<select data-placement="${g}" data-row="${i}"><option value="">Unresolved</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${state.placements[g].values[i]===n?'selected':''}>Place ${n}</option>`).join('')}</select></label>`).join('')}</div>`).join('')}<p class="help">Only a complete set of unique places with a recorded rule awards points. Shared places remain unresolved in this version.</p>`;
 }
-function dataPanel() { return note('Your event, on this device','Changes are saved in this browser. Export a JSON backup to move between devices. There is no live sync. Backups include leaders and organiser notes; poster images exclude them.')+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+note('Start fresh','Reset clears this browser’s teams, scores, draw and notes. Download a backup first if you want to keep them.')+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
-function mediaPanel() { return note('A clean version to share','Download a high-resolution PNG. The full poster follows the reference layout; the phone poster fits a 9:16 story. Both include the approved schedule, team names and game formats. Private notes and leaders are excluded.')+`<div class="field-row"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
+function dataPanel() { return bullets('Keep a backup',['Scores and notes stay on this device. Download a backup to move them to another phone.','JSON includes leaders and committee reminders. Poster images leave them out.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+bullets('Reset the day',['Clears teams, scores, timers, draw and notes on this device. Save a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
+function mediaPanel() { return bullets('Share the rundown',['Full poster or 9:16 phone story, with the schedule, team names and game formats.','Leader names and committee reminders stay out of the image.'])+`<div class="field-row"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
 async function updateMedia(){const token=++mediaToken;try{mediaCanvas=await renderMedia({state,schedule,size:exportSize});if(token!==mediaToken||current!=='media')return;$('#export-preview').replaceChildren(mediaCanvas);$('#download-media').disabled=false;$('#download-media').textContent='Download PNG ↓';}catch(e){if(current==='media')$('#export-preview').textContent='Image could not be generated. Please try again.';console.error(e);}}
 async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
 function changed(refresh=true){save();renderPoster();if(refresh)renderPanel();}
@@ -128,6 +142,7 @@ document.addEventListener('click',async event=>{
   const el=event.target.closest('button,[data-open]');if(!el)return;
   try {
     if(el.dataset.open){openPanel(el.dataset.open);return;}
+    if(el.dataset.department){department=el.dataset.department;renderPanel();return;}
     if(el.dataset.tab){tab=el.dataset.tab;renderPanel();return;}
     if(el.dataset.scoreOpen){openPanel('event:'+GAME_EVENTS[el.dataset.scoreOpen],'play');return;}
     if(el.dataset.assignSlot!==undefined){assignSlot(state.tug,Number(el.dataset.assignSlot),el.dataset.teamId);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();return;}
@@ -154,14 +169,22 @@ document.addEventListener('change',async event=>{
     else if(d.placementRule){state.placements[d.placementRule].rule=el.value;changed();}
     else if(el.id==='export-size'){exportSize=el.value;renderPanel();}
     else if(el.id==='import-file'){
-      const file=el.files[0];if(!file)return;if(file.size>100000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
+      const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
       if(await confirmChange('Replace this device’s event data with the validated backup? Export your current data first if you want to keep it.')){state=imported;changed();toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}
 });
-document.addEventListener('input',event=>{const d=event.target.dataset;if(d.eventNote!==undefined){state.notes[d.eventNote]=event.target.value;save();}});
+document.addEventListener('input',event=>{
+  const d=event.target.dataset;
+  if(d.team!==undefined&&['leader','name'].includes(d.field)){
+    const value=event.target.value.trim();
+    if(d.field==='leader'||value){state.teams[Number(d.team)][d.field]=value;save();renderPoster();}
+  }
+  if(d.eventNote!==undefined){state.notes[d.eventNote]=event.target.value;save();}
+  if(d.committeeNote){state.committeeNotes[d.committeeNote]||={};state.committeeNotes[d.committeeNote][d.noteKey]=event.target.value;save();}
+});
 $('#close-detail').addEventListener('click',closePanel);
 dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closePanel();}});
 dialog.addEventListener('close',restoreFocus);

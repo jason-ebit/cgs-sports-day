@@ -2,11 +2,13 @@ import { TEAM_IDS, matchTeams } from './model.js?v=3';
 import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=3';
 import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=3';
 import { roundDone, recordSuccess, eliminate, cavalryPoints, resetRound, resetGame } from './rounds.js?v=3';
+import { createTimerPopup } from './timer-popup.js?v=5';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner,invalidatePlaces}=api;
   const choices={},overlay=document.querySelector('#live-dialog');
   let overlayEvent=null,overlayOpener=null,sound=false,audio=null;
+  const popup=createTimerPopup({onHide:()=>toast('Timer hidden. The clock keeps running; open the game to see it.')});
   const name=id=>getState().teams.find(t=>t.id===id)?.name||'TBD';
   const ready=k=>getState().tug.locked&&matchTeams(getState().tug,k).every(Boolean);
   function context(index) {
@@ -56,7 +58,7 @@ export function createLiveDesk(api) {
     return `<div class="live-desk ${big?'is-big':''}" data-live-event="${index}" data-live-key="${ctx.key}">${roundButtons(ctx)}${teamChoices(ctx)}<div class="match-workspace"><section class="live-stage ${running?'is-running':''}"><span class="eyebrow">${esc(ctx.title)}</span>${matchup(ctx)}<output class="clock-digits ${ms===0?'expired':''}" data-clock-digits role="timer" aria-label="Time remaining">${formatTime(ms)}</output><span class="clock-status" data-clock-status>${ctx.done?'Completed · editing locked':running?'● LIVE':ms===0?'Time up':'Ready / paused'}</span><div class="clock-controls"><button class="primary" data-live-action="toggle" ${!ctx.ready||ms===0||ctx.done?'disabled':''}>${running?'Ⅱ Pause':'▶ Play'}</button><button class="secondary" data-live-action="add" ${ctx.done?'disabled':''}>+30s</button>${ctx.game==='tug'?`<button class="secondary" data-live-action="rematch" ${ctx.done?'disabled':''}>30s rematch</button>`:''}</div><details class="clock-options"><summary>Timer settings</summary><div class="clock-settings"><label class="field">Limit (seconds)<input type="number" min="1" max="${ctx.game==='cavalry'?2700:86400}" step="1" inputmode="numeric" data-live-limit value="${c.duration/1000}" ${running||ctx.done?'disabled':''}></label><label class="checkbox"><input type="checkbox" data-live-sound ${sound?'checked':''}> End sound</label></div><button class="text-button" data-live-action="reset-clock" ${ctx.done?'disabled':''}>Reset timer only</button></details><p class="help">${esc(ctx.hint)}</p></section>${ctx.game?`<section class="live-result">${results(ctx)}<p class="live-save-message" data-live-status role="status">${!api.saved()?'Storage unavailable · export a backup to keep these results.':ctx.done?'Saved to Scores · reset this round to edit.':'Results save to Scores as you tap.'}</p>${ctx.done?'<button class="primary" data-live-action="next">Next →</button>':''}</section>`:''}</div><div class="live-bottom-actions">${!big?'<button class="secondary" data-live-action="expand">Big screen ↗</button>':''}${ctx.game?'<button class="text-button" data-live-action="sheet">Score sheet →</button>':''}<details class="reset-menu"><summary>Reset…</summary><button class="text-button" data-live-action="reset-round">Reset ${ctx.game==='basket'?'attempt':ctx.game==='tug'?'match':'round'}</button>${ctx.game?'<button class="text-button" data-live-action="reset-game">Reset whole game</button>':''}</details></div></div>`;
   }
   function renderOverlay(){if(overlayEvent===null)return;document.querySelector('#live-title').textContent=GAME_NAMES[EVENT_GAMES[overlayEvent]]||schedule[overlayEvent].title;document.querySelector('#live-body').innerHTML=view(overlayEvent,true);}
-  function open(index,match){context(index);if(match)choices[index].match=match;if(!overlay.open)overlayOpener=document.activeElement;overlayEvent=index;renderOverlay();if(!overlay.open)overlay.showModal();document.querySelector('#close-live').focus();}
+  function open(index,match){context(index);if(match)choices[index].match=match;if(!overlay.open){overlayOpener=document.activeElement;popup.resetOverlay();}overlayEvent=index;renderOverlay();if(!overlay.open)overlay.showModal();document.querySelector('#close-live').focus();}
   function refreshViews(){refresh();if(overlay.open)renderOverlay();tick();}
   function beep(){if(!sound||!audio)return;try{const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.frequency.value=880;g.gain.setValueAtTime(.15,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.7);o.start();o.stop(audio.currentTime+.7);}catch{}}
   function armAudio(){if(!sound)return;try{audio ||= new(window.AudioContext||window.webkitAudioContext)();audio.resume();}catch{}}
@@ -91,7 +93,7 @@ export function createLiveDesk(api) {
       else if(control.dataset.liveArrival||control.dataset.liveFail){recordSuccess(s,ctx.game,ctx.round,control.dataset.liveArrival||control.dataset.liveFail,!control.dataset.liveFail);}
       else if(control.dataset.liveEliminate){eliminate(s,ctx.division,control.dataset.liveEliminate);}
       else switch(action){
-        case 'toggle':if(c.deadline!==null)pauseClock(c);else if(ctx.ready){if(ctx.game==='cavalry')s.cavalry.divisions[ctx.division].started=true;armAudio();if(startClock(s.timers,ctx.key))s.activeKey=ctx.key;}break;
+        case 'toggle':if(c.deadline!==null)pauseClock(c);else if(ctx.ready){if(ctx.game==='cavalry')s.cavalry.divisions[ctx.division].started=true;armAudio();if(startClock(s.timers,ctx.key))s.activeKey=ctx.key;}popup.reveal();break;
         case 'add':addTime(c,30);break;
         case 'reset-clock':resetClock(c);break;
         case 'rematch':resetClock(c,30);break;
@@ -122,8 +124,8 @@ export function createLiveDesk(api) {
     for(const c of Object.values(s.timers))if(c.deadline!==null&&remainingMs(c)===0){pauseClock(c);changed=true;beep();}
     if(changed){save();refresh();if(overlay.open)renderOverlay();toast('Time up. Record the remaining results.');}
     document.querySelectorAll('[data-live-key]').forEach(desk=>{const c=s.timers[desk.dataset.liveKey],display=desk.querySelector('[data-clock-digits]');if(!c||!display)return;const ms=remainingMs(c);display.textContent=formatTime(ms);display.classList.toggle('expired',ms===0);});
-    const active=Object.entries(s.timers).find(([,c])=>c.deadline!==null)||(s.activeKey&&s.timers[s.activeKey]&&!roundDone(s,s.activeKey)?[s.activeKey,s.timers[s.activeKey]]:null),chip=document.querySelector('#active-timer');chip.hidden=!active;
-    if(active){chip.textContent=`${active[1].deadline?'●':'Ⅱ'} ${describe(active[0])} · ${formatTime(remainingMs(active[1]))}${active[1].deadline?'':remainingMs(active[1])?' · paused':' · time up'}`;chip.dataset.key=active[0];chip.setAttribute('aria-label','Open ongoing game: '+chip.textContent);}
+    const active=Object.entries(s.timers).find(([,c])=>c.deadline!==null)||(s.activeKey&&s.timers[s.activeKey]&&!roundDone(s,s.activeKey)?[s.activeKey,s.timers[s.activeKey]]:null);
+    popup.update(active?.[0]||null,active?`${active[1].deadline?'●':'Ⅱ'} ${describe(active[0])} · ${formatTime(remainingMs(active[1]))}${active[1].deadline?'':remainingMs(active[1])?' · paused':' · time up'}`:'');
     document.querySelectorAll('.game-card').forEach(card=>{const game=EVENT_GAMES[Number(card.dataset.open.split(':')[1])],running=active&&active[0].startsWith(game+':');card.classList.toggle('ongoing',Boolean(running));const badge=card.querySelector('.ongoing-status');if(badge){badge.hidden=!running;if(running)badge.textContent=`${active[1].deadline?'● LIVE':remainingMs(active[1])?'Ⅱ PAUSED':'TIME UP'} · ${describe(active[0])} · ${formatTime(remainingMs(active[1]))}`;}});
     document.querySelectorAll('[data-match-card]').forEach(card=>card.classList.toggle('ongoing',Boolean(active&&active[0]==='tug:'+card.dataset.matchCard)));
   }

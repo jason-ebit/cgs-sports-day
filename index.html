@@ -12,24 +12,24 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=4">
-  <link rel="stylesheet" href="landing.css?v=4.3">
-  <script type="module" src="app.js?v=4.1"></script>
+  <link rel="stylesheet" href="styles.css?v=6">
+  <link rel="stylesheet" href="landing.css?v=6">
+  <script type="module" src="app.js?v=6"></script>
 </head>
 <body data-home-view="games">
   <nav class="toolbar" aria-label="Event tools">
     <a class="wordmark" href="#">CG <span>/ EVENT DESK</span></a>
     <div class="toolbar-actions">
-      <button class="tool-button timer-chip" id="active-timer" hidden aria-label="Open running timer"></button>
       <span class="save-state" id="save-state" role="status">Saved on this device</span>
+      <button data-open="committee" class="tool-button">Committee <span aria-hidden="true">↗</span></button>
       <button data-open="teams" class="tool-button" id="teams-tool">Teams <span aria-hidden="true">↗</span></button>
       <button data-open="results" class="tool-button">Scores <span aria-hidden="true">↗</span></button>
-      <button data-open="media" class="tool-button dark">Share / export <span aria-hidden="true">↗</span></button>
+      <button data-open="media" class="tool-button dark" aria-label="Share / export"><span class="desktop-label">Share / export</span><span class="phone-label">Share</span><span aria-hidden="true">↗</span></button>
     </div>
   </nav>
   <div id="poster-viewport"><main class="poster" id="poster">
     <header class="poster-header">
-      <div class="title-block"><div class="cg">CG</div><h1>SPORTS DAY</h1><p>OCT 25TH · RUNDOWN &amp; GAME FORMATS</p></div>
+      <div class="title-block"><h1>SPORTS DAY</h1><p>OCT 25TH · RUNDOWN &amp; GAME FORMATS</p></div>
       <div class="date-card"><div class="date-top"><span data-icon="calendar"></span><div><strong>OCT 25</strong><span>11:40 – 16:00</span></div></div><div class="venue"><span data-icon="pin"></span><strong lang="ko">대현산배수지공원</strong></div></div>
     </header>
     <nav class="mobile-home-switch" aria-label="Home sections"><button data-home-view-button="rundown" aria-pressed="false">Rundown</button><button data-home-view-button="games" aria-pressed="true">Games</button></nav>
@@ -49,7 +49,13 @@
     <div class="detail-body" id="detail-body"></div>
     <footer class="detail-footer"><span id="panel-save">Changes save on this device</span><button class="text-button" data-open="data">Backup &amp; restore</button></footer>
   </dialog>
-  <dialog class="live-dialog" id="live-dialog" aria-labelledby="live-title"><header class="live-header"><div><span class="eyebrow">MATCH DESK · LIVE CONTROLS</span><h2 id="live-title"></h2></div><button class="icon-button" id="close-live" aria-label="Return to game popup">×</button></header><div id="live-body"></div><footer class="live-footer">Results save to the game score sheet. Closing this view keeps the timer running.</footer></dialog>
+  <div class="timer-float" id="timer-float" hidden>
+    <button class="timer-grip" id="timer-grip" aria-label="Drag timer" title="Drag to move">⠿</button>
+    <button class="timer-chip" id="active-timer" aria-label="Open running timer"></button>
+    <button class="timer-hide" id="hide-timer" aria-label="Hide floating timer" title="Hide timer">×</button>
+  </div>
+  <div class="timer-dropzone" id="timer-dropzone" hidden>Drop here to hide timer <small>Clock keeps running</small></div>
+  <dialog class="live-dialog" id="live-dialog" aria-labelledby="live-title"><header class="live-header"><button class="live-grip" id="live-grip" aria-label="Drag timer popup" title="Drag to move">⠿</button><div><span class="eyebrow">TIMER &amp; SCORING</span><h2 id="live-title"></h2></div><button class="icon-button" id="close-live" aria-label="Return to game popup">×</button></header><div id="live-body"></div><footer class="live-footer">Scores save as you tap. Close this popup and the clock keeps running.</footer><div class="timer-dropzone" id="live-dropzone" hidden>Drop here to close popup <small>Clock keeps running</small></div></dialog>
   <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">Confirm change</h2><p id="confirm-copy"></p><div class="button-row"><button id="confirm-cancel" class="secondary">Cancel</button><button id="confirm-ok" class="primary">Continue</button></div></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <noscript>This interactive rundown requires JavaScript. The approved schedule is available in schedule.json.</noscript>

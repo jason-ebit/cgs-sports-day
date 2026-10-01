@@ -2,6 +2,7 @@ import { validateClocks } from './timer-model.js?v=3';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
+export const DEPARTMENT_IDS = ['director', 'judges', 'first-aid', 'equipment', 'food-water', 'comms', 'team-leaders'];
 export function defaultState() {
   return {
     version: 1,
@@ -12,7 +13,7 @@ export function defaultState() {
     relay: { scores: TEAM_IDS.map(() => [null, null, null]) },
     cavalry: { division: 'women', cap: null, rule: '', divisions: Object.fromEntries(['women', 'men'].map(d => [d, { counts: Array(5).fill(null), active: [], eliminated: [], started: false }])) },
     placements: Object.fromEntries(GAME_IDS.map(id => [id, { rule: '', values: Array(5).fill(null) }])),
-    notes: {}, timers: {}, finished: [], activeKey: null,
+    notes: {}, committeeNotes: {}, timers: {}, finished: [], activeKey: null,
   };
 }
 export function shuffled(ids, rng = Math.random) {
@@ -113,6 +114,17 @@ export function validateState(input) {
   for(const g of GAME_IDS){const p=input.placements[g];if(!p && ['borrow','basket','relay'].includes(g))continue;s.placements[g]={rule:text(p.rule,1200),values:list(p.values,5).map(v=>num(v,5,1))};const filled=s.placements[g].values.filter(v=>v!==null);if(new Set(filled).size!==filled.length)fail();}
   if(!input.notes||typeof input.notes!=='object'||Array.isArray(input.notes))fail();
   for(const [key,value] of Object.entries(input.notes)){if(!/^\d{1,2}$/.test(key)||Number(key)>14)fail();s.notes[key]=text(value,2000);}
+  if(input.committeeNotes!==undefined){
+    if(!input.committeeNotes||typeof input.committeeNotes!=='object'||Array.isArray(input.committeeNotes))fail();
+    for(const [department,notes] of Object.entries(input.committeeNotes)){
+      if(!DEPARTMENT_IDS.includes(department)||!notes||typeof notes!=='object'||Array.isArray(notes))fail();
+      s.committeeNotes[department]={};
+      for(const [key,value] of Object.entries(notes)){
+        if(key!=='general'&&(!/^\d{1,2}$/.test(key)||Number(key)>14))fail();
+        s.committeeNotes[department][key]=text(value,2000);
+      }
+    }
+  }
   s.timers = validateClocks(input.timers);
   if(input.finished!==undefined){if(!Array.isArray(input.finished)||input.finished.length>10||new Set(input.finished).size!==input.finished.length)fail();s.finished=input.finished.map(key=>{if(typeof key!=='string'||!/^basket:(red|blue|yellow|green|white):[01]$/.test(key))fail();const [,id,r]=key.split(':');if(s.basket.scores[TEAM_IDS.indexOf(id)][Number(r)]===null)fail();return key;});}
   if(input.activeKey!==undefined&&input.activeKey!==null&&typeof input.activeKey!=='string')fail();

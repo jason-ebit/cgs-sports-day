@@ -31,13 +31,13 @@ export async function renderMedia({state,schedule,size}) {
       if(high)box(ix-3,ry,w-timeW-63,gap-7,colors[high][1],null,12);
       box(x+20,ry,timeW,gap-9,high?colors[high][0]:'#303132',null,10);
       text(e.start+(e.durationMinutes?' – '+e.end:''),x+20+timeW/2,ry+(gap-9)/2,phone?21:22,high?700:400,high?'#111':'#fff','center',timeW-8);
-      box(ix,ry,phone?57:80,gap-9,high?colors[high][1]:'#e9ebec',null,25);icon(EVENT_ICONS[i],ix+(phone?10:18),ry+(phone?6:8),phone?36:43);
+      if(!high)box(ix,ry,phone?57:80,gap-9,'#e9ebec',null,25);icon(EVENT_ICONS[i],ix+(phone?10:18),ry+(phone?6:8),phone?36:43);
       text(e.title,nameX,ry+(gap-9)/2,phone?24:25,high?700:400,'#111','left',x+w-nameX-18);
       if(!high)line(nameX-2,ry+gap-4,x+w-22,ry+gap-4,'#e0e3e5');
     });
   };
   if(size==='poster') {
-    text('CG',50,50,53,900);text('SPORTS DAY',42,137,119,900,'#050505','left',1000);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',54,215,19);
+    text('SPORTS DAY',42,110,119,900,'#050505','left',1000);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',54,195,19);
     dateCard(1159,42,337,184);rundown(28,263,698,1195);
     box(745,263,763,193);text('TEAM COLOURS',777,308,31,700);teamRow(758,374,731,25,TEAM_IDS,20);
     const x=744,w=365,x2=1125,w2=383,y=475,h=314,y2=807;
@@ -55,7 +55,7 @@ export async function renderMedia({state,schedule,size}) {
     TEAM_IDS.forEach((id,i)=>{const yy=1272+i*29;circle(id,x+37,yy,9);text(label(id),x+57,yy,16,400,'#222','left',85);line(x+146,yy,x+331,yy,'#9da4aa');line(x+324,yy-4,x+331,yy,'#9da4aa');line(x+324,yy+4,x+331,yy,'#9da4aa');});bottom(x,1413,365,'3-round points → placing');
     c.setLineDash([5,4]);line(1121,1160,1121,1440,'#bfc5ca');c.setLineDash([]);text('Relay Rounds',1155,1205,23,700);['Baton Relay','Three-Legged Relay','Spoon & Ball Relay'].forEach((r,i)=>{badge(i+1,1184,1262+i*62,21);text(r,1235,1262+i*62,20,400,'#222','left',241);});footer(1507,1536);
   } else {
-    text('CG',57,67,49,900);text('SPORTS DAY',48,165,121,900,'#050505','left',974);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',58,251,18);
+    text('SPORTS DAY',48,133,121,900,'#050505','left',974);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',58,226,18);
     box(48,302,984,96,'#fff','#cbd0d4',15);icon('calendar',73,326,43);text('OCT 25',138,337,28,700);text('11:40 – 16:00',138,369,21);line(494,325,494,377,'#cbd0d4');icon('pin',530,326,43);text('대현산배수지공원',604,351,30,700,'#111','left',391);
     rundown(48,424,984,942,true);
     box(48,1387,984,110);text('TEAM COLOURS',73,1418,19,700);TEAM_IDS.forEach((id,i)=>{const cx=94+i*191;circle(id,cx,1461,14);text(label(id),cx+25,1462,18,400,'#222','left',145);});
