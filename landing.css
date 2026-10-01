@@ -83,6 +83,9 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .venue strong{line-height:1.35}
 .venue[href]:hover strong{text-decoration:underline;text-underline-offset:3px}
 .venue[href]:focus-visible{outline:2px solid #829374;outline-offset:4px;border-radius:4px}
+.committee-event-links{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 18px}
+.committee-event-links .section-label{flex-basis:100%;margin:0 0 2px}
+.committee-event-links button{font-size:10px;padding:8px 10px;border-radius:9px;min-height:36px}
 .schedule-row:is(.yellow,.green,.pink) .event-icon{background:transparent}
 .legend-dots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr))}
 .legend-dots .team-dot-label{width:100%;min-width:0}
@@ -117,7 +120,7 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  body:not(.fit-home) .date-card{width:210px;padding:9px 15px;border-radius:12px}
  body:not(.fit-home) .date-top{gap:15px;padding-bottom:6px}
  body:not(.fit-home) .date-top>span{font-size:27px}
- body:not(.fit-home) .date-top strong{font-size:23px;letter-spacing:-.7px}
+ body:not(.fit-home) .date-top strong{font-size:16px;letter-spacing:-.3px}
  body:not(.fit-home) .date-top div>span{font-size:15px}
  body:not(.fit-home) .venue{gap:8px;padding-top:8px}
  body:not(.fit-home) .venue>span{font-size:24px}
@@ -125,7 +128,7 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  .fit-home .date-card{gap:10px;padding:8px 11px;border-radius:9px}
  .fit-home .date-top{gap:6px}
  .fit-home .date-top>span{font-size:18px}
- .fit-home .date-top strong{font-size:16px;letter-spacing:-.4px}
+ .fit-home .date-top strong{font-size:12px;letter-spacing:-.2px}
  .fit-home .date-top div>span{font-size:10px}
  .fit-home .venue{gap:5px;padding:2px 0 2px 11px;min-height:24px}
  .fit-home .venue>span{font-size:15px}
@@ -135,21 +138,21 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  body:not(.fit-home) .date-card{width:164px;padding:7px 10px;border-radius:10px}
  body:not(.fit-home) .date-top{gap:11px}
  body:not(.fit-home) .date-top>span{font-size:20px}
- body:not(.fit-home) .date-top strong{font-size:18px}
+ body:not(.fit-home) .date-top strong{font-size:13px}
  body:not(.fit-home) .date-top div>span{font-size:12px}
  body:not(.fit-home) .venue>span{font-size:18px}
  body:not(.fit-home) .venue strong{font-size:11px}
 }
 @media screen and (min-width:761px) and (max-width:1050px){
  .fit-home .date-card{gap:8px;padding:7px 9px}
- .fit-home .date-top strong{font-size:15px}
+ .fit-home .date-top strong{font-size:11px}
  .fit-home .venue{padding-left:8px}
  .fit-home .venue strong{font-size:11px}
 }
 @media screen and (min-width:761px) and (max-width:900px){
  body:not(.fit-home) .date-card{width:158px;padding-inline:9px}
  body:not(.fit-home) .date-top>span{font-size:18px}
- body:not(.fit-home) .date-top strong{font-size:16px}
+ body:not(.fit-home) .date-top strong{font-size:12px}
  body:not(.fit-home) .date-top div>span{font-size:11px}
  body:not(.fit-home) .venue strong{font-size:10px}
 }
@@ -157,7 +160,7 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  body:not(.fit-home) .date-card{width:max-content;max-width:100%;margin-top:10px;padding:6px 9px;gap:9px;border-radius:8px}
  body:not(.fit-home) .date-top{gap:6px;padding:0;flex:0 0 auto}
  body:not(.fit-home) .date-top>span{font-size:17px}
- body:not(.fit-home) .date-top strong{font-size:12px;letter-spacing:-.3px}
+ body:not(.fit-home) .date-top strong{font-size:10px;letter-spacing:0}
  body:not(.fit-home) .date-top div>span{font-size:10px}
  body:not(.fit-home) .venue{gap:5px;padding:2px 0 2px 9px}
  body:not(.fit-home) .venue>span{font-size:15px}
@@ -165,7 +168,7 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  .fit-home .date-card{width:max-content;max-width:100%;margin-top:8px;gap:9px;padding:6px 9px}
  .fit-home .date-top{gap:6px;flex:0 0 auto}
  .fit-home .date-top>span{font-size:16px}
- .fit-home .date-top strong{font-size:12px;letter-spacing:-.3px}
+ .fit-home .date-top strong{font-size:10px;letter-spacing:0}
  .fit-home .date-top div>span{font-size:10px}
  .fit-home .venue{gap:5px;padding:2px 0 2px 9px;min-height:24px}
  .fit-home .venue>span{font-size:15px}

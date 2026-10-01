@@ -39,7 +39,7 @@ export const COMMITTEE=[
 
 // Department notes use the same 15 event indices as the rundown.
 export const DEPARTMENTS=[
- {id:'director',name:'Director / scores',general:['Run the whistle and timer; keep the day moving.','Save scores during pauses. Keep a judge watching live contact games.','Check all five game placings and ties before announcing results.'],notes:[
+ {id:'director',name:'Director / scores',general:['Committee in at 11:40; ready by 12:00. Run the whistle and timer.','Save scores during pauses; the assistant watches live contact games.','Overall: add game placing points (5 / 4 / 3 / 2 / 1). Settle ties before calling results.'],notes:[
   ['Committee in at 11:40; setup finished by 12:00.','Set up the whistle, timer and score desk.','Assign the assistant judge and check first-aid cover.'],
   ['Update team names and numbers in the team desk.'],
   ['Show the stop signal and explain the boundaries.'],
@@ -73,7 +73,7 @@ export const DEPARTMENTS=[
   ['Help with the final field check.'],
   [],
  ]},
- {id:'first-aid',name:'First aid',general:['Two volunteers TBA: check qualified cover and who to call in an emergency.','Stay easy to find through games and cleanup.','Keep personal health details private; check access to people’s own emergency medication.'],notes:[
+ {id:'first-aid',name:'First aid',general:['Two volunteers TBA: check qualified cover and who to call in an emergency.','Stay easy to find through games and cleanup.','Privately check concerns people choose to share and access to their own emergency medication.'],notes:[
   ['Assign the two volunteers; check qualified cover and who to call in an emergency.','Make the first-aid spot easy to find.'],
   ['Privately check any conditions or injuries people choose to share.','Check access to their own emergency medication.'],
   ['Tell everyone where to find you.'],
@@ -90,7 +90,7 @@ export const DEPARTMENTS=[
   ['Stay available during cleanup.'],
   [],
  ]},
- {id:'equipment',name:'Equipment',general:['Check the field and gear before play.','Agree who’s on gear for each game; have it ready during changeovers.','Count everything back in; field clear by 16:00.'],notes:[
+ {id:'equipment',name:'Equipment',general:['Check the field, basket and rope before play.','Bring the mat, icebox, cart, umbrellas, pens and gear bags.','Agree who’s on gear for each game; have it ready during changeovers.','Count everything back in; field clear by 16:00.'],notes:[
   ['Set out cones, draw sticks, game gear and water.','Check the basket and rope, and mark clear play areas.','Bring the mat, icebox, cart, umbrellas, pens and gear bags.'],
   ['Adjust both colour-stick pools to the actual attendance.'],
   ['Keep boundaries easy to see.'],
@@ -141,7 +141,7 @@ export const DEPARTMENTS=[
   ['Remind everyone to collect bags and help clean up.'],
   [],
  ]},
- {id:'team-leaders',name:'Team leaders',general:['Count members, sort substitutions and get your team ready.','Keep participation fair; nobody has to join in.','Check on your team and pass concerns to first aid privately.'],notes:[
+ {id:'team-leaders',name:'Team leaders',general:['Count members, sort substitutions and get your team ready.','Keep player counts equal and rotate runners/pairs; nobody has to join in.','Check on your team and pass concerns to first aid privately.'],notes:[
   [],
   ['Count members, note names and sort substitutions.'],
   ['Check everyone knows the boundaries and stop signal.','Pass any concerns to first aid privately.'],

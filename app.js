@@ -76,7 +76,8 @@ function committeePanel(index = null) {
   const items=selected?(general?selected.general:selected.notes[index]):COMMITTEE[index];
   const key=general?'general':String(index);
   const value=selected?state.committeeNotes[selected.id]?.[key]:state.notes[index];
-  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${department===item.id}" class="${department===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${items.length?bullets(selected?.name||'Everyone',items):'<p class="committee-empty">No extra task for this event.</p>'}<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
+  const gameLinks=general?`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`:'';
+  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${department===item.id}" class="${department===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${items.length?bullets(selected?.name||'Everyone',items):'<p class="committee-empty">No extra task for this event.</p>'}${gameLinks}<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
 }
 function gameSheet(game) {
   if(game!=='tug')return scorePanel(game);
@@ -141,7 +142,7 @@ const live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,re
 document.addEventListener('click',async event=>{
   const el=event.target.closest('button,[data-open]');if(!el)return;
   try {
-    if(el.dataset.open){openPanel(el.dataset.open);return;}
+    if(el.dataset.open){openPanel(el.dataset.open,el.dataset.initialTab||null);return;}
     if(el.dataset.department){department=el.dataset.department;renderPanel();return;}
     if(el.dataset.tab){tab=el.dataset.tab;renderPanel();return;}
     if(el.dataset.scoreOpen){openPanel('event:'+GAME_EVENTS[el.dataset.scoreOpen],'play');return;}
