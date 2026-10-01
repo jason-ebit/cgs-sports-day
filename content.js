@@ -3,7 +3,7 @@ export const EVENT_GAMES={4:'borrow',5:'basket',7:'cavalry',8:'tug',9:'relay'};
 export const GAME_EVENTS={borrow:4,basket:5,cavalry:7,tug:8,relay:9};
 export const GAME_NAMES={borrow:'Borrow-a-Thing',basket:'Ball Basket',cavalry:'Cavalry Game',tug:'Tug-of-War',relay:'Team Relay'};
 export const NOTES=[
- ['Get the field and equipment ready by 12:00.','Check judges, first aid and the water station.'],
+ ['Committee in at 11:40; field and gear ready by 12:00.','Check judges, first aid and the water station.'],
  ['Five mixed teams, around 6–8 people each.','Draw colour sticks from separate men’s and women’s pools.','Leaders count their team and sort substitutions.'],
  ['Point out first aid, boundaries and the stop signal.','Join in if you’re comfortable; stop for an injury.'],
  ['Five-minute warm-up together.','Check shoes and make sure everyone is ready.'],
@@ -20,7 +20,7 @@ export const NOTES=[
  ['All done. Field clear by 16:00.'],
 ];
 export const COMMITTEE=[
- ['Mark the boundaries and set up the whistle, timer and scores.','Check first-aid cover, gear and water before everyone arrives.'],
+ ['Committee in at 11:40. Mark the boundaries and set up the whistle, timer and scores.','Assign the assistant judge, two first-aid volunteers and gear / water cover.','Check the field, gear and water before everyone arrives.'],
  ['Match the colour-stick counts to attendance.','Count teams, note names and update the team desk.'],
  ['Show the stop signal and point out first aid.','Check contact-game arrangements; keep health details private.'],
  ['Lead a gentle warm-up.','Check the field, shoes and who’s ready to play.'],
@@ -29,7 +29,7 @@ export const COMMITTEE=[
  ['Refill food and water, and pick up rubbish.','Check on teams while the next game is set up.'],
  ['Check 3 bases + 1 rider per horse; explain the out signal and timer.','Judge watches the arena; a separate scorer taps horses as they go out.','Watch balance and boundaries. Stop for injury; a fall is not a scoring move.'],
  ['Check equal puller counts, the rope and the next matchup.','No rope wrapping or sudden release. Stop for injury.','Save the winner and settle tied matches / places 3–5.'],
- ['Set out batons, soft quick-release ties, spoons and balls.','Watch lanes, finish order and equal runner/pair counts.','No forced pairs or dragging. Dropped ball: stop, replace, resume there.'],
+ ['Set out batons, soft quick-release ties, spoons and balls.','Watch lanes, finish order and equal runner/pair counts.','No forced pairs or dragging. Ball drop: stop, replace, resume there; keep fingers off it while moving.'],
  ['Check scores and finish any tie-breaker.','Get prizes and the photo ready; keep cleanup time.'],
  ['Check all five game placings and any ties.','Call the final results and hand out vouchers.'],
  ['Mario / Cindy: gather teams and take photos/video.','Leaders: get everyone together and keep access clear.'],
@@ -40,23 +40,23 @@ export const COMMITTEE=[
 // Department notes use the same 15 event indices as the rundown.
 export const DEPARTMENTS=[
  {id:'director',name:'Director / scores',general:['Run the whistle and timer; keep the day moving.','Save scores during pauses. Keep a judge watching live contact games.','Check all five game placings and ties before announcing results.'],notes:[
-  ['Set up the whistle, timer and score desk.','Check judges and first-aid cover.'],
+  ['Committee in at 11:40; setup finished by 12:00.','Set up the whistle, timer and score desk.','Assign the assistant judge and check first-aid cover.'],
   ['Update team names and numbers in the team desk.'],
   ['Show the stop signal and explain the boundaries.'],
   ['Lead the five-minute warm-up.'],
-  ['R1–2: 90s · R3–6: 120s · optional R7: 90s.','Tap Success in finish order, only after the judge checks it. Fail gives 0.'],
+  ['R1–2: 90s · R3–6: 120s · optional R7: 90s.','Cards: Easy (1–2), Medium (3, 5), Borrow-a-Person (4), Funny/Chaos (6).','Tap Success in finish order, only after the judge checks it. Fail gives 0.'],
   ['Run two 30s attempts per team. Save each count; the better one is used.','If tied, a 15s playoff is suggested if there’s time.'],
   ['Check the scores so far; be ready to restart at 13:30.'],
   ['Set the round timer and arena teams.','Keep a judge watching contact while a separate scorer taps horses as they go out.'],
   ['Lock the draw, then run each match and save the winner.','Suggested timer: 60s, then a reset and 30s replay if tied.','Agree places 3–5 before awarding points.'],
   ['Record the finish order in each round.','Leave ~4 min for totals and changeovers.'],
   ['Check missing scores and settle ties.','Keep cleanup on time.'],
-  ['Check all five game placings before calling the winner.','Overall tie: most firsts, then a short tie-breaker.'],
+  ['Overall total: add each game’s placing points (5 / 4 / 3 / 2 / 1).','Check all five placings before calling the winner.','Overall tie: most firsts, then a short tie-breaker.'],
   ['Keep the photo to 10 minutes so cleanup can start.'],
   ['Do the final field check with equipment.'],
   ['Check the field is clear by 16:00.'],
  ]},
- {id:'judges',name:'Judges',general:['Watch boundaries, finishes and equal player counts.','Call results clearly for the scorer.','Stop play for an injury or unsafe contact.'],notes:[
+ {id:'judges',name:'Judges',general:['Assistant judge: watch boundaries, finishes and equal player counts.','Call results clearly for the scorer; get the next matchup ready.','Stop play for an injury or unsafe contact.'],notes:[
   ['Walk the field and mark the boundaries.','Check the basket and rope before play.'],
   ['Help keep the team draw balanced.'],
   ['Make sure everyone can see and hear the stop signal.'],
@@ -66,16 +66,16 @@ export const DEPARTMENTS=[
   ['Prepare the Cavalry arena.'],
   ['Check 3 bases + 1 rider per horse, in the same-gender round.','Watch balance, contact and boundaries; call horses out clearly.','Stop for injury. A fall or collapse is not a scoring move.'],
   ['Check equal puller counts and the next matchup.','No rope wrapping, sudden release or play through injury.','Call the winner clearly for the scorer.'],
-  ['Watch lanes and finish order; keep runner/pair counts equal.','No forced pairs or dragging.','Dropped ball: stop, replace, resume from that spot.'],
+  ['Watch lanes and finish order; keep runner/pair counts equal.','No forced pairs or dragging.','Ball drop: stop, replace, resume there; keep fingers off it while moving.'],
   ['Help settle any tie-breaker.'],
   ['Check any disputed finish or placing before results are called.'],
   ['Keep the photo area and access routes clear.'],
   ['Help with the final field check.'],
   [],
  ]},
- {id:'first-aid',name:'First aid',general:['Check both volunteers, cover and who to call in an emergency.','Stay easy to find through games and cleanup.','Keep personal health details private.'],notes:[
-  ['Check both volunteers, first-aid cover and who to call in an emergency.','Make the first-aid spot easy to find.'],
-  ['Keep any health information private.'],
+ {id:'first-aid',name:'First aid',general:['Two volunteers TBA: check qualified cover and who to call in an emergency.','Stay easy to find through games and cleanup.','Keep personal health details private; check access to people’s own emergency medication.'],notes:[
+  ['Assign the two volunteers; check qualified cover and who to call in an emergency.','Make the first-aid spot easy to find.'],
+  ['Privately check any conditions or injuries people choose to share.','Check access to their own emergency medication.'],
   ['Tell everyone where to find you.'],
   ['Be ready for anyone who needs help or wants to sit out.'],
   ['Stay on duty; first-aid staff are not part of borrowing tasks.'],
@@ -90,13 +90,13 @@ export const DEPARTMENTS=[
   ['Stay available during cleanup.'],
   [],
  ]},
- {id:'equipment',name:'Equipment',general:['Check the field and gear before play.','Have the next game ready during changeovers.','Count everything back in; field clear by 16:00.'],notes:[
-  ['Set out cones, draw sticks, game gear and water.','Check the basket and rope, and mark clear play areas.'],
+ {id:'equipment',name:'Equipment',general:['Check the field and gear before play.','Agree who’s on gear for each game; have it ready during changeovers.','Count everything back in; field clear by 16:00.'],notes:[
+  ['Set out cones, draw sticks, game gear and water.','Check the basket and rope, and mark clear play areas.','Bring the mat, icebox, cart, umbrellas, pens and gear bags.'],
   ['Adjust both colour-stick pools to the actual attendance.'],
   ['Keep boundaries easy to see.'],
   ['Clear anything loose from the warm-up area.'],
   ['Have ~45 cards ready. Draw 5 from each round’s category.','Keep used cards out of the deck.'],
-  ['Test basket stability, visibility and wind; mark a clear zone.','Reset the same ball supply between attempts.'],
+  ['Test basket stability, visibility and wind; keep it still during the attempt.','Mark a clear zone and reset the same ball supply between attempts.'],
   ['Set out hachimaki and prepare the Cavalry arena.'],
   ['Give hachimaki to riders only.','Keep loose gear out of the arena.'],
   ['Check rope suitability and capacity before use.','Prepare the next matchup during resets.'],
@@ -107,7 +107,7 @@ export const DEPARTMENTS=[
   ['Count balls, basket, ropes, batons, cloths and cones.','Check for gear left on the field.'],
   ['Check all gear is packed and the field is clear.'],
  ]},
- {id:'food-water',name:'Food & water',general:['Keep food and water easy to find and topped up.','Clear rubbish at the break and pack the station during cleanup.'],notes:[
+ {id:'food-water',name:'Food & water',general:['Agree who’s covering food and water at the break.','Keep supplies easy to find and topped up.','Clear rubbish at the break and pack the station during cleanup.'],notes:[
   ['Set up food and water where people can find them.'],
   [],
   [],
