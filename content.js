@@ -21,7 +21,7 @@ export const NOTES=[
 ];
 export const COMMITTEE=[
  ['Committee in at 11:40. Mark the boundaries and set up the whistle, timer and scores.','Assign the assistant judge, two first-aid volunteers and gear / water cover.','Check the field, gear and water before everyone arrives.'],
- ['Match the colour-stick counts to attendance.','Count teams, note names and update the team desk.'],
+ ['Match the colour-stick counts to attendance.','Count teams, note names and update the team desk.','Invite anyone with a health concern or injury to speak privately with first aid.'],
  ['Show the stop signal and point out first aid.','Check contact-game arrangements; keep health details private.'],
  ['Lead a gentle warm-up.','Check the field, shoes and who’s ready to play.'],
  ['~45 cards ready; draw 5 from the round’s category, without replacement.','R1–2: 90s · R3–6: 120s · optional R7: 90s.','Check each finish before tapping Success; Fail gives 0.','Ask before borrowing. No medication, valuables or first-aid staff on duty.'],
@@ -39,7 +39,7 @@ export const COMMITTEE=[
 
 // Department notes use the same 15 event indices as the rundown.
 export const DEPARTMENTS=[
- {id:'director',name:'Director / scores',general:['Committee in at 11:40; ready by 12:00. Run the whistle and timer.','Save scores during pauses; the assistant watches live contact games.','Overall: add game placing points (5 / 4 / 3 / 2 / 1). Settle ties before calling results.'],notes:[
+ {id:'director',name:'Director / scores',general:['Committee in at 11:40; ready by 12:00. Run the whistle and timer.','Save scores during pauses; the assistant watches live contact games.','Overall: add game placing points (5 / 4 / 3 / 2 / 1). Ties: most firsts, then a short tie-breaker.'],notes:[
   ['Committee in at 11:40; setup finished by 12:00.','Set up the whistle, timer and score desk.','Assign the assistant judge and check first-aid cover.'],
   ['Update team names and numbers in the team desk.'],
   ['Show the stop signal and explain the boundaries.'],
@@ -73,9 +73,9 @@ export const DEPARTMENTS=[
   ['Help with the final field check.'],
   [],
  ]},
- {id:'first-aid',name:'First aid',general:['Two volunteers TBA: check qualified cover and who to call in an emergency.','Stay easy to find through games and cleanup.','Privately check concerns people choose to share and access to their own emergency medication.'],notes:[
-  ['Assign the two volunteers; check qualified cover and who to call in an emergency.','Make the first-aid spot easy to find.'],
-  ['Privately check any conditions or injuries people choose to share.','Check access to their own emergency medication.'],
+ {id:'first-aid',name:'First aid',general:['Ask privately about any history of heart disease, asthma, allergies, diabetes, seizures or fainting; check current injuries.','Sharing is optional. Check access to their own emergency medication; keep health details private.','Two volunteers TBA: confirm qualified cover and who to call in an emergency.','Stay easy to find through games and cleanup; keep the first-aid spot accessible.'],notes:[
+  ['Assign the two volunteers; check qualified cover and who to call in an emergency.','Make the first-aid spot easy to find; be ready for private health checks at registration.'],
+  ['Ask privately about any history of heart disease, asthma, allergies, diabetes, seizures or fainting; check current injuries.','Sharing is optional. Keep names and health details with first aid.','Check access to their own emergency medication before they play.'],
   ['Tell everyone where to find you.'],
   ['Be ready for anyone who needs help or wants to sit out.'],
   ['Stay on duty; first-aid staff are not part of borrowing tasks.'],
@@ -90,7 +90,7 @@ export const DEPARTMENTS=[
   ['Stay available during cleanup.'],
   [],
  ]},
- {id:'equipment',name:'Equipment',general:['Check the field, basket and rope before play.','Bring the mat, icebox, cart, umbrellas, pens and gear bags.','Agree who’s on gear for each game; have it ready during changeovers.','Count everything back in; field clear by 16:00.'],notes:[
+ {id:'equipment',name:'Equipment',general:['Check the field, basket and rope; agree who’s on gear for each game.','Game kit: ~45 cards, ping-pong balls, laundry basket, hachimaki, rope, batons, soft quick-release ties and spoons.','Bring the mat, icebox, cart, umbrellas, pens and gear bags. Have the next game ready during changeovers.','Count everything back in; field clear by 16:00.'],notes:[
   ['Set out cones, draw sticks, game gear and water.','Check the basket and rope, and mark clear play areas.','Bring the mat, icebox, cart, umbrellas, pens and gear bags.'],
   ['Adjust both colour-stick pools to the actual attendance.'],
   ['Keep boundaries easy to see.'],
@@ -143,7 +143,7 @@ export const DEPARTMENTS=[
  ]},
  {id:'team-leaders',name:'Team leaders',general:['Count members, sort substitutions and get your team ready.','Keep player counts equal and rotate runners/pairs; nobody has to join in.','Check on your team and pass concerns to first aid privately.'],notes:[
   [],
-  ['Count members, note names and sort substitutions.'],
+  ['Count members, note names and sort substitutions.','Invite anyone with a health concern or injury to speak privately with first aid.'],
   ['Check everyone knows the boundaries and stop signal.','Pass any concerns to first aid privately.'],
   ['Check who’s ready to play; nobody has to join in.'],
   ['Send one runner per round. Rotate so everyone willing gets a turn.','Ask before borrowing an item or person.'],
