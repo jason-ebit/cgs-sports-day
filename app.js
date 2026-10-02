@@ -1,10 +1,10 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=14';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=14';
-import { createLiveDesk } from './live.js?v=14';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=14';
-import { icon } from './icons.js?v=14';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=14';
-import { renderMedia, downloadBlob } from './media.js?v=14';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=15';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=15';
+import { createLiveDesk } from './live.js?v=15';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=15';
+import { icon } from './icons.js?v=15';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=15';
+import { renderMedia, downloadBlob } from './media.js?v=15';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,7 +12,7 @@ const KEY = 'cg-sports-day-v1';
 let state = defaultState(), saveAvailable = true, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
 let department = 'all';
 try { const saved = localStorage.getItem(KEY); if (saved) state = validateState(JSON.parse(saved)); } catch { saveAvailable = false; }
-const response = await fetch('./schedule.json?v=14', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=15', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');

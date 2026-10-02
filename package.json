@@ -7,6 +7,6 @@
   "scripts": {
     "build": "node build-static.mjs",
     "start": "python3 -m http.server 4173 --bind 127.0.0.1",
-    "test": "node tests/model.test.mjs && node tests/timer.test.mjs && node tests/rounds.test.mjs"
+    "test": "node tests/model.test.mjs && node tests/timer.test.mjs && node tests/rounds.test.mjs && node tests/popup.test.mjs"
   }
 }

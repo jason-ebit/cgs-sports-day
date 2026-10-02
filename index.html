@@ -12,9 +12,9 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=14">
-  <link rel="stylesheet" href="landing.css?v=14">
-  <script type="module" src="app.js?v=14"></script>
+  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="landing.css?v=15">
+  <script type="module" src="app.js?v=15"></script>
 </head>
 <body data-home-view="games">
   <nav class="toolbar" aria-label="Event tools">
@@ -54,8 +54,8 @@
     <button class="timer-chip" id="active-timer" aria-label="Open running timer"></button>
     <button class="timer-hide" id="hide-timer" aria-label="Hide floating timer" title="Hide timer">×</button>
   </div>
-  <div class="timer-dropzone" id="timer-dropzone" hidden>Drop here to hide timer <small>Clock keeps running</small></div>
-  <dialog class="live-dialog" id="live-dialog" aria-labelledby="live-title"><header class="live-header"><button class="live-grip" id="live-grip" aria-label="Drag timer popup" title="Drag to move"><svg class="timer-handle" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12"/></svg></button><div><span class="eyebrow">TIMER &amp; SCORING</span><h2 id="live-title"></h2></div><button class="icon-button" id="close-live" aria-label="Return to game popup">×</button></header><div id="live-body"></div><footer class="live-footer">Scores save as you tap. Close this popup and the clock keeps running.</footer><div class="timer-dropzone" id="live-dropzone" hidden>Drop here to close popup <small>Clock keeps running</small></div></dialog>
+  <div class="timer-dropzone" id="timer-dropzone" role="img" aria-label="Drop here to hide timer. Clock keeps running." hidden><span aria-hidden="true">×</span></div>
+  <dialog class="live-dialog" id="live-dialog" aria-labelledby="live-title"><header class="live-header"><button class="live-grip" id="live-grip" aria-label="Drag timer popup" title="Drag to move"><svg class="timer-handle" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 5h12M4 10h12M4 15h12"/></svg></button><div><span class="eyebrow">TIMER &amp; SCORING</span><h2 id="live-title"></h2></div><button class="icon-button" id="close-live" aria-label="Return to game popup">×</button></header><div id="live-body"></div><footer class="live-footer">Scores save as you tap. Close this popup and the clock keeps running.</footer><div class="timer-dropzone" id="live-dropzone" role="img" aria-label="Drop here to close popup. Clock keeps running." hidden><span aria-hidden="true">×</span></div></dialog>
   <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">Confirm change</h2><p id="confirm-copy"></p><div class="button-row"><button id="confirm-cancel" class="secondary">Cancel</button><button id="confirm-ok" class="primary">Continue</button></div></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <noscript>This interactive rundown requires JavaScript. The approved schedule is available in schedule.json.</noscript>

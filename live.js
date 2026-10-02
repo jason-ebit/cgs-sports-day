@@ -1,8 +1,8 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=14';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=14';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=14';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=14';
-import { createTimerPopup } from './timer-popup.js?v=14';
+import { TEAM_IDS, matchTeams } from './model.js?v=15';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=15';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=15';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=15';
+import { createTimerPopup } from './timer-popup.js?v=15';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
