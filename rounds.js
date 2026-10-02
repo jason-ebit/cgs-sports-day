@@ -1,5 +1,7 @@
-import { TEAM_IDS, defaultState, matchTeams } from './model.js?v=3';
-import { MATCH_KEYS } from './timer-model.js?v=3';
+import { TEAM_IDS, defaultState, setWinner, gameDone } from './model.js?v=3';
+export { gameDone } from './model.js?v=3';
+
+export function timerStarted(s,key) { return s.timers[key]?.started===true; }
 
 export function roundDone(s, key) {
   const [game, part, attempt] = key.split(':');
@@ -11,7 +13,7 @@ export function roundDone(s, key) {
 }
 export function recordSuccess(s, game, round, id, success=true) {
   const key=`${game}:${round}`, i=TEAM_IDS.indexOf(id);
-  if (!['borrow','relay'].includes(game)||i<0||roundDone(s,key)||s[game].scores[i][round]!==null) return false;
+  if (!['borrow','relay'].includes(game)||i<0||!Number.isInteger(round)||round<0||round>=(game==='borrow'?s.borrow.rounds:3)||!timerStarted(s,key)||gameDone(s,game)||roundDone(s,key)||s[game].scores[i][round]!==null) return false;
   const recorded=s[game].scores.map(r=>r[round]).filter(n=>n!==null && n>0).length;
   s[game].scores[i][round]=game==='borrow'?(success?[5,4,3,2,2][recorded]:0):recorded+1;
   s.placements[game].values=Array(5).fill(null);
@@ -19,8 +21,22 @@ export function recordSuccess(s, game, round, id, success=true) {
 }
 export function eliminate(s, division, id) {
   const d=s.cavalry.divisions[division];
-  if (!d.started||roundDone(s,'cavalry:'+division)||!d.active.includes(id)||d.eliminated.includes(id)) return false;
+  if (!d||!d.started||!timerStarted(s,'cavalry:'+division)||gameDone(s,'cavalry')||roundDone(s,'cavalry:'+division)||!d.active.includes(id)||d.eliminated.includes(id)) return false;
   d.eliminated.push(id);s.placements.cavalry.values=Array(5).fill(null);return true;
+}
+export function recordWinner(s,match,id) {
+  if(!timerStarted(s,'tug:'+match)||gameDone(s,'tug')||roundDone(s,'tug:'+match))return false;
+  setWinner(s.tug,match,id);s.placements.tug.values=Array(5).fill(null);return true;
+}
+export function setBasketScore(s,id,attempt,value) {
+  const i=TEAM_IDS.indexOf(id),key=`basket:${id}:${attempt}`;
+  if(i<0||![0,1].includes(attempt)||!Number.isInteger(value)||value<0||value>999||!timerStarted(s,key)||gameDone(s,'basket')||roundDone(s,key))return false;
+  s.basket.scores[i][attempt]=value;s.placements.basket.values=Array(5).fill(null);return true;
+}
+export function finishBasketAttempt(s,id,attempt) {
+  const key=`basket:${id}:${attempt}`;
+  if(!setBasketScore(s,id,attempt,s.basket.scores[TEAM_IDS.indexOf(id)]?.[attempt]??0))return false;
+  s.finished.push(key);return true;
 }
 export function cavalryPoints(s, division) {
   const d=s.cavalry.divisions[division];

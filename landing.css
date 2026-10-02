@@ -200,3 +200,12 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  body:not(.fit-home) .date-card,.fit-home .date-card{gap:8px;padding-inline:8px}
  body:not(.fit-home) .venue,.fit-home .venue{padding-left:8px}
 }
+
+/* Completed games stay visible as a quiet record of the day. */
+.game-card.completed,.schedule-row.completed{opacity:.58;cursor:default}
+.game-card.completed:hover{background:#fcfcf9;border-color:#d6ddd3;box-shadow:none}
+.schedule-row.completed:hover:after{content:none}
+.schedule-row.completed:hover .event-title{color:inherit}
+.game-card.completed .game-bottom{background:#e8ede3;color:#5f6e59}
+.live-desk:is(.game-completed,.round-completed) :is(.live-stage,.winner-choices,.arrival-list,.ball-counter,.arena-order,.finish-attempt){opacity:.64}
+.live-desk.game-completed>.team-choices{opacity:.64}

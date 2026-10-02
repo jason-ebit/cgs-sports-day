@@ -49,7 +49,8 @@
 .timer-float{position:fixed;right:20px;bottom:20px;z-index:10;display:flex;align-items:stretch;max-width:calc(100vw - 16px);border:1px solid #a5b79e;border-radius:13px;background:#e6efdf;box-shadow:0 5px 20px #35473e21;overflow:hidden}
 .timer-float .timer-chip{position:static;border:0;border-radius:0;max-width:280px;min-width:0;padding:12px 9px;background:transparent;color:#3e5841;font-size:11px;box-shadow:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .timer-grip,.timer-hide,.live-grip{flex-shrink:0;border:0;background:transparent;min-width:36px;padding:8px;color:#657460;font-size:22px;line-height:1}
-.timer-grip,.live-grip{cursor:grab;touch-action:none;user-select:none}
+.timer-grip,.live-grip{cursor:grab;touch-action:none;user-select:none;display:grid;place-items:center}
+.timer-handle{display:block;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
 .timer-hide{color:#ad5550;font-size:23px}
 .timer-hide:hover{background:#efdcd7}
 .live-header{gap:12px;cursor:default}

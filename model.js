@@ -1,4 +1,4 @@
-import { validateClocks } from './timer-model.js?v=3';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=3';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
@@ -62,9 +62,22 @@ export function totals(state, game) {
   });
 }
 export function placementsFromTotals(values) {
-  if (values.some(v => v === null) || new Set(values).size !== 5) return null;
+  if (values.length!==5 || values.some(v => v === null || !Number.isFinite(v))) return null;
   const sorted = [...values].sort((a,b) => b-a);
   return values.map(v => sorted.indexOf(v) + 1);
+}
+export function gameDone(state, game) {
+  if(game==='tug')return state.tug.locked&&validSlots(state.tug.slots)&&MATCH_KEYS.every(key=>state.tug.winners[key]&&matchTeams(state.tug,key).includes(state.tug.winners[key]));
+  if(game==='cavalry')return ['women','men'].every(division=>{const d=state.cavalry.divisions[division];return d.started&&d.active.length>=2&&d.active.length-d.eliminated.length===1;});
+  if(game==='basket')return TEAM_IDS.every((id,i)=>[0,1].every(round=>state.finished.includes(`basket:${id}:${round}`)&&state.basket.scores[i][round]!==null));
+  if(['borrow','relay'].includes(game))return state[game].scores.every(row=>row.slice(0,game==='borrow'?state.borrow.rounds:3).every(value=>value!==null));
+  return false;
+}
+function tugPlaces(state) {
+  const finalPair=matchTeams(state.tug,'final'),winner=state.tug.winners.final;
+  const runnerUp=finalPair.find(id=>id!==winner);
+  const semiLosers=['semi1','semi2'].map(match=>matchTeams(state.tug,match).find(id=>id!==state.tug.winners[match]));
+  return TEAM_IDS.map(id=>id===winner?1:id===runnerUp?2:semiLosers.includes(id)?3:5);
 }
 export function approvedPlaces(state, game) {
   const p = state.placements[game];
@@ -74,13 +87,23 @@ export function approvedPlaces(state, game) {
     if (scores.some(n => n === null)) return null;
     for(let i=0;i<5;i++) for(let j=0;j<5;j++) if(scores[i]>scores[j] && p.values[i]>p.values[j]) return null;
   }
+  if(game==='tug') {
+    if(!gameDone(state,'tug'))return null;
+    const expected=tugPlaces(state);
+    if(expected.some((place,i)=>place===3?![3,4].includes(p.values[i]):p.values[i]!==place))return null;
+  }
   return p.values;
 }
+export function gamePlaces(state,game) {
+  if(!gameDone(state,game))return null;
+  const approved=approvedPlaces(state,game);
+  // A saved playoff decision remains valid; otherwise equal results share a place.
+  if(approved)return approved;
+  if(game==='tug')return tugPlaces(state);
+  return placementsFromTotals(totals(state,game));
+}
 export function championship(state) {
-  const places = GAME_IDS.map(game => {
-    if (['borrow', 'basket', 'relay', 'cavalry'].includes(game)) return placementsFromTotals(totals(state, game)) || approvedPlaces(state, game);
-    return approvedPlaces(state, game);
-  });
+  const places = GAME_IDS.map(game => gamePlaces(state,game));
   const rows = TEAM_IDS.map((id, i) => ({ id, points: places.map(p => p ? 6 - p[i] : null), total: places.reduce((sum, p) => sum + (p ? 6 - p[i] : 0), 0), firsts: places.filter(p => p && p[i] === 1).length }));
   return { complete: places.every(Boolean), completed: places.filter(Boolean).length, rows: rows.sort((a,b) => b.total - a.total || b.firsts - a.firsts) };
 }
@@ -127,6 +150,7 @@ export function validateState(input) {
   }
   s.timers = validateClocks(input.timers);
   if(input.finished!==undefined){if(!Array.isArray(input.finished)||input.finished.length>10||new Set(input.finished).size!==input.finished.length)fail();s.finished=input.finished.map(key=>{if(typeof key!=='string'||!/^basket:(red|blue|yellow|green|white):[01]$/.test(key))fail();const [,id,r]=key.split(':');if(s.basket.scores[TEAM_IDS.indexOf(id)][Number(r)]===null)fail();return key;});}
+  else s.finished=TEAM_IDS.flatMap((id,i)=>[0,1].filter(round=>s.basket.scores[i][round]!==null).map(round=>`basket:${id}:${round}`));
   if(input.activeKey!==undefined&&input.activeKey!==null&&typeof input.activeKey!=='string')fail();
   s.activeKey=input.activeKey&&s.timers[input.activeKey]?input.activeKey:null;
   return s;
