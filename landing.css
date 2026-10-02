@@ -13,7 +13,7 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .fit-home .poster-columns{display:grid;grid-template-columns:minmax(0,.87fr) minmax(0,1.13fr);gap:18px;min-height:0}
 .fit-home .rundown{padding:14px 16px 12px;display:flex;flex-direction:column;min-height:0}
 .fit-home .rundown h2{font-size:22px;line-height:1.2;gap:10px;margin-bottom:10px;letter-spacing:-.025em}.fit-home .rundown h2>span{font-size:25px}
-.fit-home #schedule-list{display:grid;grid-template-rows:repeat(15,minmax(0,1fr));flex:1;min-height:0;gap:3px}
+.fit-home #schedule-list{display:grid;grid-template-rows:repeat(var(--event-count,16),minmax(0,1fr));flex:1;min-height:0;gap:3px}
 .fit-home .schedule-row{grid-template-columns:108px 28px minmax(0,1fr);gap:10px;min-height:0;margin:0;padding:0;border-radius:7px}
 .fit-home .time{font-size:12px;line-height:1.2;padding:0 6px;height:100%;display:flex;align-items:center;justify-content:center;border-radius:6px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .fit-home .event-icon{min-height:0;height:100%;font-size:19px;border-radius:7px;background:transparent}
@@ -209,3 +209,9 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .game-card.completed .game-bottom{background:#e8ede3;color:#5f6e59}
 .live-desk:is(.game-completed,.round-completed) :is(.live-stage,.winner-choices,.arrival-list,.ball-counter,.arena-order,.finish-attempt){opacity:.64}
 .live-desk.game-completed>.team-choices{opacity:.64}
+
+.legend-marker{position:relative;display:inline-flex;flex-shrink:0}
+.leader-crown{position:absolute;left:50%;top:-11px;transform:translateX(-50%);width:14px;height:12px;color:#a08948;pointer-events:none}
+.leader-crown .icon,.score-crown .icon{width:100%;height:100%}
+.leader-score{display:inline-flex;align-items:center;gap:5px}
+.score-crown{display:inline-flex;width:15px;height:15px;flex-shrink:0;color:#a08948}

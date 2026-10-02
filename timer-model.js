@@ -1,6 +1,6 @@
 export const MATCH_KEYS = ['prelim','semi1','semi2','final'];
 export const MATCH_NAMES = {prelim:'Preliminary',semi1:'Semifinal 1',semi2:'Semifinal 2',final:'Final'};
-export const TIMER_KEY = /^(event:(?:[0-9]|1[0-4])|tug:(prelim|semi1|semi2|final)|borrow:[0-6]|basket:(red|blue|yellow|green|white):[01]|relay:[0-2]|cavalry:(women|men))$/;
+export const TIMER_KEY = /^(event:(?:[0-9]|1[0-5])|tug:(prelim|semi1|semi2|final)|borrow:[0-6]|basket:(red|blue|yellow|green|white):[01]|relay:[0-2]|cavalry:(women|men))$/;
 export function makeClock(seconds=0, signature='') { return {duration:seconds*1000,remaining:seconds*1000,deadline:null,signature,started:false}; }
 export function remainingMs(clock, now=Date.now()) { return Math.max(0,clock.deadline===null?clock.remaining:clock.deadline-now); }
 export function pauseClock(clock, now=Date.now()) { clock.remaining=remainingMs(clock,now);clock.deadline=null; }

@@ -1,5 +1,6 @@
 import * as m from '../model.js';
 import {makeClock,startClock} from '../timer-model.js';
+import {EVENT_GAMES,GAME_EVENTS} from '../content.js';
 
 const tests=[];
 function test(name, run){try{run();tests.push({name,pass:true});}catch(e){tests.push({name,pass:false,error:e.message});}}
@@ -38,7 +39,8 @@ test('Explicit timer reset markers remain authoritative when restoring scored ro
 test('Older backups without tie-break fields remain readable',()=>{const s=m.defaultState();delete s.placements.borrow;delete s.placements.basket;delete s.placements.relay;equal(m.validateState(s).placements.borrow.values,Array(5).fill(null));});
 test('Department reminders stay separate through backup and restore',()=>{const s=m.defaultState();s.notes[4]='Shared';s.committeeNotes={director:{4:'Start the clock',general:'Bring whistle'},judges:{4:'Check finishes'}};const restored=m.validateState(clone(s));equal(restored.committeeNotes,s.committeeNotes);equal(restored.notes[4],'Shared');});
 test('Older backups without department reminders remain readable',()=>{const s=m.defaultState();delete s.committeeNotes;equal(m.validateState(s).committeeNotes,{});});
-test('Department backups reject unknown teams and oversized or invalid notes',()=>{const s=m.defaultState();s.committeeNotes={unknown:{4:'Test'}};throws(()=>m.validateState(s));s.committeeNotes={director:{15:'Invalid event'}};throws(()=>m.validateState(s));s.committeeNotes={director:{general:'x'.repeat(2001)}};throws(()=>m.validateState(s));});
+test('Prayer reminders restore without moving existing game or saved note indices',()=>{equal(EVENT_GAMES,{4:'borrow',5:'basket',7:'cavalry',8:'tug',9:'relay'});equal(GAME_EVENTS,{borrow:4,basket:5,cavalry:7,tug:8,relay:9});const s=m.defaultState();s.notes=Object.fromEntries(Array.from({length:15},(_,i)=>[i,'Saved event '+i]));s.notes[15]='Prayer leader ready';s.committeeNotes={comms:{2:'Safety announcement',4:'Call the next runner',15:'Gather teams for prayer'}};const restored=m.validateState(clone(s));equal(restored.notes,s.notes);equal(restored.committeeNotes,s.committeeNotes);});
+test('Department backups reject unknown teams and oversized or invalid notes',()=>{const s=m.defaultState();s.committeeNotes={unknown:{4:'Test'}};throws(()=>m.validateState(s));s.committeeNotes={director:{16:'Invalid event'}};throws(()=>m.validateState(s));s.committeeNotes={director:{general:'x'.repeat(2001)}};throws(()=>m.validateState(s));s.committeeNotes={};s.notes={16:'Invalid event'};throws(()=>m.validateState(s));});
 export const results=tests;
 export const passed=tests.every(t=>t.pass);
 if(typeof process!=='undefined'&&process.argv?.[1]?.endsWith('model.test.mjs')){for(const t of tests)console.log(`${t.pass?'PASS':'FAIL'} ${t.name}${t.error?' — '+t.error:''}`);if(!passed)process.exitCode=1;}

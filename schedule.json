@@ -28,10 +28,10 @@
       "highlight": null
     },
     {
-      "start": "12:15",
+      "start": "12:17",
       "end": "12:20",
       "title": "Opening / Safety",
-      "durationMinutes": 5,
+      "durationMinutes": 3,
       "highlight": null
     },
     {
@@ -117,6 +117,13 @@
       "title": "Finish",
       "durationMinutes": 0,
       "highlight": "pink"
+    },
+    {
+      "start": "12:15",
+      "end": "12:17",
+      "title": "Prayer",
+      "durationMinutes": 2,
+      "highlight": null
     }
   ]
 }

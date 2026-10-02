@@ -5,6 +5,8 @@ const paths = {
  setup: '<path d="m20 4-1 6-5 2-5-3-5 8 5 4v6l-5 4 5 8 6-3 5 3 1 6h9l1-6 5-3 5 3 5-8-5-4v-6l5-4-5-8-6 3-5-2-1-6Z" transform="translate(-2 -1) scale(.98)" fill="currentColor" stroke="none"/><circle cx="23" cy="23" r="8" fill="white" stroke="none"/>',
  people: '<circle cx="18" cy="13" r="7" fill="currentColor" stroke="none"/><circle cx="34" cy="13" r="6" fill="currentColor" stroke="none"/><path d="M5 41V29a13 13 0 0 1 26 0v12ZM33 24c9-4 13 3 13 9v8H34Z" fill="currentColor" stroke="none"/>',
  flag: '<path d="M11 44V5" stroke-width="4"/><path d="M14 7c8-5 12 6 23 0v20c-11 6-16-5-23 0Z" fill="currentColor" stroke="none"/>',
+ prayer: '<path d="M22 7c-1-3-4-2-4 1l-2 14-9 11 10 10 7-16V9c0-3 4-4 4 0v18l7 16 10-10-9-11-2-14c0-3-3-4-4-1" stroke-width="3"/><path d="m8 33 9 8M35 41l9-8" stroke-width="3"/>',
+ crown: '<path d="m6 13 10 8 8-14 8 14 10-8-4 25H10Z" fill="currentColor" stroke="none"/><path d="M12 43h24" stroke-width="3.5"/>',
  warmup: '<path d="M4 24h40M8 15v18M15 10v28M33 10v28M40 15v18" stroke-width="5"/>',
  borrow: '<circle cx="20" cy="19" r="13" stroke-width="4"/><path d="m30 30 13 14" stroke-width="6"/>',
  basket: '<path d="M5 19h38l-6 25H11ZM3 19h42M17 5 7 15M31 5l10 10M9 28h31M12 36h26M18 20l2 23M30 20l-2 23" stroke-width="3.5"/>',

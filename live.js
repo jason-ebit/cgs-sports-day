@@ -1,8 +1,8 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=3';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=3';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=3';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=3';
-import { createTimerPopup } from './timer-popup.js?v=5';
+import { TEAM_IDS, matchTeams } from './model.js?v=14';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=14';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=14';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=14';
+import { createTimerPopup } from './timer-popup.js?v=14';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -102,7 +102,7 @@ export function createLiveDesk(api) {
         case 'reset-clock':resetClock(c);break;
         case 'rematch':resetClock(c,30);break;
         case 'plus-ball':case 'minus-ball':{const value=s.basket.scores[TEAM_IDS.indexOf(ctx.team)][ctx.round]||0;setBasketScore(s,ctx.team,ctx.round,Math.max(0,Math.min(999,value+(action==='plus-ball'?1:-1))));break;}
-        case 'finish':finishBasketAttempt(s,ctx.team,ctx.round);break;
+        case 'finish':{const input=desk.querySelector('[data-live-score]');if(!input.validity.valid||input.value===''){toast('Enter a valid ball count.');return;}setBasketScore(s,ctx.team,ctx.round,Number(input.value));finishBasketAttempt(s,ctx.team,ctx.round);break;}
       }
       if(roundDone(s,ctx.key)){pauseClock(c);if(s.activeKey===ctx.key)s.activeKey=null;}
       save();refreshViews();

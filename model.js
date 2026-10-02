@@ -1,4 +1,4 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=3';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=14';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
@@ -136,14 +136,14 @@ export function validateState(input) {
   }
   for(const g of GAME_IDS){const p=input.placements[g];if(!p && ['borrow','basket','relay'].includes(g))continue;s.placements[g]={rule:text(p.rule,1200),values:list(p.values,5).map(v=>num(v,5,1))};const filled=s.placements[g].values.filter(v=>v!==null);if(new Set(filled).size!==filled.length)fail();}
   if(!input.notes||typeof input.notes!=='object'||Array.isArray(input.notes))fail();
-  for(const [key,value] of Object.entries(input.notes)){if(!/^\d{1,2}$/.test(key)||Number(key)>14)fail();s.notes[key]=text(value,2000);}
+  for(const [key,value] of Object.entries(input.notes)){if(!/^\d{1,2}$/.test(key)||Number(key)>15)fail();s.notes[key]=text(value,2000);}
   if(input.committeeNotes!==undefined){
     if(!input.committeeNotes||typeof input.committeeNotes!=='object'||Array.isArray(input.committeeNotes))fail();
     for(const [department,notes] of Object.entries(input.committeeNotes)){
       if(!DEPARTMENT_IDS.includes(department)||!notes||typeof notes!=='object'||Array.isArray(notes))fail();
       s.committeeNotes[department]={};
       for(const [key,value] of Object.entries(notes)){
-        if(key!=='general'&&(!/^\d{1,2}$/.test(key)||Number(key)>14))fail();
+        if(key!=='general'&&(!/^\d{1,2}$/.test(key)||Number(key)>15))fail();
         s.committeeNotes[department][key]=text(value,2000);
       }
     }

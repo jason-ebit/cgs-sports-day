@@ -1,10 +1,10 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=3';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=3';
-import { createLiveDesk } from './live.js?v=3';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=3';
-import { icon } from './icons.js?v=3';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES } from './content.js?v=3';
-import { renderMedia, downloadBlob } from './media.js?v=3';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=14';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=14';
+import { createLiveDesk } from './live.js?v=14';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=14';
+import { icon } from './icons.js?v=14';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=14';
+import { renderMedia, downloadBlob } from './media.js?v=14';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -12,7 +12,7 @@ const KEY = 'cg-sports-day-v1';
 let state = defaultState(), saveAvailable = true, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
 let department = 'all';
 try { const saved = localStorage.getItem(KEY); if (saved) state = validateState(JSON.parse(saved)); } catch { saveAvailable = false; }
-const response = await fetch('./schedule.json');
+const response = await fetch('./schedule.json?v=14', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -20,6 +20,11 @@ const team = id => state.teams.find(t => t.id === id);
 const dot = id => `<span class="dot ${id === 'white' ? 'white' : ''}" style="--team-color:${COLOURS[TEAM_IDS.indexOf(id)]}"></span>`;
 const teamLabel = id => `<span class="score-team">${dot(id)}<span>${esc(team(id)?.name || '—')}</span></span>`;
 const teamDots = (ids = TEAM_IDS) => ids.map(id => `<span class="team-dot-label">${dot(id)}<span class="team-name">${esc(team(id).name)}</span></span>`).join('');
+const leadersFor = standings => standings.completed ? standings.rows.filter(row=>row.total===standings.rows[0].total).map(row=>row.id) : [];
+function updateLeaderCrowns() {
+  const leaders=leadersFor(championship(state));
+  document.querySelectorAll('[data-leader-crown]').forEach(crown=>crown.hidden=!leaders.includes(crown.dataset.leaderCrown));
+}
 const note = (title, text, pending = false) => `<section class="note-card ${pending ? 'pending' : ''}"><h3>${esc(title)}</h3><p>${esc(text)}</p></section>`;
 const numberInput = (label, value, attrs = '', max = 100, min = 0) => `<label class="field">${esc(label)}<input type="number" inputmode="numeric" min="${min}" max="${max}" step="1" value="${value ?? ''}" ${attrs}></label>`;
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('visible'); clearTimeout(toast.timer); toast.timer = setTimeout(() => $('#toast').classList.remove('visible'), 3000); }
@@ -27,16 +32,19 @@ function save() {
   try { localStorage.setItem(KEY, JSON.stringify(state)); saveAvailable = true; } catch { saveAvailable = false; }
   $('#save-state').textContent = saveAvailable ? 'Saved on this device' : 'Not saved · export a backup';
   $('#panel-save').textContent = saveAvailable ? 'Changes save on this device' : 'Storage unavailable · export a backup';
+  updateLeaderCrowns();
 }
 function miniBracket() {
   const s = state.tug.slots, n = (id, fallback) => esc(team(id)?.name.slice(0, 12) || fallback);
   return `<svg class="mini-bracket" viewBox="0 0 300 94" aria-label="Preliminary to two semifinals to final"><path d="M70 19h15v10h15M70 44h15V29M70 76h30M162 29h18v22h20M162 76h18V51"/><rect x="0" y="7" width="70" height="24" rx="5"/><rect x="0" y="32" width="70" height="24" rx="5"/><rect x="0" y="64" width="70" height="24" rx="5"/><rect x="100" y="17" width="62" height="24" rx="5"/><rect x="100" y="64" width="62" height="24" rx="5"/><rect x="200" y="39" width="98" height="24" rx="5"/><text x="35" y="23" text-anchor="middle">${n(s[0],'Draw 1')}</text><text x="35" y="48" text-anchor="middle">${n(s[1],'Draw 2')}</text><text x="35" y="80" text-anchor="middle">3 byes</text><text x="131" y="33" text-anchor="middle">Semi 1</text><text x="131" y="80" text-anchor="middle">Semi 2</text><text x="249" y="55" text-anchor="middle">${n(state.tug.winners.final,'Final')}</text></svg>`;
 }
 function renderPoster() {
-  $('#schedule-list').innerHTML = schedule.map((e, i) => `<button class="schedule-row ${e.highlight || ''}" data-open="event:${i}" aria-label="${esc(e.title)}, ${e.start}${e.durationMinutes ? ' to '+e.end : ''}. Open notes and controls"><span class="time">${e.start}${e.durationMinutes ? ' – '+e.end : ''}</span><span class="event-icon">${icon(EVENT_ICONS[i])}</span><span class="event-title">${esc(e.title)}</span></button>`).join('');
+  $('#schedule-list').style.setProperty('--event-count',schedule.length);
+  $('#schedule-list').innerHTML = orderedSchedule(schedule).map(e => `<button class="schedule-row ${e.highlight || ''}" data-open="event:${e.eventIndex}" aria-label="${esc(e.title)}, ${e.start}${e.durationMinutes ? ' to '+e.end : ''}. Open notes and controls"><span class="time">${e.start}${e.durationMinutes ? ' – '+e.end : ''}</span><span class="event-icon">${icon(EVENT_ICONS[e.eventIndex])}</span><span class="event-title">${esc(e.title)}</span></button>`).join('');
+  const leaders=leadersFor(championship(state));
   $('#team-legend').innerHTML = TEAM_IDS.map(id=>{
     const label=team(id).leader.trim()||id[0].toUpperCase()+id.slice(1);
-    return `<span class="team-dot-label">${dot(id)}<span class="team-name" title="${esc(label)}">${esc(label)}</span></span>`;
+    return `<span class="team-dot-label"><span class="legend-marker">${dot(id)}<span class="leader-crown" data-leader-crown="${id}" role="img" aria-label="Leading team" ${leaders.includes(id)?'':'hidden'}>${icon('crown')}</span></span><span class="team-name" title="${esc(label)}">${esc(label)}</span></span>`;
   }).join('');
   const head = (g, n) => `<div class="game-head"><span class="game-number">${n}</span>${icon(g)}<h3>${GAME_NAMES[g]}</h3></div>`;
   $('#game-grid').innerHTML = `
@@ -127,8 +135,8 @@ function scorePanel(game) {
   return `<div class="section-label">SCORE SHEET <span class="badge">${done?'Game complete · points sent':'Auto-saved from match desk'}</span></div>${game==='borrow'?`<div class="button-row"><button class="${state.borrow.rounds===6?'primary':'secondary'}" data-borrow-rounds="6" ${done?'disabled':''}>6 rounds</button><button class="${state.borrow.rounds===7?'primary':'secondary'}" data-borrow-rounds="7" ${done?'disabled':''}>7 · contingency</button></div>`:''}<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th>${labels.map(l=>`<th>${l}</th>`).join('')}<th>${game==='basket'?'Best':'Total'}</th></tr></thead><tbody>${state.teams.map((t,i)=>`<tr><td>${teamLabel(t.id)}</td>${labels.map((label,j)=>`<td>${rows[i][j]===null?'—':game==='relay'?'#'+rows[i][j]:rows[i][j]}</td>`).join('')}<td><strong>${values[i]??'—'}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Start each timer before scoring. Finished rounds are locked; use Reset in Timer & scoring to correct a result.</p><div class="button-row"><button class="secondary" data-tab="timer">Timer & scoring →</button>${done?'<button class="primary" data-open="results">Main Scores →</button>':''}</div><div class="section-label">GAME PLACING</div>${places?state.teams.map((t,i)=>({id:t.id,place:places[i]})).sort((a,b)=>a.place-b.place).map(t=>`<div class="result-line">${teamLabel(t.id)}<span>#${t.place} · ${6-t.place} championship pts</span></div>`).join(''):note('Game in progress','Finish every round or attempt to send points to the main Scores overview.',true)}`;
 }
 function resultsPanel() {
-  const c=championship(state);
-  return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td>${teamLabel(r.id)}</td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
+  const c=championship(state),leaders=leadersFor(c);
+  return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><span class="leader-score">${teamLabel(r.id)}${leaders.includes(r.id)?`<span class="score-crown" role="img" aria-label="Leading team">${icon('crown')}</span>`:''}</span></td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Crowns mark the leading total; tied leaders share a crown. A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
 }
 function dataPanel() { return bullets('Keep a backup',['Scores and notes stay on this device. Download a backup to move them to another phone.','JSON includes leaders and committee reminders. Poster images leave them out.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+bullets('Reset the day',['Clears teams, scores, timers, draw and notes on this device. Save a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
 function mediaPanel() { return bullets('Share the rundown',['Full poster or 9:16 phone story, with the schedule, team names and game formats.','Leader names and committee reminders stay out of the image.'])+`<div class="field-row"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
