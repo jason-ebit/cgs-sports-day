@@ -1,8 +1,8 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=15';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=15';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=15';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=15';
-import { createTimerPopup } from './timer-popup.js?v=15';
+import { TEAM_IDS, matchTeams } from './model.js?v=16';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=16';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=16';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=16';
+import { createTimerPopup } from './timer-popup.js?v=16';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -36,7 +36,7 @@ export function createLiveDesk(api) {
   function teamChoices(ctx){
     if(!['basket','cavalry'].includes(ctx.game))return '';
     const s=getState(),d=s.cavalry.divisions[s.cavalry.division];
-    return `<div class="team-choices" ${ctx.game==='basket'?'role="group" aria-label="Choose team"':'role="group" aria-label="Teams in arena"'}>${TEAM_IDS.map(id=>{const selected=ctx.game==='basket'?ctx.team===id:d.active.includes(id);return `<button class="team-choice ${selected?'selected':''}" data-live-team="${id}" aria-pressed="${selected}" ${ctx.game==='cavalry'&&d.started?'disabled':''}>${dot(id)}${esc(name(id))}${selected?'<span>✓</span>':''}</button>`;}).join('')}</div>`;
+    return `<div class="team-choices" ${ctx.game==='basket'?'role="group" aria-label="Choose team"':'role="group" aria-label="Teams in arena"'}>${TEAM_IDS.map(id=>{const selected=ctx.game==='basket'?ctx.team===id:d.active.includes(id);return `<button class="team-choice ${selected?'selected':''}" data-live-team="${id}" aria-label="${esc(name(id))}" aria-pressed="${selected}" ${ctx.game==='cavalry'&&d.started?'disabled':''}>${dot(id)}<span class="team-choice-name">${esc(name(id))}</span>${selected?'<span class="team-choice-check" aria-hidden="true">✓</span>':''}</button>`;}).join('')}</div>`;
   }
   function matchup(ctx){
     if(ctx.game==='tug')return `<div class="live-matchup">${ctx.teams.map((id,i)=>`${i?'<span class="versus">VS</span>':''}<div class="live-team">${id?dot(id):'<span class="dot unknown"></span>'}<strong>${esc(name(id))}</strong></div>`).join('')}</div>`;

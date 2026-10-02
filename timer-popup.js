@@ -26,7 +26,7 @@ export function createTimerPopup({ onHide }) {
     element.style.bottom='auto';
     element.style.margin='0';
   }
-  function drag(element,handle,target,dismiss){
+  function drag(element,target,dismiss){
     let start=null;
     const inside=point=>{const r=element.getBoundingClientRect();return point.clientX>=r.left&&point.clientX<=r.right&&point.clientY>=r.top&&point.clientY<=r.bottom;};
     const overTarget=point=>{const r=target.getBoundingClientRect();return point&&Math.hypot(point.clientX-r.left-r.width/2,point.clientY-r.top-r.height/2)<=Math.min(r.width,r.height)/2;};
@@ -121,17 +121,17 @@ export function createTimerPopup({ onHide }) {
     element.addEventListener('dragstart',event=>{if(start)event.preventDefault();});
     element.addEventListener('close',()=>finish(null,true));
     window.addEventListener('blur',()=>finish(null,true));
-    handle.addEventListener('keydown',event=>{
+    element.addEventListener('keydown',event=>{
       const steps={ArrowLeft:[-16,0],ArrowRight:[16,0],ArrowUp:[0,-16],ArrowDown:[0,16]};
-      if(!steps[event.key])return;
+      if(event.target!==element||!steps[event.key]||event.altKey||event.ctrlKey||event.metaKey)return;
       event.preventDefault();const rect=element.getBoundingClientRect(),[x,y]=steps[event.key];
       position(element,rect.left+x,rect.top+y);
     });
   }
   const hide=()=>{hiddenKey=activeKey;floating.hidden=true;onHide();};
   document.querySelector('#hide-timer').addEventListener('click',hide);
-  drag(floating,document.querySelector('#timer-grip'),document.querySelector('#timer-dropzone'),hide);
-  drag(overlay,document.querySelector('#live-grip'),document.querySelector('#live-dropzone'),()=>overlay.close());
+  drag(floating,document.querySelector('#timer-dropzone'),hide);
+  drag(overlay,document.querySelector('#live-dropzone'),()=>overlay.close());
   window.addEventListener('resize',()=>{
     [floating,overlay].forEach(element=>{
       if(element.style.left&&(!element.hidden&&(element!==overlay||overlay.open))){const rect=element.getBoundingClientRect();position(element,rect.left,rect.top);}

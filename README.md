@@ -29,7 +29,7 @@ Open **http://127.0.0.1:4173**. Keep the terminal running. Serve over HTTP; doub
 - **Tug-of-War:** use random draw, unique seeds, or colour buttons for manual slots. Duplicate assignment swaps teams. Lock the draw, then run matches; selecting a winner saves and advances the bracket, ending and locking that match. Resetting an earlier match also clears dependent results and timers. The final awards championship points automatically; semifinal losers share third place.
 - **Team Relay:** tap each team’s **Finish** in arrival order. Places convert to 5 / 4 / 3 / 2 / 1 points. Completing all five results locks the round.
 - **Timer:** play/pause, +30 seconds, editable limits, optional end sound, timer-only reset and 30-second tug rematch. Every round, match and attempt requires Play before results can be entered. Pausing keeps scoring available; resetting the timer requires Play again. One timer runs at a time; starting another pauses the previous one. Saved deadlines keep elapsed time accurate across tabs, popups and reloads. Background audio depends on browser support; this is not a system alarm.
-- **Big screen:** overlays the game popup and returns to it when closed. Use the grip to move it; drag to the red area to close it. The floating timer can also be moved and hidden. Hiding either popup keeps the timer running. All views use the same clock and results.
+- **Big screen:** overlays the game popup and returns to it when closed. Tap controls normally; hold and drag anywhere on either timer to move it. Drop onto the red circular X to hide it. Arrow keys move a focused timer popup without affecting its inputs. Hiding either popup keeps the timer running. All views use the same clock and results.
 - **Committee:** separate department tabs for Director / scores, Judges, First aid, Equipment, Food & water, Comm and Team leaders. The Director reminder input is replaced by the handover inventory: already-owned items, supplies to buy/prepare and five recorded shopping links. Event Director views link back to that inventory. Game buttons open each department’s event notes directly. Other department reminders are stored separately, included in JSON backups and excluded from posters.
 - **Team colours:** the home legend shows each leader’s name when entered, otherwise the colour name. Five fixed slots keep long names from moving the layout. Team names in games and scores keep their own labels.
 - **Leading team:** a small crown marks the highest overall points in Team colours and Scores. Tied leaders share the crown; no crown appears before a game has finished.
@@ -51,12 +51,13 @@ Changes save to this browser’s local storage. There is **no live multi-device 
 
 ## Verification
 
-Run the 48 domain, timer and round workflow tests with Node 18+ (no packages required):
+Run the 88 domain, timer, round workflow and popup gesture tests with Node 18+ (no packages required):
 
 ```sh
 node tests/model.test.mjs
 node tests/timer.test.mjs
 node tests/rounds.test.mjs
+node tests/popup.test.mjs
 ```
 
 Coverage includes bracket advancement and invalidation, seed validation, score conversion, ties, saved deadline clocks, ordered success/failure scoring, duplicate tap protection, Cavalry elimination/points, completion locks, scoped resets and backup compatibility.

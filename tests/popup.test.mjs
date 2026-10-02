@@ -39,14 +39,14 @@ function fixture(fn) {
   const window=new Surface(),document=new Surface(window);
   const floating=new Surface(document,{left:650,top:620,width:300,height:50});floating.hidden=true;
   const overlay=new Surface(document,{left:180,top:60,width:640,height:580});overlay.open=true;
-  const chip=new Surface(floating),grip=new Surface(floating),hide=new Surface(floating),liveGrip=new Surface(overlay),control=new Surface(overlay),input=new Surface(overlay);
+  const chip=new Surface(floating),hide=new Surface(floating),control=new Surface(overlay),input=new Surface(overlay);
   const zone=new Surface(document,{left:474,top:630,width:52,height:52}),liveZone=new Surface(overlay,{left:474,top:630,width:52,height:52});zone.hidden=liveZone.hidden=true;
-  const elements={'#timer-float':floating,'#active-timer':chip,'#live-dialog':overlay,'#hide-timer':hide,'#timer-grip':grip,'#live-grip':liveGrip,'#timer-dropzone':zone,'#live-dropzone':liveZone};
+  const elements={'#timer-float':floating,'#active-timer':chip,'#live-dialog':overlay,'#hide-timer':hide,'#timer-dropzone':zone,'#live-dropzone':liveZone};
   document.querySelector=selector=>elements[selector];
   Object.assign(globalThis,{window,document,innerWidth:1000,innerHeight:700,setTimeout:(callback,delay)=>{const id=++nextTimer;timers.set(id,{callback,at:now+delay});return id;},clearTimeout:id=>timers.delete(id)});Date.now=()=>now;
   const advance=milliseconds=>{const end=now+milliseconds;for(;;){const due=[...timers].filter(([,timer])=>timer.at<=end).sort((a,b)=>a[1].at-b[1].at)[0];if(!due)break;now=due[1].at;timers.delete(due[0]);due[1].callback();}now=end;};
   let hidden=0;const popup=createTimerPopup({onHide:()=>hidden++});popup.update('relay:0','All teams — 01:00');
-  try{fn({window,document,floating,overlay,chip,grip,hide,liveGrip,control,input,zone,liveZone,popup,advance,hidden:()=>hidden});}
+  try{fn({window,document,floating,overlay,chip,hide,control,input,zone,liveZone,popup,advance,hidden:()=>hidden});}
   finally{Date.now=originalNow;for(const [name,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}}
 }
 const tests=[];
@@ -156,9 +156,15 @@ test('Touch cancellation, a second finger and a non-cancelable move never dismis
     assert.equal(overlay.open,true);assert.equal(liveZone.hidden,true);assert.equal(overlay.classList.contains('is-dragging'),false);noActiveTouchListeners(control,window);
   }
 });
-test('Keyboard movement belongs to the grip and never hijacks number input arrows',({liveGrip,input,overlay})=>{
-  assert.equal(emit(input,'keydown',{key:'ArrowRight'}).defaultPrevented,false);assert.equal(overlay.style.left,undefined);
-  assert.equal(emit(liveGrip,'keydown',{key:'ArrowRight'}).defaultPrevented,true);assert.equal(overlay.style.left,'196px');
+test('Keyboard movement works on either timer surface without hijacking controls',({floating,chip,overlay,control,input})=>{
+  for(const child of [input,control,chip])assert.equal(emit(child,'keydown',{key:'ArrowRight'}).defaultPrevented,false);
+  assert.equal(overlay.style.left,undefined);assert.equal(floating.style.left,undefined);
+  assert.equal(emit(overlay,'keydown',{key:'ArrowRight'}).defaultPrevented,true);assert.equal(overlay.style.left,'196px');
+  assert.equal(emit(floating,'keydown',{key:'ArrowLeft'}).defaultPrevented,true);assert.equal(floating.style.left,'634px');
+});
+test('Timer keyboard movement leaves unrelated and modified shortcuts alone',({overlay})=>{
+  for(const values of [{key:'Enter'},{key:'ArrowLeft',altKey:true},{key:'ArrowRight',ctrlKey:true},{key:'ArrowDown',metaKey:true}])assert.equal(emit(overlay,'keydown',values).defaultPrevented,false);
+  assert.equal(overlay.style.left,undefined);assert.equal(overlay.style.top,undefined);
 });
 test('The popup remains within the viewport when dragged or resized',({window,control,overlay})=>{
   emit(control,'pointerdown',{clientX:300,clientY:200});emit(window,'pointermove',{clientX:2000,clientY:2000});emit(window,'pointerup',{clientX:2000,clientY:2000});

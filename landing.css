@@ -220,3 +220,22 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .fit-home .game-card[data-open="event:7"] .arena-ring{transform:translateY(-8px)}
 @media(max-width:760px){.fit-home .game-card[data-open="event:7"] .arena-ring{transform:translateY(-6px)}}
 @media(max-width:760px) and (max-height:760px){.fit-home .game-card[data-open="event:7"] .arena-ring{transform:translateY(-4px)}}
+
+/* Shared panel edges and stable rows across the event desk. */
+:root{--desk-inset:28px}
+.detail-dialog :is(.detail-header,.detail-tabs,.detail-body,.detail-footer){padding-inline:var(--desk-inset)}
+.live-header{padding-inline:max(var(--desk-inset),calc((100% - 850px)/2))}
+#live-body{flex:1;padding-inline:var(--desk-inset)}
+.live-footer{padding-inline:var(--desk-inset)}
+.live-bottom-actions{align-items:center;flex-wrap:wrap;row-gap:8px}
+.live-bottom-actions .reset-menu{align-self:center}
+.team-choice>span:not(.dot),.score-team>span:last-child{min-width:0;max-width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.team-choice-name{flex:0 1 auto}
+.timer-float:focus-visible,.live-dialog:focus-visible{outline:2px solid #829374;outline-offset:3px}
+#download-media{min-height:42px}
+@media(max-width:760px){
+ :root{--desk-inset:16px}
+ .team-choices:not(.slot-choices) .team-choice>span.team-choice-name{display:block;width:100%}
+ .team-choices:not(.slot-choices) .team-choice>.team-choice-check{display:none}
+ .live-bottom-actions>button{flex:0 1 auto}
+}

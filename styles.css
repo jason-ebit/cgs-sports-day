@@ -47,15 +47,12 @@
 
 /* Timer controls can move without interrupting the saved clock. */
 .timer-float{position:fixed;right:20px;bottom:20px;z-index:10;display:flex;align-items:stretch;max-width:calc(100vw - 16px);border:1px solid #a5b79e;border-radius:13px;background:#e6efdf;box-shadow:0 5px 20px #35473e21;overflow:hidden}
-.timer-float .timer-chip{position:static;border:0;border-radius:0;max-width:280px;min-width:0;padding:12px 9px;background:transparent;color:#3e5841;font-size:11px;box-shadow:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.timer-grip,.timer-hide,.live-grip{flex-shrink:0;border:0;background:transparent;min-width:36px;padding:8px;color:#657460;font-size:22px;line-height:1}
-.timer-grip,.live-grip{cursor:grab;touch-action:none;user-select:none;display:grid;place-items:center}
-.timer-handle{display:block;width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+.timer-float .timer-chip{position:static;border:0;border-radius:0;max-width:280px;min-width:0;flex:1;padding:12px 14px;background:transparent;color:#3e5841;font-size:11px;box-shadow:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:left}
+.timer-hide{flex-shrink:0;border:0;background:transparent;min-width:36px;padding:8px;line-height:1}
 .timer-hide{color:#ad5550;font-size:23px}
 .timer-hide:hover{background:#efdcd7}
 .live-header{gap:12px;cursor:default}
 .live-header>div{flex:1;min-width:0}
-.live-grip{border:1px solid #d9e0d5;border-radius:9px;align-self:center;background:#f3f5ee;min-height:40px}
 .live-dialog{width:min(1040px,calc(100vw - 32px));height:min(790px,calc(100dvh - 40px))}
 .timer-float,.live-dialog{-webkit-touch-callout:none}
 .live-dialog button:disabled{pointer-events:none}
@@ -68,6 +65,6 @@
  .round-strip{gap:5px}.round-strip .round-button{width:32px;height:34px;min-height:34px}.round-strip>span{font-size:7px;margin-right:0}
  .committee-tabs{gap:5px;margin-bottom:12px}.committee-tabs button{font-size:10px;padding:8px 10px;min-height:38px}
  .live-dialog{inset:24px 10px;margin:0 auto;width:calc(100vw - 20px);height:calc(100dvh - 48px)}
- .live-header{gap:9px;padding:12px 13px}.live-grip{min-width:32px;min-height:36px;padding:6px}.live-header h2{font-size:18px;line-height:1.3}
- .timer-float{right:12px;bottom:12px}.timer-float .timer-chip{max-width:calc(100vw - 96px);font-size:10px;padding:12px 7px}.timer-grip,.timer-hide{min-width:32px}
+ .live-header{gap:9px;padding:12px 13px}.live-header h2{font-size:18px;line-height:1.3}
+ .timer-float{right:12px;bottom:12px}.timer-float .timer-chip{max-width:calc(100vw - 60px);font-size:10px;padding:12px}.timer-hide{min-width:32px}
 }
