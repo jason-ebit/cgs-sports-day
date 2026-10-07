@@ -261,13 +261,14 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 }
 
 /* The top-bar light shows confirmed scores without competing with the map. */
-.toolbar-brand{display:flex;align-items:center;gap:18px;flex-shrink:0}
+.toolbar-brand{display:flex;align-items:center;gap:16px;flex-shrink:0}
 .toolbar .save-state{display:none}
 .toolbar-actions>.tool-button{display:flex;align-items:center;justify-content:center;gap:4px;font-size:12px;line-height:1.3;min-height:40px}
 .toolbar-actions>.tool-button>span{margin:0}
 .toolbar-actions>.tool-button>.nav-arrow{display:inline-flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0;pointer-events:none}
-#sync-tool{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:110px;min-height:34px;padding:7px 10px;flex-shrink:0;border:0;background:transparent;box-shadow:none;font-size:12px;font-weight:700;color:#626e5c}
+#sync-tool{display:inline-flex;align-items:center;justify-content:flex-start;gap:7px;width:auto;min-height:34px;padding:7px 0;flex-shrink:0;border:0;background:transparent;box-shadow:none;font-size:12px;font-weight:700;color:#626e5c}
 #sync-tool>span{display:inline;margin:0}
+#sync-label{text-transform:uppercase;letter-spacing:.14em}
 #sync-tool>.connection-light{display:block}
 .connection-light{display:block;width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#86937f;opacity:1}
 #sync-tool[data-connection-tone="live"]{color:#187447}
@@ -285,7 +286,7 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  .toolbar-actions{width:100%;justify-content:space-between}
  .toolbar-actions>.tool-button{flex:1 1 auto;min-width:0;text-align:center;padding-inline:8px;font-size:11.5px;gap:4px;min-height:36px}
  .toolbar-actions>.tool-button>.nav-arrow{font-size:8px}
- #sync-tool{width:108px;min-height:32px;padding:6px 10px;font-size:11px}
+ #sync-tool{justify-content:flex-end;margin-left:auto;min-height:32px;padding:6px 0;font-size:11px}
 }
 @media(max-width:359px){.toolbar-actions{gap:4px}.toolbar-actions>.tool-button{font-size:10.5px;gap:3px;padding-inline:5px;min-height:34px}.toolbar-actions>.tool-button>.nav-arrow{font-size:7px}}
 
