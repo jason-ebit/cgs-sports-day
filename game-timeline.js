@@ -1,6 +1,6 @@
-import { GAME_IDS, gameDone } from './model.js?v=20';
-import { remainingMs } from './timer-model.js?v=20';
-import { roundDone } from './rounds.js?v=20';
+import { GAME_IDS, gameDone } from './model.js?v=21';
+import { remainingMs } from './timer-model.js?v=21';
+import { roundDone } from './rounds.js?v=21';
 
 const EVENTS = [4, 5, 7, 8, 9];
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -34,10 +34,10 @@ export function gameTimelineState(state, { now = Date.now() } = {}) {
 
 const round = n => Math.round(n * 100) / 100;
 const point = ([x, y]) => `${round(x)} ${round(y)}`;
-const midpoint = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2];
+const curveMidpoint = (start, c1, c2, end) => [0, 1].map(i => (start[i] + 3 * c1[i] + 3 * c2[i] + end[i]) / 8);
 
-// The four curves stay in the existing gaps, including the return from the
-// upper-right card to the lower-left card. No added row or outer gutter is needed.
+// Follow the measured card positions rather than their DOM order. The compact
+// layout runs right, down, left, then down into Relay; every bow stays in a gap.
 export function gameTimelineGeometry(cardRects, gridRect) {
   if (!gridRect || gridRect.width <= 0 || gridRect.height <= 0 || cardRects.length !== 5) return [];
   const width = gridRect.layoutWidth ?? gridRect.width, height = gridRect.layoutHeight ?? gridRect.height;
@@ -49,23 +49,36 @@ export function gameTimelineGeometry(cardRects, gridRect) {
   }));
   if (cards.some(r => Object.values(r).some(n => !Number.isFinite(n)) || r.width <= 0 || r.height <= 0)) return [];
   return cards.slice(0, -1).map((from, i) => {
-    const to = cards[i + 1], lower = to.top >= from.top + from.height - .5;
-    let start, end, control1, control2, gap;
-    if (lower) {
-      start = [from.left + from.width / 2, from.top + from.height];
-      end = [to.left + to.width / 2, to.top];
+    const to = cards[i + 1];
+    const below = to.top >= from.top + from.height - .5, above = from.top >= to.top + to.height - .5;
+    const right = to.left >= from.left + from.width - .5, left = from.left >= to.left + to.width - .5;
+    let start, end, control1, control2, gap, direction;
+    if (below || above) {
+      direction = below ? 'down' : 'up';
+      start = [from.left + from.width / 2, below ? from.top + from.height : from.top];
+      end = [to.left + to.width / 2, below ? to.top : to.top + to.height];
       const y = (start[1] + end[1]) / 2;
-      control1 = [start[0], y]; control2 = [end[0], y]; gap = end[1] - start[1];
+      control1 = [start[0], y]; control2 = [end[0], y]; gap = below ? end[1] - start[1] : start[1] - end[1];
+      if (Math.abs(start[0] - end[0]) < .5) {
+        const bow = Math.max(0, Math.min(gap * .25, 12, start[0], width - start[0])) * (start[0] >= width / 2 ? 1 : -1);
+        control1[0] += bow; control2[0] += bow;
+      }
     } else {
-      start = [from.left + from.width, from.top + from.height / 2];
-      end = [to.left, to.top + to.height / 2];
+      direction = right ? 'right' : 'left';
+      start = [right ? from.left + from.width : from.left, from.top + from.height / 2];
+      end = [right ? to.left : to.left + to.width, to.top + to.height / 2];
       const x = (start[0] + end[0]) / 2;
-      control1 = [x, start[1]]; control2 = [x, end[1]]; gap = end[0] - start[0];
+      control1 = [x, start[1]]; control2 = [x, end[1]];
+      gap = right ? end[0] - start[0] : left ? start[0] - end[0] : -1;
+      if (Math.abs(start[1] - end[1]) < .5) {
+        const bow = Math.max(0, Math.min(gap * .2, 10, start[1], height - start[1])) * (right ? 1 : -1);
+        control1[1] -= bow; control2[1] += bow;
+      }
     }
-    const centre = midpoint(start, end);
+    const centre = curveMidpoint(start, control1, control2, end);
     return { from: GAME_IDS[i], to: GAME_IDS[i + 1], start, end, control1, control2,
       d: `M ${point(start)} C ${point(control1)} ${point(control2)} ${point(end)}`,
-      dot: { x: centre[0], y: centre[1], radius: Math.min(3, Math.max(0, gap) / 3) }, gap };
+      dot: { x: centre[0], y: centre[1], radius: Math.min(3, Math.max(0, gap) / 3) }, gap, direction };
   });
 }
 

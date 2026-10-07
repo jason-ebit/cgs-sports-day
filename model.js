@@ -1,4 +1,4 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=20';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=21';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];

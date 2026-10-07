@@ -279,3 +279,66 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 #home-shortcuts .connection-badge[data-connection-tone="offline"]{color:#747b6c!important}
 @keyframes connection-breathe{0%,100%{opacity:1}50%{opacity:.3}}
 @media(prefers-reduced-motion:reduce){.connection-badge[data-connection-tone="live"] .connection-light{animation:none}}
+
+/* Small game stops leave room for a winding route through the landing map. */
+.game-grid.game-map{--map-card-width:250px;--map-card-height:106px;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:26px 44px;padding:6px 8px;justify-items:center;align-items:center}
+.game-grid.game-map>.game-card{width:100%;max-width:var(--map-card-width);height:min(var(--map-card-height),100%);padding:9px 12px;border-radius:20px;display:grid;grid-template-rows:26px minmax(0,1fr) 19px;gap:4px;box-shadow:0 2px 8px #35463b06}
+.game-map>.game-card[data-open="event:4"]{grid-area:1/1}
+.game-map>.game-card[data-open="event:5"]{grid-area:1/2}
+.game-map>.game-card[data-open="event:7"]{grid-area:2/2}
+.game-map>.game-card[data-open="event:8"]{grid-area:2/1}
+.game-grid.game-map>.game-card.relay{grid-area:3/1/4/3;grid-template-columns:1fr;grid-template-rows:1fr;max-width:var(--map-card-width)}
+.game-grid.game-map .game-head{gap:7px;min-height:0}
+.game-grid.game-map .game-head h3{font-size:14px;line-height:1.2;white-space:normal}
+.game-grid.game-map .game-head>.icon{font-size:22px}
+.game-grid.game-map .game-head>.game-number{width:22px;height:22px;font-size:11px}
+.game-grid.game-map .game-summary{gap:0;min-height:0}
+.game-grid.game-map :is(.game-kicker,.game-copy,.relay-rounds){display:none}
+.game-grid.game-map .game-team-row{gap:8px}
+.game-grid.game-map .game-team-row .dot{width:14px;height:14px}
+.game-grid.game-map .game-summary .mini-bracket{max-width:185px;height:100%;max-height:34px;min-height:0;margin:0}
+.game-grid.game-map .game-summary .cavalry-arena{min-height:0;margin:0 0 3px}
+.game-grid.game-map .arena-ring{width:78px;height:27px;transform:none}
+.game-grid.game-map .arena-ring .dot{width:11px;height:11px}
+.game-grid.game-map .arena-ring .dot:nth-child(3){left:33px;top:-5px}
+.game-grid.game-map .arena-ring span:last-child{inset:8px 0 auto;font-size:6px}
+.game-grid.game-map .game-bottom{display:flex;align-items:center;justify-content:center;margin:0;padding:3px 5px;font-size:10px;line-height:1.2;border-radius:8px}
+.game-grid.game-map .relay-left{grid-template-rows:26px minmax(0,1fr) 19px;gap:4px;min-height:0}
+.game-grid.game-map .relay-lanes{display:flex;flex-direction:row;align-items:center;justify-content:center;gap:8px;margin:0;padding:0}
+.game-grid.game-map .relay-lanes .dot{width:14px;height:14px}
+.game-grid.game-map :is(.lane-name,.lane-line){display:none}
+.game-grid.game-map>.game-card.ongoing{border-color:#859f74;box-shadow:0 0 0 2px #94ac852b,0 2px 8px #35463b06}
+.game-grid.game-map .ongoing-status{font-size:9px;line-height:1.2;inset:auto 8px 7px;padding:4px;border-radius:9px}
+.game-grid.game-map>.game-card.ongoing :is(.game-summary,.relay-lanes){transform:translateY(-4px)}
+.game-map .game-timeline-link{stroke-width:3;stroke:#bdcbb5}
+.game-map .game-timeline-link--completed{stroke:#8da780}
+.game-map .game-timeline-link--current{stroke:#6e8d5e}
+body:not(.fit-home) .game-grid.game-map{flex:none;height:440px}
+@media(min-width:761px) and (max-width:1050px){.game-grid.game-map{gap:24px 28px;padding-inline:0}.game-grid.game-map>.game-card{padding-inline:9px}.game-grid.game-map .game-head h3{font-size:12px}.game-grid.game-map .game-head{gap:5px}}
+@media(max-width:760px){
+ .game-grid.game-map{--map-card-width:148px;--map-card-height:104px;gap:26px 28px;padding:4px 2px}
+ .game-grid.game-map>.game-card{padding:7px 8px;border-radius:18px;grid-template-rows:28px minmax(0,1fr) 20px;gap:3px}
+ .game-grid.game-map .game-head{gap:3px}
+ .game-grid.game-map .game-head h3{font-size:11px;line-height:1.15}
+ .game-grid.game-map .game-head>.icon{font-size:16px}
+ .game-grid.game-map .game-head>.game-number{width:18px;height:18px;font-size:10px}
+ .game-grid.game-map .game-bottom{font-size:9px;padding-inline:3px}
+ .game-grid.game-map .relay-left{grid-template-rows:28px minmax(0,1fr) 20px;gap:3px}
+ .game-grid.game-map :is(.game-team-row,.relay-lanes){gap:6px}
+ .game-grid.game-map :is(.game-team-row,.relay-lanes) .dot{width:11px;height:11px}
+ .game-grid.game-map .game-summary .mini-bracket{max-height:30px}
+ .game-grid.game-map .ongoing-status{font-size:8px;inset:auto 5px 6px;padding:3px}
+}
+@media(max-width:760px) and (max-height:760px){
+ .game-grid.game-map{--map-card-width:128px;--map-card-height:86px;gap:20px 22px;padding:2px 0}
+ .game-grid.game-map>.game-card{padding:6px 7px;border-radius:17px;grid-template-rows:26px minmax(0,1fr) 18px;gap:2px}
+ .game-grid.game-map .relay-left{grid-template-rows:26px minmax(0,1fr) 18px;gap:2px}
+ .game-grid.game-map .game-head h3{font-size:10px}
+ .game-grid.game-map .game-head>.icon{font-size:16px}
+ .game-grid.game-map .game-head>.game-number{width:18px;height:18px;font-size:9px}
+ .game-grid.game-map .game-summary .mini-bracket{max-height:22px}
+ .game-grid.game-map .arena-ring{width:auto;height:auto;display:flex;gap:6px;border:0}
+ .game-grid.game-map .arena-ring .dot{position:static}
+ .game-grid.game-map .arena-ring span:last-child{display:none}
+ .game-grid.game-map .game-bottom{font-size:8px}
+}

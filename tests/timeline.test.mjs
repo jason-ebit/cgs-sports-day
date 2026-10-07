@@ -7,7 +7,8 @@ const tests = [];
 function test(name, run) { try { run(); tests.push({ name, pass: true }); } catch (error) { tests.push({ name, pass: false, error }); } }
 const rect = (left, top, width, height) => ({ left, top, width, height });
 const grid = rect(0, 0, 492, 454);
-const cards = [rect(0, 0, 240, 150), rect(252, 0, 240, 150), rect(0, 162, 240, 150), rect(252, 162, 240, 150), rect(0, 324, 492, 130)];
+// Chronological input: Cavalry is physically lower-right and Tug lower-left.
+const cards = [rect(0, 0, 240, 150), rect(252, 0, 240, 150), rect(252, 162, 240, 150), rect(0, 162, 240, 150), rect(0, 324, 492, 130)];
 function bezier(path, t) {
   const u = 1 - t;
   return [0, 1].map(i => u ** 3 * path.start[i] + 3 * u ** 2 * t * path.control1[i] + 3 * u * t ** 2 * path.control2[i] + t ** 3 * path.end[i]);
@@ -79,19 +80,40 @@ test('All finished games turn every connector green and leave no ongoing or next
   assert.ok(result.steps.every(step => step.status === 'completed')); assert.ok(result.segments.every(segment => segment.status === 'completed'));
 });
 
-test('The two-column geometry connects all five cards in order and stays entirely in existing gaps', () => {
+test('The swapped game positions form a right-down-left-down route without crossing cards', () => {
   const paths = gameTimelineGeometry(cards, grid); assert.equal(paths.length, 4);
   assert.deepEqual(paths.map(path => [path.from, path.to]), [['borrow', 'basket'], ['basket', 'cavalry'], ['cavalry', 'tug'], ['tug', 'relay']]);
+  assert.deepEqual(paths.map(path => path.direction), ['right', 'down', 'left', 'down']);
   assert.deepEqual(paths[0].start, [240, 75]); assert.deepEqual(paths[0].end, [252, 75]);
-  assert.deepEqual(paths[1].start, [372, 150]); assert.deepEqual(paths[1].end, [120, 162]);
-  assert.deepEqual(paths[3].start, [372, 312]); assert.deepEqual(paths[3].end, [246, 324]);
+  assert.deepEqual(paths[1].start, [372, 150]); assert.deepEqual(paths[1].end, [372, 162]);
+  assert.deepEqual(paths[2].start, [252, 237]); assert.deepEqual(paths[2].end, [240, 237]); assert.equal(paths[2].gap, 12);
+  assert.deepEqual(paths[3].start, [120, 312]); assert.deepEqual(paths[3].end, [246, 324]);
   assertInGaps(paths, cards, grid);
 });
 
 test('Phone-sized gaps keep curves inside the grid and shrink timeline dots to fit', () => {
-  const bounds = rect(0, 0, 280, 273), phone = [rect(0, 0, 136, 86), rect(144, 0, 136, 86), rect(0, 94, 136, 86), rect(144, 94, 136, 86), rect(0, 188, 280, 85)];
+  const bounds = rect(0, 0, 280, 273), phone = [rect(0, 0, 136, 86), rect(144, 0, 136, 86), rect(144, 94, 136, 86), rect(0, 94, 136, 86), rect(0, 188, 280, 85)];
   const paths = gameTimelineGeometry(phone, bounds); assertInGaps(paths, phone, bounds);
+  assert.deepEqual(paths.map(path => path.direction), ['right', 'down', 'left', 'down']);
   assert.ok(paths.every(path => path.dot.radius <= 8 / 3));
+});
+
+test('Small centered cards and a centered Relay keep gentle bows clear of card content and grid edges', () => {
+  const bounds = rect(0, 0, 600, 440), centered = [rect(30, 10, 250, 106), rect(320, 10, 250, 106), rect(320, 172, 250, 106), rect(30, 172, 250, 106), rect(150, 334, 300, 94)];
+  const paths = gameTimelineGeometry(centered, bounds); assertInGaps(paths, centered, bounds);
+  assert.equal(paths[1].gap, 56); assert.equal(paths[2].gap, 40); assert.equal(paths[3].gap, 56);
+  assert.notEqual(paths[1].control1[0], paths[1].start[0], 'The aligned right-hand connector has a visible gentle bow.');
+  assert.notEqual(paths[0].control1[1], paths[0].start[1], 'The horizontal connector bends softly within its gap.');
+  for (const path of paths) {
+    const centre = bezier(path, .5);
+    assert.equal(path.dot.x, centre[0]); assert.equal(path.dot.y, centre[1], 'The progress dot must lie on the bowed curve.');
+  }
+});
+
+test('Measured edge routing remains safe if the previous diagonal card layout is encountered', () => {
+  const previous = [cards[0], cards[1], cards[3], cards[2], cards[4]];
+  const paths = gameTimelineGeometry(previous, grid); assertInGaps(paths, previous, grid);
+  assert.ok(paths.every(path => path.gap >= 0)); assert.deepEqual(paths[1].end, [120, 162]);
 });
 
 test('Expanded poster transforms produce the same local SVG geometry as the normal layout', () => {
