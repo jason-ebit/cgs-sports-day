@@ -1,4 +1,5 @@
 const paths = {
+ 'arrow-up-right': '<path d="M6 42 42 6M12 6h30v30" stroke-width="4"/>',
  clock: '<circle cx="24" cy="24" r="22" fill="currentColor" stroke="none"/><circle cx="24" cy="24" r="14" fill="white" stroke="none"/><path d="M24 15v10h8" stroke-width="3.5"/>',
  calendar: '<rect x="8" y="10" width="33" height="33" rx="3" stroke-width="4"/><path d="M8 20h33M16 5v10M33 5v10" stroke-width="4"/><path d="M16 26h3m6 0h3m6 0h1M16 34h3m6 0h3m6 0h1" stroke-width="4"/>',
  pin: '<path d="M24 45S9 29 9 19a15 15 0 0 1 30 0c0 10-15 26-15 26Z" fill="currentColor" stroke="none"/><circle cx="24" cy="19" r="5.5" fill="white" stroke="none"/>',

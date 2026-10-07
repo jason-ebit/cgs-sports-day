@@ -1,17 +1,17 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=21';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=21';
-import { createLiveDesk } from './live.js?v=21';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=21';
-import { icon } from './icons.js?v=21';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=21';
-import { renderMedia, downloadBlob } from './media.js?v=21';
-import { captureView } from './view-state.js?v=21';
-import { createDeviceStore } from './device-store.js?v=21';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=21';
-import { createBeforeSyncBackup } from './before-sync.js?v=21';
-import { SYNC_CONFIG } from './sync-config.js?v=21';
-import { renderLiveConnection } from './connection-badge.js?v=21';
-import { createGameTimeline } from './game-timeline.js?v=21';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=22';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=22';
+import { createLiveDesk } from './live.js?v=22';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=22';
+import { icon } from './icons.js?v=22';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=22';
+import { renderMedia, downloadBlob } from './media.js?v=22';
+import { captureView } from './view-state.js?v=22';
+import { createDeviceStore } from './device-store.js?v=22';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=22';
+import { createBeforeSyncBackup } from './before-sync.js?v=22';
+import { SYNC_CONFIG } from './sync-config.js?v=22';
+import { renderLiveConnection } from './connection-badge.js?v=22';
+import { createGameTimeline } from './game-timeline.js?v=22';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -27,7 +27,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=21', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=22', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -54,13 +54,11 @@ function save() {
 }
 function updateSyncLabels(){
   if(!sync)return;
-  const status=sync.status,labels={connecting:'Connecting',watching:'Watching live',synced:'Synced',syncing:'Syncing',pending:'Pending',offline:'Offline',conflict:'Review pending',busy:'Viewing scores','signed-out':'Sign in again',error:'Sync unavailable'};
-  $('#sync-label').textContent=labels[status.phase]||'Live scores';
+  const status=sync.status;
   renderLiveConnection($('#sync-tool'),status);
   $('#sync-tool').dataset.syncPhase=status.phase;
   $('#save-state').textContent=status.role==='writer'?(status.pending?'Pending on this phone':status.connected?'Shared scores synced':'Offline · cached scores'):status.connected?'Viewing shared scores':'Cached scores · reconnecting';
   $('#panel-save').textContent=status.role==='writer'?'Scores sync automatically · reminders stay on this phone':'Live scores · reminders stay on this phone';
-  const caption=$('#sync-current-status');if(caption)caption.textContent=labels[status.phase]||'Live scores';
   const error=$('#sync-error');if(error){error.textContent=syncErrorText(status);error.hidden=!status.error;}
 }
 function syncErrorText(status){
@@ -69,10 +67,11 @@ function syncErrorText(status){
   return status.error;
 }
 function syncPanel(){
-  if(!sync)return note('Local preview','This preview uses scores on this device.');
+  if(!sync)return '<p class="sync-caution"><strong>Scorekeeper only.</strong> Off limits to everyone else.</p>';
   const s=sync.status;
   const login=!s.signedIn?`<form id="scorekeeper-login" class="sync-login"><label class="field">Scorekeeper email<input name="email" type="email" autocomplete="username" required></label><label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label><button class="primary" type="submit">Sign in &amp; keep score</button></form>`:`<p class="sync-account">Signed in as ${esc(s.email)}</p><div class="button-row">${s.role==='writer'?'<button class="secondary" data-sync-action="release">Stop keeping score</button>':'<button class="primary" data-sync-action="claim">Keep score on this phone</button><button class="secondary" data-sync-action="transfer">Transfer scorekeeping here</button>'}<button class="text-button" data-sync-action="logout">Sign out</button></div>`;
-  return `<section class="note-card sync-summary"><span class="section-label">LIVE SCORES</span><h3 id="sync-current-status">${esc($('#sync-label').textContent)}</h3><p>${s.role==='writer'?'This phone keeps score. Everyone else sees confirmed results.':'Watch scores, brackets and the ongoing timer. The scorekeeper controls the games.'}</p><p class="sync-error" id="sync-error" role="status" ${s.error?'':'hidden'}>${esc(syncErrorText(s))}</p></section>${login}${s.pending||s.storageError?bullets(s.storageError?'Phone storage needs attention':'Pending results',[s.storageError?'Saved sync data could not be loaded or saved. Download this phone’s backup, then load shared scores to reconnect. If storage stays blocked, allow browser storage first.':s.phase==='conflict'?'Shared scores changed while this phone had pending results. Export this phone’s backup before loading the shared scores.':'Results stay on this phone until the shared system confirms them. Keep this page open when reconnecting.'])+`<div class="button-row"><button class="primary" data-sync-action="retry">Retry sync</button><button class="secondary" data-sync-action="accept">Load shared scores</button><button class="secondary" data-action="export-json">Download this phone’s backup</button></div>`:''}${beforeSync.raw?note('Original phone scores saved','A backup from before live sync is kept on this phone. Open Reset / backup to download it or restore those scores.')+'<button class="secondary" data-open="data">Original phone backup →</button>':''}<div class="button-row"><button class="secondary" data-sync-action="refresh">Refresh scores</button><button class="secondary" data-open="results">Scoreboard →</button><button class="secondary" data-sync-action="share">Copy viewing link</button></div><p class="help">Everyone can view the link. One signed-in scorekeeper can edit. Committee reminders, leaders and headcounts stay on this phone.</p>`;
+  const pending=s.pending||s.storageError?`<span class="section-label">${s.storageError?'Storage needs attention':s.phase==='conflict'?'Pending results need review':'Pending results'}</span><div class="button-row"><button class="primary" data-sync-action="retry">Retry sync</button><button class="secondary" data-sync-action="accept">Load shared scores</button><button class="secondary" data-action="export-json">Download this phone’s backup</button></div>`:'';
+  return `<p class="sync-caution"><strong>Scorekeeper only.</strong> Off limits to everyone else.</p><p class="sync-error" id="sync-error" role="status" ${s.error?'':'hidden'}>${esc(syncErrorText(s))}</p>${login}${pending}${beforeSync.raw?'<button class="secondary" data-open="data">Original phone backup →</button>':''}<div class="button-row"><button class="secondary" data-sync-action="refresh">Refresh scores</button><button class="secondary" data-open="results">Scoreboard →</button><button class="secondary" data-sync-action="share">Copy viewing link</button></div>`;
 }
 function miniBracket() {
   const s = state.tug.slots, n = (id, fallback) => esc(team(id)?.name.slice(0, 12) || fallback);
@@ -149,10 +148,11 @@ function renderPanel() {
   const restoreView = captureView(dialog, renderedPanel);
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
-  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', sync:'Live scores' })[current];
+  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', sync:'Scorekeeper' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : 'CG SPORTS DAY / OCT 25';
   const tabs=[['timer','Timer & scoring'],...(game==='tug'?[['play','Bracket']]:[]),...(game?[['scores','Scores']]:[]),['notes','Format'],['committee','Committee']];
   dialog.classList.toggle('game-dialog',Boolean(game));
+  dialog.classList.toggle('sync-dialog',current==='sync');
   if(tab==='play'&&game&&game!=='tug')tab=game==='cavalry'?'timer':'scores';
   $('#detail-tabs').innerHTML=event?tabs.map(([key,label])=>`<button data-tab="${key}" class="${tab===key?'active':''}" aria-pressed="${tab===key}">${label}</button>`).join(''):'';
   if(event) {

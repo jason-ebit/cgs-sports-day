@@ -20,46 +20,53 @@ function fixture(){
 const tests=[];
 function test(name,run){try{run();tests.push({name,passed:true});}catch(error){tests.push({name,passed:false,error});}}
 
-test('Confirmed viewer scores show Live with a green light and a viewing description',()=>{
+test('Confirmed viewer scores show Live with a green light and the scorekeeper-only caution',()=>{
   const {button,label,render}=fixture();render({connected:true,phase:'watching',role:'viewer',pending:0,remoteAvailable:true});
   assert.equal(label.textContent,'Live');assert.equal(button.dataset.connectionTone,'live');
-  assert.match(button.attributes['aria-label'],/Watching confirmed shared scores/);
+  assert.equal(button.title,'Live · Synced. Scorekeeper only.');
+  assert.equal(button.attributes['aria-label'],button.title);
   assert.equal(button.children[0].attributes['aria-hidden'],'true');
 });
 test('The scorekeeper gets the same Live label with synced detail',()=>{
   const {button,label,render}=fixture();render({connected:true,phase:'synced',role:'writer',pending:0});
-  assert.equal(label.textContent,'Live');assert.match(button.title,/results are synced/);
+  assert.equal(label.textContent,'Live');assert.equal(button.title,'Live · Synced. Scorekeeper only.');
 });
-test('Disconnecting replaces the live signal and describes pending local results',()=>{
+test('Disconnecting replaces the live signal and keeps the pending count concise',()=>{
   const {button,label,render}=fixture();render({connected:true,phase:'watching'});
   render({connected:false,phase:'pending',pending:2});
   assert.equal(label.textContent,'Offline');assert.equal(button.dataset.connectionTone,'offline');
-  assert.match(button.title,/2 updates pending on this phone/);
+  assert.equal(button.title,'Offline · 2 pending. Scorekeeper only.');
+  assert.equal(button.attributes['aria-label'],button.title);
   assert.equal(button.children.filter(child=>child.className==='connection-light').length,1);
 });
 test('An open connection never marks unconfirmed scoring as live',()=>{
   const {button,label,render}=fixture();
   render({connected:true,phase:'syncing',role:'writer',pending:1});
   assert.equal(label.textContent,'Syncing');assert.equal(button.dataset.connectionTone,'attention');
+  assert.equal(button.title,'Syncing · 1 pending. Scorekeeper only.');
   render({connected:true,phase:'pending',role:'writer',pending:1});assert.equal(label.textContent,'Pending');
+  assert.equal(button.title,'1 pending. Scorekeeper only.');
   render({connected:true,phase:'conflict',role:'writer',pending:1});assert.equal(label.textContent,'Review');
-  assert.match(button.title,/review before scoring can continue/);
+  assert.equal(button.title,'Review pending. Scorekeeper only.');
 });
 test('A storage failure clears the live signal even when the server is reachable',()=>{
   const {button,label,render}=fixture();render({connected:true,phase:'synced',storageError:true});
   assert.equal(label.textContent,'Review');assert.equal(button.dataset.connectionTone,'attention');
-  assert.match(button.title,/Phone storage needs attention/);
+  assert.equal(button.title,'Review storage. Scorekeeper only.');
 });
 test('Startup and an unconfigured scoreboard remain static while connecting',()=>{
   const {button,label,render}=fixture();render({connected:false,phase:'connecting'});
   assert.equal(label.textContent,'Connecting');assert.equal(button.dataset.connectionTone,'offline');
+  assert.equal(button.title,'Connecting. Scorekeeper only.');
   render({connected:true,phase:'watching',remoteAvailable:false});
   assert.equal(label.textContent,'Connecting');assert.equal(button.dataset.connectionTone,'offline');
+  assert.equal(button.attributes['aria-label'],'Connecting. Scorekeeper only.');
 });
 test('Reconnection restores Live without replacing the existing label or adding dots',()=>{
   const {button,label,render}=fixture();render({connected:false,phase:'offline'});
   render({connected:true,phase:'watching',pending:0});render({connected:true,phase:'watching',pending:0});
   assert.equal(label.textContent,'Live');assert.equal(button.dataset.connectionTone,'live');
+  assert.equal(button.title,'Live · Synced. Scorekeeper only.');
   assert.equal(button.querySelector('#sync-label'),label);assert.equal(button.children.length,2);
 });
 

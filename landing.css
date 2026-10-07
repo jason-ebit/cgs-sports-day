@@ -216,11 +216,6 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .leader-score{display:inline-flex;align-items:center;gap:5px}
 .score-crown{display:inline-flex;width:15px;height:15px;flex-shrink:0;color:#a08948}
 
-/* Give the cavalry colours breathing room above the result label. */
-.fit-home .game-card[data-open="event:7"] .arena-ring{transform:translateY(-8px)}
-@media(max-width:760px){.fit-home .game-card[data-open="event:7"] .arena-ring{transform:translateY(-6px)}}
-@media(max-width:760px) and (max-height:760px){.fit-home .game-card[data-open="event:7"] .arena-ring{transform:translateY(-4px)}}
-
 /* Shared panel edges and stable rows across the event desk. */
 :root{--desk-inset:28px}
 .detail-dialog :is(.detail-header,.detail-tabs,.detail-body,.detail-footer){padding-inline:var(--desk-inset)}
@@ -232,14 +227,13 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .team-choice>span:not(.dot),.score-team>span:last-child{min-width:0;max-width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
 .team-choice-name{flex:0 1 auto}
 .timer-float:focus-visible,.live-dialog:focus-visible{outline:2px solid #829374;outline-offset:3px}
-#home-shortcuts .sync-tool{width:112px;flex-shrink:0;text-align:center}
 #sync-label{margin:0}
-.sync-tool[data-sync-phase="pending"],.sync-tool[data-sync-phase="conflict"],.sync-tool[data-sync-phase="error"]{color:#946347!important;border-color:#cbbb9e!important}
-.sync-tool[data-sync-phase="synced"],.sync-tool[data-sync-phase="watching"]{color:#49613c!important}
 .sync-login{display:grid;gap:14px;max-width:450px;margin:20px 0 24px}
 .sync-login .primary{min-height:43px;justify-self:start}
 .sync-account{font-size:12px;margin:20px 0 12px;overflow-wrap:anywhere}
-.sync-summary h3{margin:10px 0 8px}
+.sync-caution{padding:11px 14px;background:#fbf0e9;border:1px solid #e8cfc1;border-radius:11px;color:#95472d;font-size:11px;line-height:1.5}
+.sync-dialog .detail-footer>span{display:none}
+.sync-dialog .detail-footer{justify-content:flex-end}
 .sync-error{color:#9a564a;margin-top:10px!important}
 #download-media{min-height:42px}
 .game-grid{position:relative;isolation:isolate}
@@ -264,21 +258,36 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  .team-choices:not(.slot-choices) .team-choice>span.team-choice-name{display:block;width:100%}
  .team-choices:not(.slot-choices) .team-choice>.team-choice-check{display:none}
  .live-bottom-actions>button{flex:0 1 auto}
- #home-shortcuts .sync-tool{width:94px}
 }
 
-/* A quiet connection light keeps confirmed scores distinct from pending edits. */
-#home-shortcuts .connection-badge{display:inline-flex;align-items:center;justify-content:center;gap:7px}
-#home-shortcuts .connection-badge>span{display:inline;margin:0}
-#home-shortcuts .connection-badge>.connection-light{display:block}
-.connection-light{display:block;width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:#92988b;opacity:1}
-#home-shortcuts .connection-badge[data-connection-tone="live"]{color:#49613c!important}
-.connection-badge[data-connection-tone="live"] .connection-light{background:#6e865f;animation:connection-breathe 1.8s ease-in-out infinite}
-#home-shortcuts .connection-badge[data-connection-tone="attention"]{color:#946347!important;border-color:#cbbb9e!important}
-.connection-badge[data-connection-tone="attention"] .connection-light{background:#aa8050}
-#home-shortcuts .connection-badge[data-connection-tone="offline"]{color:#747b6c!important}
+/* The top-bar light shows confirmed scores without competing with the map. */
+.toolbar-brand{display:flex;align-items:center;gap:18px;flex-shrink:0}
+.toolbar .save-state{display:none}
+.toolbar-actions>.tool-button{display:flex;align-items:center;justify-content:center;gap:8px;font-size:12px;line-height:1.3}
+.toolbar-actions>.tool-button>span{margin:0}
+.toolbar-actions>.tool-button>.nav-arrow{display:inline-flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;pointer-events:none}
+#sync-tool{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:110px;min-height:34px;padding:7px 10px;flex-shrink:0;border:0;background:transparent;box-shadow:none;font-size:12px;font-weight:700;color:#626e5c}
+#sync-tool>span{display:inline;margin:0}
+#sync-tool>.connection-light{display:block}
+.connection-light{display:block;width:7px;height:7px;flex:0 0 7px;border-radius:50%;background:#86937f;opacity:1}
+#sync-tool[data-connection-tone="live"]{color:#187447}
+.connection-badge[data-connection-tone="live"] .connection-light{background:#21935b;animation:connection-breathe 1.8s ease-in-out infinite}
+#sync-tool[data-connection-tone="attention"]{color:#8b501b}
+.connection-badge[data-connection-tone="attention"] .connection-light{background:#bd7627}
+#sync-tool[data-connection-tone="offline"]{color:#626e5c}
 @keyframes connection-breathe{0%,100%{opacity:1}50%{opacity:.3}}
 @media(prefers-reduced-motion:reduce){.connection-badge[data-connection-tone="live"] .connection-light{animation:none}}
+@media(min-width:761px){.detail-dialog.sync-dialog{width:min(520px,calc(100vw - 40px))}}
+@media(min-width:761px) and (max-width:1050px){.toolbar-actions>.tool-button{font-size:11.5px;gap:6px;padding-inline:10px}.toolbar-actions>.tool-button>.nav-arrow{font-size:18px}}
+@media(max-width:760px){
+ .toolbar{display:grid;grid-template-columns:minmax(0,1fr);gap:7px;padding-block:8px}
+ .toolbar-brand{justify-content:space-between;gap:12px}
+ .toolbar-actions{width:100%;justify-content:space-between}
+ .toolbar-actions>.tool-button{flex:1 1 auto;min-width:0;text-align:center;padding-inline:8px;font-size:11.5px;gap:4px;min-height:36px}
+ .toolbar-actions>.tool-button>.nav-arrow{font-size:18px}
+ #sync-tool{width:108px;min-height:32px;padding:6px 10px;font-size:11px}
+}
+@media(max-width:359px){.toolbar-actions{gap:4px}.toolbar-actions>.tool-button{font-size:10.5px;gap:3px;padding-inline:5px;min-height:34px}.toolbar-actions>.tool-button>.nav-arrow{font-size:16px}}
 
 /* Small game stops leave room for a winding route through the landing map. */
 .game-grid.game-map{--map-card-width:250px;--map-card-height:106px;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:26px 44px;padding:6px 8px;justify-items:center;align-items:center}
@@ -298,7 +307,7 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .game-grid.game-map .game-team-row .dot{width:14px;height:14px}
 .game-grid.game-map .game-summary .mini-bracket{max-width:185px;height:100%;max-height:34px;min-height:0;margin:0}
 .game-grid.game-map .game-summary .cavalry-arena{min-height:0;margin:0 0 3px}
-.game-grid.game-map .arena-ring{width:78px;height:27px;transform:none}
+.game-grid.game-map .arena-ring{width:78px;height:27px;transform:translateY(2px)}
 .game-grid.game-map .arena-ring .dot{width:11px;height:11px}
 .game-grid.game-map .arena-ring .dot:nth-child(3){left:33px;top:-5px}
 .game-grid.game-map .arena-ring span:last-child{inset:8px 0 auto;font-size:6px}
@@ -337,7 +346,7 @@ body:not(.fit-home) .game-grid.game-map{flex:none;height:440px}
  .game-grid.game-map .game-head>.icon{font-size:16px}
  .game-grid.game-map .game-head>.game-number{width:18px;height:18px;font-size:9px}
  .game-grid.game-map .game-summary .mini-bracket{max-height:22px}
- .game-grid.game-map .arena-ring{width:auto;height:auto;display:flex;gap:6px;border:0}
+ .game-grid.game-map .arena-ring{width:auto;height:auto;display:flex;gap:6px;border:0;transform:translateY(3px)}
  .game-grid.game-map .arena-ring .dot{position:static}
  .game-grid.game-map .arena-ring span:last-child{display:none}
  .game-grid.game-map .game-bottom{font-size:8px}
