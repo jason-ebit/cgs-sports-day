@@ -1,6 +1,7 @@
 // Keep a desk refresh from interrupting keyboard controls or closing its settings.
 export function captureView(root, viewKey) {
   const active = document.activeElement;
+  const selection = active && typeof active.selectionStart === 'number' ? {start:active.selectionStart,end:active.selectionEnd,direction:active.selectionDirection,value:active.value} : null;
   let focusSelector = null;
   if (active && root.contains(active)) {
     if (active.id) focusSelector = `#${CSS.escape(active.id)}`;
@@ -26,6 +27,9 @@ export function captureView(root, viewKey) {
       }
     }
     const replacement = focusSelector && root.querySelector(focusSelector);
-    if (replacement && !replacement.disabled) replacement.focus({preventScroll: true});
+    if (replacement && !replacement.disabled) {
+      replacement.focus({preventScroll: true});
+      if(selection&&replacement.value===selection.value&&replacement.setSelectionRange)replacement.setSelectionRange(selection.start,selection.end,selection.direction);
+    }
   };
 }

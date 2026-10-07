@@ -15,6 +15,9 @@ const files = [
   'timer-popup.js',
   'view-state.js',
   'device-store.js',
+  'sync.js',
+  'sync-config.js',
+  'before-sync.js',
   'schedule.json',
   'manifest.webmanifest',
   'sw.js'

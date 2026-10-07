@@ -1,3 +1,8 @@
 .DS_Store
 node_modules/
 dist/
+supabase/setup-private.sql
+supabase-setup-review.jpg
+supabase-setup-complete.jpg
+supabase/verify-private.sql
+supabase/debug-private.sql

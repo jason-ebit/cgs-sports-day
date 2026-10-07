@@ -4,7 +4,7 @@
 
 The published site is installable and keeps its app shell available offline after the first successful visit. On iPhone, open the GitHub Pages URL in Safari, choose **Share → Add to Home Screen**, and open it once while online. On Android, open the URL in Chrome and choose **Install app** or **Add to Home screen**.
 
-Scores, timers, team names and notes stay in that browser on that phone. Use **Share / export → Download JSON backup** to move or safeguard event data.
+Shared scores, brackets and timers use Supabase. Everyone watches the same GitHub Pages link; one registered scorekeeper signs in through the status button at the bottom. Committee reminders, leaders and headcounts stay in the browser on that phone. Use **Reset / backup → Download JSON backup** to safeguard device data.
 
 Updates install as a complete offline version and take effect on the next page load. They never reload a running timer. If an update download fails, the installed version remains available.
 
@@ -12,13 +12,13 @@ Working responsive rundown and game desk, built from `reference.png`, `PROJECT_B
 
 ## Run
 
-No install, build step, external runtime assets or API keys are needed. From this folder:
+No package installation is needed. The pinned Supabase browser client is bundled locally. `sync-config.js` contains only the public project URL and publishable key. From this folder:
 
 ```sh
 python3 -m http.server 4173 --bind 127.0.0.1
 ```
 
-Open **http://127.0.0.1:4173**. Keep the terminal running. Serve over HTTP; double-clicking `index.html` will not load the JavaScript modules / schedule reliably. The live app is at https://jason-ebit.github.io/cgs-sports-day/.
+Open **http://127.0.0.1:4173** to watch shared scores, or **http://127.0.0.1:4173/?local** for an isolated editable preview. Keep the terminal running. Serve over HTTP; double-clicking `index.html` will not load the JavaScript modules / schedule reliably. The live app is at https://jason-ebit.github.io/cgs-sports-day/.
 
 ## Use
 
@@ -39,7 +39,15 @@ Open **http://127.0.0.1:4173**. Keep the terminal running. Serve over HTTP; doub
 - **Reset:** the timer desk has separate round/attempt/match and whole-game resets, each with confirmation. **Reset / backup** on Home offers full-event reset and validated JSON backup/import. Public PNGs exclude private notes and leaders.
 - **Share / export:** full reference-layout PNG (1536 × 1610) and phone story (1080 × 1920). Use the app to regenerate after team or bracket changes.
 
-Changes save to this browser’s local storage. There is **no live multi-device sync**, server database or automatic cloud backup. Use the same URL consistently: `localhost` and `127.0.0.1` have separate browser storage. Existing version-1 backups remain readable.
+The scorekeeper’s results queue locally and publish automatically after confirmation from Supabase. Offline results remain marked Pending; viewers keep the last confirmed snapshot. Realtime notifications refresh viewers, with polling as fallback. Writer ownership survives lease expiry; moving to another phone requires an explicit Transfer. Revision checks and operation IDs protect against stale or repeated writes. If shared results conflict with pending device results, editing stops until the scorekeeper downloads a backup and deliberately loads shared scores.
+
+An original device backup is preserved once before first adopting shared results. Reset / backup can download that copy or restore its public scores while keeping current private notes. Public snapshots contain team names/seeds, game results and clocks; they exclude leaders, headcounts, committee reminders and free-text rule notes. Existing version-1 backups remain readable. Use the same URL consistently: `localhost` and `127.0.0.1` have separate browser storage.
+
+## Supabase setup
+
+Create the scorekeeper privately under Authentication → Users. Fill the placeholder email at the end of `supabase/schema.sql` and run the whole script in SQL Editor. The script preserves any existing event scores. It creates a private editor allowlist, public read-only results, guarded authenticated write functions and realtime publication. Never commit a filled private setup script, password, service-role key or secret key. The public publishable key is intended for browser use.
+
+Sign in with the scorekeeper account through Live scores. Other phones stay as viewers. Use Transfer scorekeeping here only when moving the main desk. Download a backup before transferring or clearing pending results. Real background audio remains browser-dependent; the timer uses deadlines so the clock catches up when a phone wakes.
 
 If saved data cannot be read, the original record is protected from ordinary saves. **Download JSON backup** retains that original record; importing a valid backup or explicitly resetting authorizes its replacement. New entries cannot save while the original record is protected. Restored partial Borrow and Relay rounds preserve saved results and use the remaining score slots.
 
@@ -48,15 +56,16 @@ If saved data cannot be read, the original record is protected from ordinary sav
 - `index.html`, `styles.css`, `landing.css`, `app.js`: interface, responsive layout and interactions.
 - `model.js`: draw, advancement, scoring, tie resolution and import validation.
 - `live.js`, `timer-model.js`, `rounds.js`: shared timers, match overlay and automatic result entry.
-- `device-store.js`, `view-state.js`, `sw.js`: protected device saving, focus/settings preservation and complete offline releases.
+- `device-store.js`, `before-sync.js`, `view-state.js`, `sw.js`: protected device saving, pre-sync recovery, focus/settings preservation and complete offline releases.
+- `sync.js`, `sync-config.js`, `supabase/schema.sql`: shared score protocol, public connection settings and database setup.
 - `content.js`, `icons.js`: brief-derived notes and local SVG icons.
 - `media.js`: deterministic canvas rendering of public PNG exports.
-- `assets/`: locally bundled Poppins fonts, SIL Open Font License, favicon.
+- `assets/`: locally bundled Poppins fonts, SIL Open Font License, favicon and the pinned MIT-licensed Supabase 2.117.2 browser client.
 - `schedule.json`, `PROJECT_BRIEF.md`, `reference.png`: preserved source materials.
 
 ## Verification
 
-Run the 125 domain, timer, round workflow, popup gesture, desk integration, offline and storage tests with Node 18+ (no packages required):
+Run the domain, timer, round workflow, popup gesture, desk integration, sync protocol, backend contract, offline and storage tests with Node 18+ (no packages required):
 
 ```sh
 node tests/model.test.mjs
@@ -66,6 +75,9 @@ node tests/popup.test.mjs
 node tests/live.test.mjs
 node tests/offline.test.mjs
 node tests/storage.test.mjs
+node tests/sync.test.mjs
+node tests/backend.test.mjs
+node tests/before-sync.test.mjs
 ```
 
 Coverage includes bracket advancement and invalidation, seed validation, score conversion, ties, saved deadline clocks, ordered success/failure scoring, duplicate tap protection, Cavalry elimination/points, completion locks, scoped resets and backup compatibility. Regression checks cover partial historical score continuation, malformed backups, protected storage, typed counts at expiry, timer reset indicators, the first Play tap after a limit edit, exact offline asset versions and interrupted updates.

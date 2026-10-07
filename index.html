@@ -12,9 +12,10 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="styles.css?v=17">
-  <link rel="stylesheet" href="landing.css?v=17">
-  <script type="module" src="app.js?v=17"></script>
+  <link rel="stylesheet" href="styles.css?v=18">
+  <link rel="stylesheet" href="landing.css?v=18">
+  <script defer src="assets/vendor/supabase-2.117.2.js"></script>
+  <script type="module" src="app.js?v=18"></script>
 </head>
 <body data-home-view="games">
   <nav class="toolbar" aria-label="Event tools">
@@ -42,7 +43,7 @@
     </div>
     <footer class="poster-footer"><span class="interaction-hint">Select a game for timer &amp; scoring <span aria-hidden="true">↗</span></span><span>OCT 25TH · CG SPORTS DAY</span></footer>
   </main></div>
-  <nav id="home-shortcuts" aria-label="Quick game access"><button id="fit-toggle" class="tool-button" aria-pressed="false">Expand layout</button><div class="quick-games"><button data-open="event:4">1 · Borrow</button><button data-open="event:5">2 · Basket</button><button data-open="event:7">3 · Cavalry</button><button data-open="event:8">4 · Tug</button><button data-open="event:9">5 · Relay</button></div><button class="text-button" data-open="data">Reset / backup</button></nav>
+  <nav id="home-shortcuts" aria-label="Quick game access"><button id="fit-toggle" class="tool-button" aria-pressed="false">Expand layout</button><button data-open="sync" class="tool-button sync-tool" id="sync-tool" aria-label="Live scores and scorekeeper login"><span id="sync-label">Connecting</span></button><div class="quick-games"><button data-open="event:4">1 · Borrow</button><button data-open="event:5">2 · Basket</button><button data-open="event:7">3 · Cavalry</button><button data-open="event:8">4 · Tug</button><button data-open="event:9">5 · Relay</button></div><button class="text-button" data-open="data">Reset / backup</button></nav>
   <dialog class="detail-dialog" id="detail-dialog" aria-labelledby="detail-title">
     <header class="detail-header"><div><span class="eyebrow" id="detail-eyebrow"></span><h2 id="detail-title"></h2></div><button class="icon-button" id="close-detail" aria-label="Close event panel">×</button></header>
     <div class="detail-tabs" id="detail-tabs" aria-label="Panel views"></div>

@@ -1,4 +1,4 @@
-import { defaultState, validateState } from './model.js?v=17';
+import { defaultState, validateState } from './model.js?v=18';
 
 export function createDeviceStore({ key = 'cg-sports-day-v1', getStorage = () => globalThis.localStorage } = {}) {
   let state = defaultState(), saved = false, protectedSave = false, unreadableRaw = null;

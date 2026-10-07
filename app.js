@@ -1,20 +1,30 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=17';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=17';
-import { createLiveDesk } from './live.js?v=17';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=17';
-import { icon } from './icons.js?v=17';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=17';
-import { renderMedia, downloadBlob } from './media.js?v=17';
-import { captureView } from './view-state.js?v=17';
-import { createDeviceStore } from './device-store.js?v=17';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=18';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=18';
+import { createLiveDesk } from './live.js?v=18';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=18';
+import { icon } from './icons.js?v=18';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=18';
+import { renderMedia, downloadBlob } from './media.js?v=18';
+import { captureView } from './view-state.js?v=18';
+import { createDeviceStore } from './device-store.js?v=18';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=18';
+import { createBeforeSyncBackup } from './before-sync.js?v=18';
+import { SYNC_CONFIG } from './sync-config.js?v=18';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store = createDeviceStore();
+const beforeSync = createBeforeSyncBackup();
 let state = store.state, saveAvailable = store.saved, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
 let department = 'all';
 let renderedPanel = null;
-const response = await fetch('./schedule.json?v=17', {cache:'no-cache'});
+let sync = null, applyingRemote = false, lastSyncEditable = false;
+const localPreview = ['localhost','127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
+const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.status.phase !== 'conflict' && !sync.status.storageError;
+const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
+const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
+const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
+const response = await fetch('./schedule.json?v=18', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -35,6 +45,29 @@ function save() {
   $('#save-state').textContent = saveAvailable ? 'Saved on this device' : store.protected ? 'Existing backup protected' : 'Not saved · export a backup';
   $('#panel-save').textContent = saveAvailable ? 'Changes save on this device' : store.protected ? 'Saved data unreadable · export before replacing' : 'Storage unavailable · export a backup';
   updateLeaderCrowns();
+  if(sync&&!applyingRemote&&canEdit())sync.queue(state);
+  updateSyncLabels();
+}
+function updateSyncLabels(){
+  if(!sync)return;
+  const status=sync.status,labels={connecting:'Connecting',watching:'Watching live',synced:'Synced',syncing:'Syncing',pending:'Pending',offline:'Offline',conflict:'Review pending',busy:'Viewing scores','signed-out':'Sign in again',error:'Sync unavailable'};
+  $('#sync-label').textContent=labels[status.phase]||'Live scores';
+  $('#sync-tool').dataset.syncPhase=status.phase;
+  $('#save-state').textContent=status.role==='writer'?(status.pending?'Pending on this phone':status.connected?'Shared scores synced':'Offline · cached scores'):status.connected?'Viewing shared scores':'Cached scores · reconnecting';
+  $('#panel-save').textContent=status.role==='writer'?'Scores sync automatically · reminders stay on this phone':'Live scores · reminders stay on this phone';
+  const caption=$('#sync-current-status');if(caption)caption.textContent=labels[status.phase]||'Live scores';
+  const error=$('#sync-error');if(error){error.textContent=syncErrorText(status);error.hidden=!status.error;}
+}
+function syncErrorText(status){
+  if(/schema cache|could not find the function|relation .* does not exist/i.test(status.error))return 'Live scores need the Supabase setup before connecting. Refresh after setup is complete.';
+  if(/permission denied|scorekeeper access|not allowed|editor/i.test(status.error))return 'Only the registered scorekeeper can change shared scores.';
+  return status.error;
+}
+function syncPanel(){
+  if(!sync)return note('Local preview','This preview uses scores on this device.');
+  const s=sync.status;
+  const login=!s.signedIn?`<form id="scorekeeper-login" class="sync-login"><label class="field">Scorekeeper email<input name="email" type="email" autocomplete="username" required></label><label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label><button class="primary" type="submit">Sign in &amp; keep score</button></form>`:`<p class="sync-account">Signed in as ${esc(s.email)}</p><div class="button-row">${s.role==='writer'?'<button class="secondary" data-sync-action="release">Stop keeping score</button>':'<button class="primary" data-sync-action="claim">Keep score on this phone</button><button class="secondary" data-sync-action="transfer">Transfer scorekeeping here</button>'}<button class="text-button" data-sync-action="logout">Sign out</button></div>`;
+  return `<section class="note-card sync-summary"><span class="section-label">LIVE SCORES</span><h3 id="sync-current-status">${esc($('#sync-label').textContent)}</h3><p>${s.role==='writer'?'This phone keeps score. Everyone else sees confirmed results.':'Watch scores, brackets and the ongoing timer. The scorekeeper controls the games.'}</p><p class="sync-error" id="sync-error" role="status" ${s.error?'':'hidden'}>${esc(syncErrorText(s))}</p></section>${login}${s.pending||s.storageError?bullets(s.storageError?'Phone storage needs attention':'Pending results',[s.storageError?'Saved sync data could not be loaded or saved. Download this phone’s backup, then load shared scores to reconnect. If storage stays blocked, allow browser storage first.':s.phase==='conflict'?'Shared scores changed while this phone had pending results. Export this phone’s backup before loading the shared scores.':'Results stay on this phone until the shared system confirms them. Keep this page open when reconnecting.'])+`<div class="button-row"><button class="primary" data-sync-action="retry">Retry sync</button><button class="secondary" data-sync-action="accept">Load shared scores</button><button class="secondary" data-action="export-json">Download this phone’s backup</button></div>`:''}${beforeSync.raw?note('Original phone scores saved','A backup from before live sync is kept on this phone. Open Reset / backup to download it or restore those scores.')+'<button class="secondary" data-open="data">Original phone backup →</button>':''}<div class="button-row"><button class="secondary" data-sync-action="refresh">Refresh scores</button><button class="secondary" data-open="results">Scoreboard →</button><button class="secondary" data-sync-action="share">Copy viewing link</button></div><p class="help">Everyone can view the link. One signed-in scorekeeper can edit. Committee reminders, leaders and headcounts stay on this phone.</p>`;
 }
 function miniBracket() {
   const s = state.tug.slots, n = (id, fallback) => esc(team(id)?.name.slice(0, 12) || fallback);
@@ -104,7 +137,7 @@ function renderPanel() {
   const restoreView = captureView(dialog, renderedPanel);
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
-  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes' })[current];
+  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', sync:'Live scores' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : 'CG SPORTS DAY / OCT 25';
   const tabs=[['timer','Timer & scoring'],...(game==='tug'?[['play','Bracket']]:[]),...(game?[['scores','Scores']]:[]),['notes','Format'],['committee','Committee']];
   dialog.classList.toggle('game-dialog',Boolean(game));
@@ -121,7 +154,11 @@ function renderPanel() {
   else if(current==='committee') body.innerHTML=committeePanel();
   else if(current==='results') body.innerHTML=resultsPanel();
   else if(current==='data') body.innerHTML=dataPanel();
+  else if(current==='sync') body.innerHTML=syncPanel();
   else if(current==='media') { body.innerHTML=mediaPanel(); updateMedia(); }
+  if(!canEdit())body.querySelectorAll('[data-assign-slot],[data-borrow-rounds],[data-winner],[data-placement],[data-placement-rule],[data-team][data-field="name"],[data-team][data-field="seed"],[data-action="random-draw"],[data-action="seed-draw"],[data-action="lock-draw"],[data-action="clear-matches"]').forEach(el=>el.disabled=true);
+  if(!writerAuthority())body.querySelectorAll('[data-action="reset-all"],[data-action="restore-before-sync"],#import-file').forEach(el=>el.disabled=true);
+  updateSyncLabels();
   renderedPanel = `${current}/${tab}`;
   restoreView(renderedPanel);
 }
@@ -143,13 +180,14 @@ function resultsPanel() {
   const c=championship(state),leaders=leadersFor(c);
   return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><span class="leader-score">${teamLabel(r.id)}${leaders.includes(r.id)?`<span class="score-crown" role="img" aria-label="Leading team">${icon('crown')}</span>`:''}</span></td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Crowns mark the leading total; tied leaders share a crown. A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
 }
-function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+bullets('Keep a backup',['Scores and notes stay on this device. Download a backup to move them to another phone.','JSON includes leaders and committee reminders. Poster images leave them out.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+bullets('Reset the day',['Clears teams, scores, timers, draw and notes on this device. Save a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
+function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync automatically. Keep a JSON copy before resets or switching phones.','JSON includes this phone’s leaders and committee reminders. Poster images leave them out.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
 function mediaPanel() { return bullets('Share the rundown',['Full poster or 9:16 phone story, with the schedule, team names and game formats.','Leader names and committee reminders stay out of the image.'])+`<div class="field-row"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
 async function updateMedia(){const token=++mediaToken;try{mediaCanvas=await renderMedia({state,schedule,size:exportSize});if(token!==mediaToken||current!=='media')return;$('#export-preview').replaceChildren(mediaCanvas);$('#download-media').disabled=false;$('#download-media').textContent='Download PNG ↓';}catch(e){if(current==='media')$('#export-preview').textContent='Image could not be generated. Please try again.';console.error(e);}}
 async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
 function changed(refresh=true){save();renderPoster();if(refresh)renderPanel();}
 function invalidatePlaces(game){state.placements[game].values=Array(5).fill(null);}
 async function recordTugWinner(match,id) {
+  if(!requireEditor())return false;
   if(state.tug.winners[match]){toast('This match is completed. Reset it to change the result.');return false;}
   if(!timerStarted(state,'tug:'+match)){toast('Press Play before recording a winner.');return false;}
   if(!saveMatchWinner(state,match,id))return false;
@@ -158,25 +196,82 @@ async function recordTugWinner(match,id) {
   affected.forEach(k=>delete state.timers['tug:'+k]);
   save();renderPoster();return true;
 }
-const live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open)renderPanel();},toast,confirmChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable});
+const live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit});
+if(!localPreview){
+  sync=createSyncService({...SYNC_CONFIG,
+    onStatus(status){
+      updateSyncLabels();
+      const editable=canEdit();if(editable!==lastSyncEditable){lastSyncEditable=editable;live.refresh();}
+    },
+    onRemote(snapshot,{offsetMs}){
+      if(!store.protected)beforeSync.capture(state);
+      const merged=mergePublicState(snapshot,state,{offsetMs});
+      applyingRemote=true;
+      try{state=merged;save();renderPoster();live.refresh();}
+      finally{applyingRemote=false;}
+    },
+    subscribe(onChange,onConnection){
+      if(!globalThis.supabase?.createClient)return ()=>{};
+      const client=globalThis.supabase.createClient(SYNC_CONFIG.url,SYNC_CONFIG.publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+      const channel=client.channel('sports-day-view').on('postgres_changes',{event:'UPDATE',schema:'public',table:'sports_day_events',filter:`id=eq.${SYNC_CONFIG.eventId}`},onChange).subscribe(status=>onConnection(status==='SUBSCRIBED'));
+      return ()=>{void client.removeChannel(channel);};
+    }
+  });
+}
+async function syncAction(action){
+  if(!sync)return;
+  if(action==='share'){
+    await navigator.clipboard.writeText('https://jason-ebit.github.io/cgs-sports-day/');toast('Viewing link copied.');return;
+  }
+  if(action==='refresh')await sync.refresh();
+  if(action==='retry')await sync.flush();
+  if(action==='claim')await sync.claimWriter();
+  if(action==='transfer'){
+    if(!await confirmChange('Move scorekeeping to this phone? The other phone will become a viewer. Pending results on the other phone stay there until reviewed.'))return;
+    await sync.claimWriter({transfer:true});
+  }
+  if(action==='accept'){
+    if(!await confirmChange('Load the confirmed shared scores and discard this phone’s pending results? Download this phone’s backup first to keep them.'))return;
+    await sync.acceptRemote();
+  }
+  if(action==='release'||action==='logout'){
+    if(sync.pending&&!await confirmChange('This phone has pending results. Download a backup before stopping, or keep this page open to sync them. Stop anyway?'))return;
+    await (action==='logout'?sync.logout():sync.releaseWriter());
+  }
+  if(current==='sync')renderPanel();
+}
+document.addEventListener('submit',async event=>{
+  if(event.target.id!=='scorekeeper-login')return;
+  event.preventDefault();const form=event.target,button=form.querySelector('button'),email=form.elements.email.value,password=form.elements.password.value;
+  form.elements.password.value='';button.disabled=true;button.textContent='Signing in…';
+  try{await sync.login(email,password);await sync.claimWriter();if(current==='sync')renderPanel();}
+  catch(error){toast(error.message);if(current==='sync'){if(sync.status.signedIn)renderPanel();else{button.disabled=false;button.textContent='Sign in & keep score';updateSyncLabels();}}}
+});
 document.addEventListener('click',async event=>{
   const el=event.target.closest('button,[data-open]');if(!el||el.disabled)return;
   try {
+    if(el.dataset.syncAction){await syncAction(el.dataset.syncAction);return;}
     if(el.dataset.open){openPanel(el.dataset.open,el.dataset.initialTab||null);return;}
     if(el.dataset.department){department=el.dataset.department;renderPanel();return;}
     if(el.dataset.tab){tab=el.dataset.tab;renderPanel();return;}
     if(el.dataset.scoreOpen){openPanel('event:'+GAME_EVENTS[el.dataset.scoreOpen],gameDone(state,el.dataset.scoreOpen)?'scores':'timer');return;}
-    if(el.dataset.assignSlot!==undefined){assignSlot(state.tug,Number(el.dataset.assignSlot),el.dataset.teamId);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();return;}
-    if(el.dataset.borrowRounds){if(gameDone(state,'borrow'))return;state.borrow.rounds=Number(el.dataset.borrowRounds);if(state.borrow.rounds===6){if(state.timers['borrow:6'])pauseClock(state.timers['borrow:6']);if(state.activeKey==='borrow:6')state.activeKey=null;}invalidatePlaces('borrow');changed();return;}
+    if(el.dataset.assignSlot!==undefined){if(!requireEditor())return;assignSlot(state.tug,Number(el.dataset.assignSlot),el.dataset.teamId);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();return;}
+    if(el.dataset.borrowRounds){if(!requireEditor()||gameDone(state,'borrow'))return;state.borrow.rounds=Number(el.dataset.borrowRounds);if(state.borrow.rounds===6){if(state.timers['borrow:6'])pauseClock(state.timers['borrow:6']);if(state.activeKey==='borrow:6')state.activeKey=null;}invalidatePlaces('borrow');changed();return;}
     if(el.dataset.winner){if(await recordTugWinner(el.dataset.winner,el.dataset.teamId))renderPanel();return;}
+    if(['random-draw','seed-draw','lock-draw','clear-matches'].includes(el.dataset.action)&&!requireEditor())return;
+    if(['reset-all','restore-before-sync'].includes(el.dataset.action)&&!requireWriter())return;
     switch(el.dataset.action){
       case 'go-draw':openPanel('event:8','play');break;
       case 'random-draw':if(!state.tug.locked){state.tug.slots=shuffled(TEAM_IDS);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Opponents drawn. Review and lock the draw.');}break;
       case 'seed-draw':if(!state.tug.locked){state.tug.slots=seededSlots(state.teams);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Seeded draw ready. Review and lock it.');}break;
-      case 'lock-draw':if(state.tug.locked){if(!await confirmChange('Unlock the draw? All match results and approved tug-of-war placements will be cleared.'))return;state.tug.locked=false;clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');}else if(validSlots(state.tug.slots))state.tug.locked=true;changed();break;
-      case 'clear-matches':if(await confirmChange('Clear all tug-of-war winners and approved placements? The locked draw will stay.')){clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();}break;
+      case 'lock-draw':if(state.tug.locked){if(!await confirmChange('Unlock the draw? All match results and approved tug-of-war placements will be cleared.')||!requireEditor())return;state.tug.locked=false;clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');}else if(validSlots(state.tug.slots))state.tug.locked=true;changed();break;
+      case 'clear-matches':if(await confirmChange('Clear all tug-of-war winners and approved placements? The locked draw will stay.')&&requireEditor()){clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();}break;
       case 'export-json':downloadBlob(new Blob([store.backup(state)],{type:'application/json'}),'cg-sports-day-backup.json');break;
-      case 'reset-all':if(await confirmChange('Reset all event data on this device? Teams, scores, notes and the draw will be cleared. Save a JSON backup first to keep them.')){state=defaultState();store.replace(state);changed();toast('Event data reset.');}break;
+      case 'export-recovery':if(beforeSync.recoveryRaw!==null)downloadBlob(new Blob([beforeSync.recoveryRaw],{type:'application/json'}),'cg-sports-day-original-recovery.json');break;
+      case 'recover-sync':if(await confirmChange('Replace the unreadable original-backup record with this phone’s current scores, then load confirmed shared scores? Download the recovery copy first. Any pending results will be discarded.')){beforeSync.recover(state);await sync.acceptRemote();renderPanel();}break;
+      case 'export-before-sync':if(beforeSync.raw)downloadBlob(new Blob([beforeSync.raw],{type:'application/json'}),'cg-sports-day-before-sync.json');break;
+      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current local reminders will stay.')&&requireWriter()){state=mergePublicState(publicSnapshot(validateState(JSON.parse(beforeSync.raw))),state);store.replace(state);changed();toast('Original phone scores restored.');}break;
+      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, scores, timers and draw will be cleared. Download a backup first to keep them.')&&requireWriter()){state=defaultState();store.replace(state);changed();toast('Event data reset.');}break;
       case 'download-media':if(mediaCanvas)mediaCanvas.toBlob(blob=>{if(blob)downloadBlob(blob,`cg-sports-day-${exportSize}.png`);else toast('Image export failed. Please try again.');},'image/png');break;
     }
   }catch(e){toast(e.message);}
@@ -185,14 +280,15 @@ document.addEventListener('change',async event=>{
   const el=event.target,d=el.dataset;if(el.closest('[data-live-event]'))return;let n=el.value===''?null:Number(el.value);
   try {
     if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
-    if(d.team!==undefined){const t=state.teams[Number(d.team)];if(d.field==='name'&&!el.value.trim()){el.value=t.name;toast('Team names cannot be blank.');return;}t[d.field]=['seed','participants'].includes(d.field)?n:el.value.trim();changed(false);}
-    else if(d.placement){const p=state.placements[d.placement];if(n!==null&&p.values.some((v,i)=>i!==Number(d.row)&&v===n)){toast('Each team needs a unique final place.');renderPanel();return;}p.values[Number(d.row)]=n;changed();}
-    else if(d.placementRule){state.placements[d.placementRule].rule=el.value;changed();}
+    if(d.team!==undefined){if(['name','seed'].includes(d.field)&&!requireEditor()){renderPanel();return;}const t=state.teams[Number(d.team)];if(d.field==='name'&&!el.value.trim()){el.value=t.name;toast('Team names cannot be blank.');return;}t[d.field]=['seed','participants'].includes(d.field)?n:el.value.trim();changed(false);}
+    else if(d.placement){if(!requireEditor())return;const p=state.placements[d.placement];if(n!==null&&p.values.some((v,i)=>i!==Number(d.row)&&v===n)){toast('Each team needs a unique final place.');renderPanel();return;}p.values[Number(d.row)]=n;changed();}
+    else if(d.placementRule){if(!requireEditor())return;state.placements[d.placementRule].rule=el.value;changed();}
     else if(el.id==='export-size'){exportSize=el.value;renderPanel();}
     else if(el.id==='import-file'){
+      if(!requireWriter())return;
       const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
-      if(await confirmChange('Replace this device’s event data with the validated backup? Export your current data first if you want to keep it.')){state=imported;store.replace(state);changed();toast('Backup restored.');}
+      if(await confirmChange('Replace shared scores for everyone and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;store.replace(state);changed();toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}
@@ -200,6 +296,7 @@ document.addEventListener('change',async event=>{
 document.addEventListener('input',event=>{
   const d=event.target.dataset;
   if(d.team!==undefined&&['leader','name'].includes(d.field)){
+    if(d.field==='name'&&!canEdit())return;
     const value=event.target.value.trim();
     if(d.field==='leader'||value){state.teams[Number(d.team)][d.field]=value;save();renderPoster();}
   }
@@ -222,6 +319,7 @@ $('#fit-toggle').addEventListener('click',()=>{fitEnabled=!fitEnabled;$('#fit-to
 document.querySelectorAll('[data-home-view-button]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.homeView=button.dataset.homeViewButton;document.querySelectorAll('[data-home-view-button]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));fitPoster();}));
 window.addEventListener('resize',fitPoster);document.fonts.ready.then(fitPoster);
 renderPoster();live.tick();
+if(sync)void sync.start();else{$('#sync-label').textContent='Local preview';}
 if(!saveAvailable){$('#save-state').textContent='Existing backup protected';toast('Saved data could not be loaded. Export it before restoring or resetting.');}else $('#save-state').textContent='Saved on this device';
 
 if ('serviceWorker' in navigator) {

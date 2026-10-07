@@ -232,10 +232,20 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .team-choice>span:not(.dot),.score-team>span:last-child{min-width:0;max-width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
 .team-choice-name{flex:0 1 auto}
 .timer-float:focus-visible,.live-dialog:focus-visible{outline:2px solid #829374;outline-offset:3px}
+#home-shortcuts .sync-tool{width:112px;flex-shrink:0;text-align:center}
+#sync-label{margin:0}
+.sync-tool[data-sync-phase="pending"],.sync-tool[data-sync-phase="conflict"],.sync-tool[data-sync-phase="error"]{color:#946347!important;border-color:#cbbb9e!important}
+.sync-tool[data-sync-phase="synced"],.sync-tool[data-sync-phase="watching"]{color:#49613c!important}
+.sync-login{display:grid;gap:14px;max-width:450px;margin:20px 0 24px}
+.sync-login .primary{min-height:43px;justify-self:start}
+.sync-account{font-size:12px;margin:20px 0 12px;overflow-wrap:anywhere}
+.sync-summary h3{margin:10px 0 8px}
+.sync-error{color:#9a564a;margin-top:10px!important}
 #download-media{min-height:42px}
 @media(max-width:760px){
  :root{--desk-inset:16px}
  .team-choices:not(.slot-choices) .team-choice>span.team-choice-name{display:block;width:100%}
  .team-choices:not(.slot-choices) .team-choice>.team-choice-check{display:none}
  .live-bottom-actions>button{flex:0 1 auto}
+ #home-shortcuts .sync-tool{width:94px}
 }
