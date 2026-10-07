@@ -24,7 +24,7 @@ export const SUPPLIES={
   {name:'Borrow-a-Thing cards',detail:'~45 cards; 30–35 used',action:'Print / prepare'},
   {name:'Lightweight laundry basket',action:'Find / borrow'},
   {name:'Tug-of-war rope',detail:'Check suitability before use',action:'Find / borrow'},
-  {name:'Soft quick-release leg ties',detail:'Three-legged relay',action:'Find / borrow'},
+  {name:'Soft quick-release leg ties',detail:'Three-legged relay',action:'Find / borrow',links:[{label:'Coupang',url:'https://www.coupang.com/vp/products/6581728778?itemId=29203179145&vendorItemId=96123429304'}]},
   {name:'Spoons',detail:'1 per team',action:'Find / borrow'},
   {name:'Food & water',action:'Arrange'},
   {name:'Winner coupons / gift vouchers',action:'Planned'},
