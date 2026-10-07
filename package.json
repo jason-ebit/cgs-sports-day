@@ -7,6 +7,6 @@
   "scripts": {
     "build": "node build-static.mjs",
     "start": "python3 -m http.server 4173 --bind 127.0.0.1",
-    "test": "node tests/model.test.mjs && node tests/timer.test.mjs && node tests/rounds.test.mjs && node tests/popup.test.mjs && node tests/live.test.mjs && node tests/offline.test.mjs && node tests/storage.test.mjs && node tests/sync.test.mjs && node tests/backend.test.mjs && node tests/before-sync.test.mjs && node tests/connection-badge.test.mjs && node tests/timeline.test.mjs"
+    "test": "node tests/model.test.mjs && node tests/timer.test.mjs && node tests/rounds.test.mjs && node tests/popup.test.mjs && node tests/live.test.mjs && node tests/offline.test.mjs && node tests/storage.test.mjs && node tests/sync.test.mjs && node tests/backend.test.mjs && node tests/before-sync.test.mjs && node tests/connection-badge.test.mjs && node tests/timeline.test.mjs && node tests/flow.test.mjs && node tests/view-state.test.mjs && node tests/private-state.test.mjs"
   }
 }

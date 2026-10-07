@@ -23,7 +23,10 @@ Open **http://127.0.0.1:4173** to watch shared scores, or **http://127.0.0.1:417
 ## Use
 
 - **Home:** the landing page uses a wide, screen-filling grid with readable type, aligned cards and muted sage / gold / rose accents. Phones have a **Rundown / Games** switch so each view fits without shrinking the entire poster. **Expand layout** offers the roomier scrollable version. Small rounded game tiles follow an S route: Borrow → Basket → Cavalry on the right → Tug on the left → Relay below. A running or paused game stays highlighted with its matchup and timer; completed steps stay marked and the current step breathes. Full round details are inside each game.
-- **Game desk:** games open on **Timer & scoring**, with numbered rounds/attempts above the controls. Round selection stays shared across Timer, Scores, Format and Committee tabs. Team choices are rounded colour buttons. Essential rules and committee checklists remain separate.
+- **Game desk:** games open on **Timer & scoring**, with numbered rounds/attempts above the controls. Round selection stays shared across Timer, Scores, Format and Committee tabs. Team choices are rounded colour buttons. A single Play / Pause / Next action stays visible on phones while results scroll. Next names its destination and skips finished work, including missing earlier rounds.
+- **Follow live:** spectators follow the active round or match within the selected game. Choosing a round or team enters Review; **Follow live** resumes following. Spectator desks show timers and results without scoring inputs, timer settings or reset menus. The in-game connection label updates without rebuilding input fields.
+- **Back:** linked panels return to their previous tab, department, round/attempt, focus and scroll position. Updates preserve unfinished input drafts when the underlying saved value is unchanged; genuine shared changes take precedence.
+- **Undo:** Borrow, Relay and Cavalry offer one session-only Undo for the last accepted result while its round is unfinished. It preserves the clock and checks that no later result or reset has replaced that tap. Completed rounds stay locked; corrections then use the existing scoped reset.
 - **Opening:** Prayer runs 12:15–12:17, followed by Opening / Safety 12:17–12:20. All game times stay the same. The rundown and poster exports show the new slot in chronological order; existing saved event notes and timers keep their original identities.
 - **Borrow-a-Thing:** tap **Success** in arrival order: 5 / 4 / 3 / 2 / 2. **Fail** awards zero and does not consume a success rank. Every team recorded completes and locks the round. Six rounds by default; the Scores tab can include the seventh contingency round.
 - **Ball Basket:** select a team and attempt, count with + / − or enter the count, then **Finish attempt & lock**. Valid counts save while typing, including before timer expiry. The higher of two counts determines game placing.
@@ -32,7 +35,7 @@ Open **http://127.0.0.1:4173** to watch shared scores, or **http://127.0.0.1:417
 - **Team Relay:** tap each team’s **Finish** in arrival order. Places convert to 5 / 4 / 3 / 2 / 1 points. Completing all five results locks the round.
 - **Timer:** play/pause, +30 seconds, editable limits, optional end sound, timer-only reset and 30-second tug rematch. Every round, match and attempt requires Play before results can be entered. Pausing keeps scoring available; resetting the timer requires Play again. One timer runs at a time; starting another pauses the previous one. Saved deadlines keep elapsed time accurate across tabs, popups and reloads. Background audio depends on browser support; this is not a system alarm.
 - **Big screen:** overlays the game popup and returns to it when closed. Tap controls normally; hold and drag anywhere on either timer to move it. Drop onto the red circular X to hide it. Arrow keys move a focused timer popup without affecting its inputs. Hiding either popup keeps the timer running. All views use the same clock and results.
-- **Committee:** separate department tabs for Director / scores, Judges, First aid, Equipment, Food & water, Comm and Team leaders. The Director reminder input is replaced by the handover inventory: already-owned items, supplies to buy/prepare and five recorded shopping links. Event Director views link back to that inventory. Game buttons open each department’s event notes directly. Other department reminders are stored separately, included in JSON backups and excluded from posters.
+- **Committee:** separate department tabs for Director / scores, Judges, First aid, Equipment, Food & water, Comm and Team leaders. The Director reminder input is replaced by the handover inventory: already-owned items, supplies to buy/prepare and five recorded shopping links. Event Director views link back to that inventory. Game buttons open each department’s event notes directly. Readiness checks, the selected department and end-sound preference stay on this phone and survive reloads. Other department reminders are stored separately, included in JSON backups and excluded from posters.
 - **Team colours:** the home legend shows each leader’s name when entered, otherwise the colour name. Five fixed slots keep long names from moving the layout. Team names in games and scores keep their own labels.
 - **Leading team:** a small crown marks the highest overall points in Team colours and Scores. Tied leaders share the crown; no crown appears before a game has finished.
 - **Scores:** read-only game sheets update automatically. Completed rounds cannot be edited through another tab. Each game automatically adds its championship points after all configured rounds or attempts finish. Tied totals share competition places and points; Tug-of-War semifinal losers share third. Completed home cards and scoring controls are disabled and translucent. Use Scores or the rundown to review a finished game and reach its reset controls. Championship points use placing, not raw counts.
@@ -53,9 +56,9 @@ If saved data cannot be read, the original record is protected from ordinary sav
 
 ## Files
 
-- `index.html`, `styles.css`, `landing.css`, `app.js`: interface, responsive layout and interactions.
+- `index.html`, `styles.css`, `landing.css`, `desk.css`, `app.js`: interface, responsive layout and interactions. `desk.css` groups shared panel spacing, committee checks and desk actions without changing the approved landing map.
 - `model.js`: draw, advancement, scoring, tie resolution and import validation.
-- `live.js`, `timer-model.js`, `rounds.js`: shared timers, match overlay and automatic result entry.
+- `live.js`, `timer-model.js`, `rounds.js`, `flow-model.js`, `panel-navigation.js`: shared timers, match overlay, automatic result entry, incomplete-round targets and panel navigation.
 - `device-store.js`, `before-sync.js`, `view-state.js`, `sw.js`: protected device saving, pre-sync recovery, focus/settings preservation and complete offline releases.
 - `sync.js`, `sync-config.js`, `supabase/schema.sql`: shared score protocol, public connection settings and database setup.
 - `content.js`, `icons.js`: brief-derived notes and local SVG icons.
@@ -78,9 +81,16 @@ node tests/storage.test.mjs
 node tests/sync.test.mjs
 node tests/backend.test.mjs
 node tests/before-sync.test.mjs
+node tests/flow.test.mjs
+node tests/view-state.test.mjs
+node tests/private-state.test.mjs
 ```
 
 Coverage includes bracket advancement and invalidation, seed validation, score conversion, ties, saved deadline clocks, ordered success/failure scoring, duplicate tap protection, Cavalry elimination/points, completion locks, scoped resets and backup compatibility. Regression checks cover partial historical score continuation, malformed backups, protected storage, typed counts at expiry, timer reset indicators, the first Play tap after a limit edit, exact offline asset versions and interrupted updates.
+
+Release 26 passed 258 automated checks, including live following/manual review, Next wrapping to unfinished work, guarded Undo, fresh state after reset confirmation, one primary action across popups, draft isolation, and private checklist/preference backups. Browser checks used an isolated local scorekeeper preview and an anonymous read-only live viewer; production scores were not edited.
+
+The final flow check completed all Borrow rounds and verified automatic championship points, tested Cavalry Undo without interrupting its timer, restored Committee checks/reminders after Back and reload, retained Basket Blue / attempt 2 after returning from sync, and returned focus to an enabled control after a game completed. At 320 × 667, Play and Next remained visible; home and seven main panels showed no horizontal overflow at 390 × 844, 768 × 1024 and 1280 × 720. The compact Director inventory retained all five shopping links.
 
 The October 7 inspection checked timer expiry with an unblurred count, its saved score sheet, keyboard focus/settings retention, overlay/main-desk count consistency, and all ten main panels at 320 CSS pixels. The landing page fit 320 × 667 without overflow. Offline failures were checked against the real worker source with simulated network/cache events; real device flight-mode behavior remains untested.
 

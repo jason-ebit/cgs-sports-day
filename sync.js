@@ -1,4 +1,4 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=25';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=26';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
@@ -53,6 +53,8 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
   }]));
   next.notes = local.notes;
   next.committeeNotes = local.committeeNotes;
+  next.committeeChecklist = local.committeeChecklist;
+  next.preferences = local.preferences;
   return validateState(next);
 }
 

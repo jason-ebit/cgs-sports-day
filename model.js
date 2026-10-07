@@ -1,4 +1,4 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=25';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=26';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
@@ -13,7 +13,9 @@ export function defaultState() {
     relay: { scores: TEAM_IDS.map(() => [null, null, null]) },
     cavalry: { division: 'women', cap: null, rule: '', divisions: Object.fromEntries(['women', 'men'].map(d => [d, { counts: Array(5).fill(null), active: [], eliminated: [], started: false }])) },
     placements: Object.fromEntries(GAME_IDS.map(id => [id, { rule: '', values: Array(5).fill(null) }])),
-    notes: {}, committeeNotes: {}, timers: {}, finished: [], activeKey: null,
+    notes: {}, committeeNotes: {}, committeeChecklist: {},
+    preferences: {department:'director',sound:false},
+    timers: {}, finished: [], activeKey: null,
   };
 }
 export function shuffled(ids, rng = Math.random) {
@@ -150,6 +152,19 @@ export function validateState(input) {
         s.committeeNotes[department][key]=text(value,2000);
       }
     }
+  }
+  if(input.committeeChecklist!==undefined){
+    const checklist=object(input.committeeChecklist);
+    if(Object.keys(checklist).length>500)fail();
+    for(const [key,value] of Object.entries(checklist)){
+      if(!/^(director|judges|first-aid|equipment|food-water|comms|team-leaders|all|inventory):[a-z0-9:_-]{1,64}$/.test(key))fail();
+      s.committeeChecklist[key]=bool(value);
+    }
+  }
+  if(input.preferences!==undefined){
+    const preferences=object(input.preferences);
+    if(preferences.department!==undefined){if(![...DEPARTMENT_IDS,'all'].includes(preferences.department))fail();s.preferences.department=preferences.department;}
+    if(preferences.sound!==undefined)s.preferences.sound=bool(preferences.sound);
   }
   s.timers = validateClocks(input.timers);
   if(input.finished!==undefined){if(!Array.isArray(input.finished)||input.finished.length>10||new Set(input.finished).size!==input.finished.length)fail();s.finished=input.finished.map(key=>{if(typeof key!=='string'||!/^basket:(red|blue|yellow|green|white):[01]$/.test(key))fail();const [,id,r]=key.split(':');if(s.basket.scores[TEAM_IDS.indexOf(id)][Number(r)]===null)fail();return key;});}

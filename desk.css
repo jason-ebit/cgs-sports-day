@@ -1,0 +1,93 @@
+/* Shared editor layout and interaction surfaces. */
+/* Shared panel edges and stable rows across the event desk. */
+:root{--desk-inset:28px}
+.detail-dialog :is(.detail-header,.detail-tabs,.detail-body,.detail-footer){padding-inline:var(--desk-inset)}
+.live-header{padding-inline:max(var(--desk-inset),calc((100% - 850px)/2))}
+#live-body{flex:1;padding-inline:var(--desk-inset)}
+.live-footer{padding-inline:var(--desk-inset)}
+.live-bottom-actions{align-items:center;flex-wrap:wrap;row-gap:8px}
+.live-bottom-actions .reset-menu{align-self:center}
+.team-choice>span:not(.dot),.score-team>span:last-child{min-width:0;max-width:100%;white-space:nowrap;text-overflow:ellipsis;overflow:hidden}
+.team-choice-name{flex:0 1 auto}
+.timer-float:focus-visible,.live-dialog:focus-visible{outline:2px solid #829374;outline-offset:3px}
+#sync-label{margin:0}
+.sync-login{display:grid;gap:14px;max-width:450px;margin:20px 0 24px}
+.sync-login .primary{min-height:43px;justify-self:start}
+.sync-account{font-size:12px;margin:20px 0 12px;overflow-wrap:anywhere}
+.sync-caution{padding:11px 14px;background:#fbf0e9;border:1px solid #e8cfc1;border-radius:11px;color:#95472d;font-size:11px;line-height:1.5}
+.sync-dialog .detail-footer>span{display:none}
+.sync-dialog .detail-footer{justify-content:flex-end}
+.sync-error{color:#9a564a;margin-top:10px!important}
+#download-media{min-height:42px}
+
+.committee-event-links{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 18px}
+.committee-event-links .section-label{flex-basis:100%;margin:0 0 2px}
+.committee-event-links button{font-size:10px;padding:8px 10px;border-radius:9px;min-height:36px}
+.committee-inventory{margin:16px 0 0}
+.committee-inventory>h3{font-size:12px;margin:0 0 10px}
+.inventory-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:12px;align-items:start}
+.inventory-group{border:1px solid #dce3d7;border-radius:12px;background:#f5f7ef;padding:12px 14px;min-width:0}
+.inventory-group h4{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;margin:0 0 9px;color:#42563f}
+.inventory-group h4>span{font-size:10px;font-weight:400;color:#7b8875}
+.inventory-group ul{list-style:none;margin:0;padding:0}
+.inventory-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-top:1px solid #e1e7dc;min-width:0}
+.inventory-item{min-width:0;overflow-wrap:anywhere}
+.inventory-item strong{display:block;font-size:11px;font-weight:400;line-height:1.45}
+.inventory-item small{display:block;font-size:9px;color:#77816f;line-height:1.45;margin-top:2px}
+.inventory-links{flex-shrink:0}
+.inventory-links a{display:inline-block;border:1px solid #cdd8c6;border-radius:7px;padding:7px 8px;background:#fcfcf8;color:#48653e;font-size:10px;white-space:nowrap;text-decoration:none}
+.inventory-links a:hover{background:#e9efdf}
+.inventory-links a:focus-visible{outline:2px solid #829374;outline-offset:2px}
+.inventory-action{flex-shrink:0;font-size:9px;color:#78856f;white-space:nowrap}
+.inventory-have ul{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 10px}
+.inventory-have .inventory-row{justify-content:flex-start;min-height:39px}
+@media(max-width:760px){.inventory-grid{grid-template-columns:1fr;gap:10px}.inventory-group{padding:11px 12px}.inventory-row{gap:8px}.inventory-links a{padding:7px;font-size:9px}}
+
+/* Back shares the original header line; it does not grow the panel. */
+.detail-header>div{min-width:0}
+.detail-breadcrumb{min-height:15px;margin-bottom:5px;display:flex;align-items:center}
+.detail-breadcrumb .eyebrow{margin:0}
+.panel-back{border:0;padding:0;background:none;color:#67755f;font-size:11px;line-height:1.4;text-align:left;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.panel-back:focus-visible{outline:2px solid #829374;outline-offset:3px;border-radius:3px}
+
+/* Small personal checks keep the essential committee notes readable. */
+.compact-note .committee-checklist{list-style:none;padding:0;margin:0}
+.committee-checklist li{padding:0}
+.committee-check,.inventory-item{display:flex;align-items:flex-start;gap:10px;cursor:pointer}
+.committee-check{padding:8px 0;min-height:34px;font-size:12px;line-height:1.55}
+.committee-check span,.inventory-item>span{min-width:0;flex:1}
+:is(.committee-check,.inventory-item) input{width:16px;height:16px;flex:0 0 16px;margin:2px 0 0;accent-color:#657e56;cursor:pointer}
+.inventory-item{flex:1}
+.inventory-row.checked .inventory-item{color:#60765a}
+.inventory-row.checked .inventory-item input{opacity:.8}
+
+/* One primary timer action remains within reach while results scroll. */
+.live-action-dock{display:flex;justify-content:center;position:sticky;bottom:0;z-index:2;margin:14px 0 0;padding:10px 0;background:#fdfdf9;border-top:1px solid #e0e6da}
+.live-action-dock>.primary{min-width:160px;min-height:43px;max-width:100%;font-size:12px}
+.live-bottom-actions{margin-top:8px}
+.live-desk .round-strip{margin-bottom:10px}
+.live-follow{display:flex;align-items:center;gap:10px;justify-content:space-between;margin:0 0 8px;font-size:10px;color:#73816b}
+.live-follow .text-button{font-size:10px;padding:3px 0;min-height:24px}
+.live-sync{display:block;border:0;background:none;padding:0;margin:0 0 12px;text-align:left;font-size:10px;color:#708068;line-height:1.4}
+.live-sync.is-connected{color:#187447}
+.live-sync:is(.is-pending,.needs-attention){color:#965d2d}
+.live-sync.is-offline{color:#7b7567}
+.live-sync:focus-visible{outline:2px solid #829374;outline-offset:4px;border-radius:3px}
+.undo-result{display:block;padding:7px 0;margin:4px 0 0;color:#657957;font-size:11px;text-align:left;min-height:32px}
+.result-pending{color:#87917f;font-size:11px}
+.ball-count{display:block;text-align:center;font-size:64px;line-height:1.4;font-variant-numeric:tabular-nums;color:#3e5045;margin:10px 0}
+.spectator-arena .team-choice{cursor:default}
+@media(max-width:760px){
+ :root{--desk-inset:16px}
+ .detail-dialog .detail-body,#live-body{padding-bottom:14px}
+ .live-header{padding-inline:var(--desk-inset)}
+ .live-action-dock{margin-top:10px;padding:8px 0;box-shadow:0 -8px 16px #fdfdf9}
+ .live-action-dock>.primary{width:100%;min-height:44px;font-size:12px}
+ .live-bottom-actions>button{flex:0 1 auto}
+ .panel-back{font-size:10px}
+ .field :is(input,textarea){font-size:16px}
+ .committee-check{padding-block:7px;font-size:11px}
+ .inventory-links{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px;max-width:45%}
+ .inventory-action{white-space:normal;max-width:35%;text-align:right}
+ .live-desk .live-sync{margin-bottom:10px;font-size:9px}
+}

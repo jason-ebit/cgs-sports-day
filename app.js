@@ -1,25 +1,27 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=25';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=25';
-import { createLiveDesk } from './live.js?v=25';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=25';
-import { icon } from './icons.js?v=25';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=25';
-import { renderMedia, downloadBlob } from './media.js?v=25';
-import { captureView } from './view-state.js?v=25';
-import { createDeviceStore } from './device-store.js?v=25';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=25';
-import { createBeforeSyncBackup } from './before-sync.js?v=25';
-import { SYNC_CONFIG } from './sync-config.js?v=25';
-import { renderLiveConnection } from './connection-badge.js?v=25';
-import { createGameTimeline } from './game-timeline.js?v=25';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=26';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=26';
+import { createLiveDesk } from './live.js?v=26';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=26';
+import { icon } from './icons.js?v=26';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=26';
+import { renderMedia, downloadBlob } from './media.js?v=26';
+import { captureView } from './view-state.js?v=26';
+import { createDeviceStore } from './device-store.js?v=26';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=26';
+import { createBeforeSyncBackup } from './before-sync.js?v=26';
+import { SYNC_CONFIG } from './sync-config.js?v=26';
+import { renderLiveConnection } from './connection-badge.js?v=26';
+import { createGameTimeline } from './game-timeline.js?v=26';
+import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=26';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const store = createDeviceStore();
 const beforeSync = createBeforeSyncBackup();
 let state = store.state, saveAvailable = store.saved, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
-let department = 'all';
-let renderedPanel = null;
+let department = state.preferences.department;
+const navigation=createPanelNavigation();
+let renderedPanel = null, live = null;
 let timeline = null;
 let sync = null, applyingRemote = false, lastSyncEditable = false;
 const localPreview = ['localhost','127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
@@ -27,7 +29,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=25', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=26', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -53,6 +55,7 @@ function save() {
   updateSyncLabels();
 }
 function updateSyncLabels(){
+  live?.updateStatus?.();
   if(!sync)return;
   const status=sync.status;
   renderLiveConnection($('#sync-tool'),status);
@@ -111,25 +114,40 @@ function renderPoster() {
   timeline?.update();
 }
 function openPanel(key, initialTab = null) {
-  if (!dialog.open) returnFocus = document.activeElement;
+  if (!dialog.open) {returnFocus = document.activeElement;navigation.clear();}
+  else navigation.enter({key:current,tab,department,selection:current?.startsWith('event:')?live.captureSelection?.(Number(current.split(':')[1])):null,restore:captureView(dialog,renderedPanel)},key);
   current = key; const gameIndex=key.startsWith('event:')?Number(key.split(':')[1]):null;
   if(EVENT_GAMES[gameIndex])live.resume(gameIndex);
   tab = initialTab || (EVENT_GAMES[gameIndex]?'timer':'notes'); renderPanel();
   if (!dialog.open) dialog.showModal();
   $('#close-detail').focus();
 }
-function restoreFocus(){ if(returnFocus?.isConnected) returnFocus.focus(); else if(returnFocus?.dataset.open) document.querySelector(`[data-open="${CSS.escape(returnFocus.dataset.open)}"]`)?.focus(); }
-function closePanel() { dialog.close(); restoreFocus(); }
+function backPanel(){
+  const previous=navigation.back();if(!previous)return;
+  current=previous.key;tab=previous.tab;department=previous.department;
+  if(current.startsWith('event:')&&previous.selection)live.restoreSelection?.(Number(current.split(':')[1]),previous.selection);
+  state.preferences.department=department;
+  save();renderPanel();previous.restore(renderedPanel);
+  if(!canFocus(document.activeElement)||!dialog.contains(document.activeElement))$('#close-detail').focus();
+}
+function canFocus(element){return Boolean(element?.isConnected&&!element.disabled&&element.getClientRects().length);}
+function restoreFocus(){
+  if(canFocus(returnFocus)){returnFocus.focus();return;}
+  const replacements=returnFocus?.dataset.open?document.querySelectorAll(`[data-open="${CSS.escape(returnFocus.dataset.open)}"]`):[];
+  const target=[...replacements,$('#teams-tool')].find(canFocus);target?.focus();
+}
+function closePanel() { dialog.close(); }
+function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper'})[key]||'Back';}
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 function inventoryPanel() {
-  const row=item=>`<li class="inventory-row"><span class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span>${item.links?`<span class="inventory-links">${item.links.map(link=>`<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(item.name+' · '+link.label+' · opens in a new tab')}">${esc(link.label)} <span aria-hidden="true">↗</span></a>`).join('')}</span>`:item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;
-  return `<section class="committee-inventory" aria-labelledby="inventory-title"><h3 id="inventory-title">Items &amp; shopping links</h3><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(row).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(row).join('')}</ul></section></div><p class="help">Bring what we have; buy, borrow or prepare what’s missing. Links are from the handover.</p></section>`;
+  const row=(item,group)=>{const key=checklistKey('inventory:'+group,item.name),checked=state.committeeChecklist[key];return `<li class="inventory-row ${checked?'checked':''}"><label class="inventory-item"><input type="checkbox" data-checklist="${key}" ${checked?'checked':''} aria-label="${esc(item.name+' ready')}"><span><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></label>${item.links?`<span class="inventory-links">${item.links.map(link=>`<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(item.name+' · '+link.label+' · opens in a new tab')}">${esc(link.label)} <span aria-hidden="true">↗</span></a>`).join('')}</span>`:item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;};
+  return `<section class="committee-inventory" aria-labelledby="inventory-title"><h3 id="inventory-title">Items &amp; shopping links</h3><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(item=>row(item,'have')).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(item=>row(item,'prepare')).join('')}</ul></section></div><p class="help">Tick when packed or ready. Checks stay on this phone.</p></section>`;
 }
 function committeePanel(index = null) {
   const general=index===null;
-  if(general&&department==='all')department='director';
-  const selected=DEPARTMENTS.find(item=>item.id===department);
+  const selectedDepartment=general&&department==='all'?'director':department;
+  const selected=DEPARTMENTS.find(item=>item.id===selectedDepartment);
   const tabs=[...(general?[]:[{id:'all',name:'All'}]),...DEPARTMENTS];
   const items=selected?(general?selected.general:selected.notes[index]):COMMITTEE[index];
   const key=general?'general':String(index);
@@ -137,11 +155,13 @@ function committeePanel(index = null) {
   const gameLinks=general?`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`:'';
   const reminder=selected?.id==='director'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Items &amp; shopping links →</button>'):`<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
   const extras=selected?.id==='director'?reminder+gameLinks:gameLinks+reminder;
-  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${department===item.id}" class="${department===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${items.length?bullets(selected?.name||'Everyone',items):'<p class="committee-empty">No extra task for this event.</p>'}${extras}`;
+  const scope=`${selectedDepartment}:${general?'general':'event:'+index}`;
+  const tasks=items.length?`<section class="note-card compact-note"><h3>${esc(selected?.name||'Everyone')}</h3><ul class="committee-checklist">${items.map(item=>{const key=checklistKey(scope,item);return `<li><label class="committee-check"><input type="checkbox" data-checklist="${key}" ${state.committeeChecklist[key]?'checked':''}><span>${esc(item)}</span></label></li>`;}).join('')}</ul></section>`:'<p class="committee-empty">No extra task for this event.</p>';
+  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${selectedDepartment===item.id}" class="${selectedDepartment===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${tasks}${extras}`;
 }
 function gameSheet(game) {
   if(game!=='tug')return scorePanel(game);
-  if(game==='tug')return `<div class="section-label">MATCH RESULTS <span class="badge">Auto-saved</span></div><div class="score-table-wrap"><table class="score-table match-sheet"><thead><tr><th>Match</th><th>Opponents</th><th>Winner</th><th></th></tr></thead><tbody>${MATCH_KEYS.map(k=>{const pair=matchTeams(state.tug,k),ready=state.tug.locked&&pair.every(Boolean);return `<tr><td>${MATCH_NAMES[k]}</td><td>${pair.map(id=>esc(team(id)?.name||'TBD')).join(' vs ')}</td><td>${state.tug.winners[k]?teamLabel(state.tug.winners[k]):'—'}</td><td><button class="text-button" data-live-match="${k}" ${ready?'':'disabled'}>${state.tug.winners[k]?'Review':'Run'} ↗</button></td></tr>`;}).join('')}</tbody></table></div><p class="help">Final results go straight to the main Scores overview. Semifinal losers share third place.</p><button class="secondary" data-open="results">Championship points →</button>`;
+  if(game==='tug')return `<div class="section-label">MATCH RESULTS <span class="badge">Auto-saved</span></div><div class="score-table-wrap"><table class="score-table match-sheet"><thead><tr><th>Match</th><th>Opponents</th><th>Winner</th><th></th></tr></thead><tbody>${MATCH_KEYS.map(k=>{const pair=matchTeams(state.tug,k),ready=state.tug.locked&&pair.every(Boolean);return `<tr><td>${MATCH_NAMES[k]}</td><td>${pair.map(id=>esc(team(id)?.name||'TBD')).join(' vs ')}</td><td>${state.tug.winners[k]?teamLabel(state.tug.winners[k]):'—'}</td><td><button class="text-button" data-live-match="${k}" ${ready?'':'disabled'}>${state.tug.winners[k]?'Review':canEdit()?'Run':'View'} ↗</button></td></tr>`;}).join('')}</tbody></table></div><p class="help">Final results go straight to the main Scores overview. Semifinal losers share third place.</p><button class="secondary" data-open="results">Championship points →</button>`;
 
 }
 function renderPanel() {
@@ -150,6 +170,9 @@ function renderPanel() {
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
   $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', sync:'Scorekeeper' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : 'CG SPORTS DAY / OCT 25';
+  $('#back-detail').hidden=!navigation.previous;
+  $('#back-detail').textContent=navigation.previous?'‹ Back to '+panelName(navigation.previous.key):'';
+  $('#detail-eyebrow').hidden=Boolean(navigation.previous);
   const tabs=[['timer','Timer & scoring'],...(game==='tug'?[['play','Bracket']]:[]),...(game?[['scores','Scores']]:[]),['notes','Format'],['committee','Committee']];
   dialog.classList.toggle('game-dialog',Boolean(game));
   dialog.classList.toggle('sync-dialog',current==='sync');
@@ -171,7 +194,7 @@ function renderPanel() {
   if(!canEdit())body.querySelectorAll('[data-assign-slot],[data-borrow-rounds],[data-winner],[data-placement],[data-placement-rule],[data-team][data-field="name"],[data-team][data-field="seed"],[data-action="random-draw"],[data-action="seed-draw"],[data-action="lock-draw"],[data-action="clear-matches"]').forEach(el=>el.disabled=true);
   if(!writerAuthority())body.querySelectorAll('[data-action="reset-all"],[data-action="restore-before-sync"],#import-file').forEach(el=>el.disabled=true);
   updateSyncLabels();
-  renderedPanel = `${current}/${tab}`;
+  renderedPanel = `${current}/${tab}${current==='committee'||tab==='committee'?'/'+department:''}`;
   restoreView(renderedPanel);
 }
 function teamsPanel() {
@@ -180,13 +203,13 @@ function teamsPanel() {
 function tugPanel() {
   const t=state.tug,done=gameDone(state,'tug'), labels=['Prelim · A','Prelim · B','Semi 1 · bye','Semi 2 · A / bye','Semi 2 · B / bye'];
   const match=(key,label,placeholders)=>{const pair=matchTeams(t,key);return `<div class="match" data-match-card="${key}"><div class="match-label">${label}<span>60s ↗</span></div>${pair.map((id,i)=>`<button data-live-match="${key}" ${!t.locked||pair.some(x=>!x)?'disabled':''} class="${t.winners[key]===id&&id?'winner':''}" aria-label="${esc(label+': open timer for '+pair.map(t=>team(t)?.name||'TBD').join(' vs '))}">${id?dot(id):''}<span>${esc(team(id)?.name||placeholders[i])}</span></button>`).join('')}</div>`;};
-  return `<details class="draw-settings" ${t.locked?'':'open'}><summary>${t.locked?'Draw locked · view / edit':'Set up the draw'}</summary><div class="section-label">THE DRAW <span class="badge ${t.locked?'':'pending'}">${t.locked?'Locked':'Draft · not locked'}</span></div><p class="help">Draw five unique slots, assign them manually, or use your team seeds. Selecting an assigned team swaps its slot.</p><div class="button-row"><button class="primary" data-action="random-draw" ${t.locked?'disabled':''}>Draw opponents</button><button class="secondary" data-action="seed-draw" ${t.locked?'disabled':''}>Use seeds</button><button class="secondary" data-action="lock-draw" ${done||!t.locked&&!validSlots(t.slots)?'disabled':''}>${t.locked?'Unlock & edit':'Lock draw'}</button></div><div class="seed-grid">${labels.map((label,i)=>`<div class="field"><span>${label}</span><div class="team-choices slot-choices" role="group" aria-label="${label}">${TEAM_IDS.map(id=>`<button class="team-choice ${t.slots[i]===id?'selected':''}" data-assign-slot="${i}" data-team-id="${id}" aria-label="${label}: ${esc(team(id).name)}" aria-pressed="${t.slots[i]===id}" ${t.locked?'disabled':''}>${dot(id)}<span>${esc(team(id).name)}</span></button>`).join('')}</div></div>`).join('')}</div></details><div class="section-label">THE BRACKET <span class="badge">Select match to time & score</span></div><div class="bracket-scroll"><div class="bracket"><div class="bracket-column"><h4>PRELIMINARY</h4>${match('prelim','P · Preliminary',['Draw 1','Draw 2'])}<p class="byes-note">Three drawn teams advance<br>directly to the semifinals.</p></div><div class="bracket-column"><h4>SEMIFINALS</h4>${match('semi1','S1 · Semifinal',['Draw 3 · bye','Winner P'])}${match('semi2','S2 · Semifinal',['Draw 4 · bye','Draw 5 · bye'])}</div><div class="bracket-column"><h4>FINAL</h4>${match('final','F · Final',['Winner S1','Winner S2'])}</div></div></div>${t.winners.final?`<div class="champion">${icon('trophy')}${esc(team(t.winners.final).name)} wins the final</div>`:''}<div class="button-row">${(()=>{const next=MATCH_KEYS.find(k=>t.locked&&matchTeams(t,k).every(Boolean)&&!t.winners[k]);return next?`<button class="primary" data-live-match="${next}">Run ${MATCH_NAMES[next].toLowerCase()} · ${matchTeams(t,next).map(id=>esc(team(id).name)).join(' vs ')} ↗</button>`:'';})()}<button class="secondary" data-tab="scores">Score sheet →</button></div><p class="help">The final sends points automatically. Semifinal losers share third place.</p><p class="help">Changing an earlier winner clears affected later results and approved tug-of-war placements.</p>${!done&&Object.values(t.winners).some(Boolean)?'<button class="text-button" data-action="clear-matches">Clear match results</button>':''}`;
+  return `${canEdit()?`<details class="draw-settings" ${t.locked?'':'open'}><summary>${t.locked?'Draw locked · view / edit':'Set up the draw'}</summary><div class="section-label">THE DRAW <span class="badge ${t.locked?'':'pending'}">${t.locked?'Locked':'Draft · not locked'}</span></div><p class="help">Draw five unique slots, assign them manually, or use your team seeds. Selecting an assigned team swaps its slot.</p><div class="button-row"><button class="primary" data-action="random-draw" ${t.locked?'disabled':''}>Draw opponents</button><button class="secondary" data-action="seed-draw" ${t.locked?'disabled':''}>Use seeds</button><button class="secondary" data-action="lock-draw" ${done||!t.locked&&!validSlots(t.slots)?'disabled':''}>${t.locked?'Unlock & edit':'Lock draw'}</button></div><div class="seed-grid">${labels.map((label,i)=>`<div class="field"><span>${label}</span><div class="team-choices slot-choices" role="group" aria-label="${label}">${TEAM_IDS.map(id=>`<button class="team-choice ${t.slots[i]===id?'selected':''}" data-assign-slot="${i}" data-team-id="${id}" aria-label="${label}: ${esc(team(id).name)}" aria-pressed="${t.slots[i]===id}" ${t.locked?'disabled':''}>${dot(id)}<span>${esc(team(id).name)}</span></button>`).join('')}</div></div>`).join('')}</div></details>`:""}<div class="section-label">THE BRACKET <span class="badge">Select match to time & score</span></div><div class="bracket-scroll"><div class="bracket"><div class="bracket-column"><h4>PRELIMINARY</h4>${match('prelim','P · Preliminary',['Draw 1','Draw 2'])}<p class="byes-note">Three drawn teams advance<br>directly to the semifinals.</p></div><div class="bracket-column"><h4>SEMIFINALS</h4>${match('semi1','S1 · Semifinal',['Draw 3 · bye','Winner P'])}${match('semi2','S2 · Semifinal',['Draw 4 · bye','Draw 5 · bye'])}</div><div class="bracket-column"><h4>FINAL</h4>${match('final','F · Final',['Winner S1','Winner S2'])}</div></div></div>${t.winners.final?`<div class="champion">${icon('trophy')}${esc(team(t.winners.final).name)} wins the final</div>`:''}<div class="button-row">${(()=>{const next=MATCH_KEYS.find(k=>t.locked&&matchTeams(t,k).every(Boolean)&&!t.winners[k]);return next?`<button class="primary" data-live-match="${next}">Run ${MATCH_NAMES[next].toLowerCase()} · ${matchTeams(t,next).map(id=>esc(team(id).name)).join(' vs ')} ↗</button>`:'';})()}<button class="secondary" data-tab="scores">Score sheet →</button></div><p class="help">The final sends points automatically. Semifinal losers share third place.</p><p class="help">Changing an earlier winner clears affected later results and approved tug-of-war placements.</p>${!done&&Object.values(t.winners).some(Boolean)?'<button class="text-button" data-action="clear-matches">Clear match results</button>':''}`;
 }
 function scorePanel(game) {
   const done=gameDone(state,game),labels=game==='borrow'?Array.from({length:state.borrow.rounds},(_,i)=>'R'+(i+1)):game==='basket'?['Attempt 1','Attempt 2']:game==='cavalry'?['R1 · Women','R2 · Men']:['Baton','3-legged','Spoon'];
   const values=totals(state,game),places=gamePlaces(state,game);
   const rows=game==='cavalry'?TEAM_IDS.map((_,i)=>['women','men'].map(d=>cavalryPoints(state,d)[i])):state[game].scores;
-  return `<div class="section-label">SCORE SHEET <span class="badge">${done?'Game complete · points sent':'Auto-saved from match desk'}</span></div>${game==='borrow'?`<div class="button-row"><button class="${state.borrow.rounds===6?'primary':'secondary'}" data-borrow-rounds="6" ${done?'disabled':''}>6 rounds</button><button class="${state.borrow.rounds===7?'primary':'secondary'}" data-borrow-rounds="7" ${done?'disabled':''}>7 · contingency</button></div>`:''}<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th>${labels.map(l=>`<th>${l}</th>`).join('')}<th>${game==='basket'?'Best':'Total'}</th></tr></thead><tbody>${state.teams.map((t,i)=>`<tr><td>${teamLabel(t.id)}</td>${labels.map((label,j)=>`<td>${rows[i][j]===null?'—':game==='relay'?'#'+rows[i][j]:rows[i][j]}</td>`).join('')}<td><strong>${values[i]??'—'}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Start each timer before scoring. Finished rounds are locked; use Reset in Timer & scoring to correct a result.</p><div class="button-row"><button class="secondary" data-tab="timer">Timer & scoring →</button>${done?'<button class="primary" data-open="results">Main Scores →</button>':''}</div><div class="section-label">GAME PLACING</div>${places?state.teams.map((t,i)=>({id:t.id,place:places[i]})).sort((a,b)=>a.place-b.place).map(t=>`<div class="result-line">${teamLabel(t.id)}<span>#${t.place} · ${6-t.place} championship pts</span></div>`).join(''):note('Game in progress','Finish every round or attempt to send points to the main Scores overview.',true)}`;
+  return `<div class="section-label">SCORE SHEET <span class="badge">${done?'Game complete · points sent':'Auto-saved from match desk'}</span></div>${game==='borrow'&&canEdit()?`<div class="button-row"><button class="${state.borrow.rounds===6?'primary':'secondary'}" data-borrow-rounds="6" ${done?'disabled':''}>6 rounds</button><button class="${state.borrow.rounds===7?'primary':'secondary'}" data-borrow-rounds="7" ${done?'disabled':''}>7 · contingency</button></div>`:''}<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th>${labels.map(l=>`<th>${l}</th>`).join('')}<th>${game==='basket'?'Best':'Total'}</th></tr></thead><tbody>${state.teams.map((t,i)=>`<tr><td>${teamLabel(t.id)}</td>${labels.map((label,j)=>`<td>${rows[i][j]===null?'—':game==='relay'?'#'+rows[i][j]:rows[i][j]}</td>`).join('')}<td><strong>${values[i]??'—'}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Start each timer before scoring. Finished rounds are locked; use Reset in Timer & scoring to correct a result.</p><div class="button-row"><button class="secondary" data-tab="timer">Timer & scoring →</button>${done?'<button class="primary" data-open="results">Main Scores →</button>':''}</div><div class="section-label">GAME PLACING</div>${places?state.teams.map((t,i)=>({id:t.id,place:places[i]})).sort((a,b)=>a.place-b.place).map(t=>`<div class="result-line">${teamLabel(t.id)}<span>#${t.place} · ${6-t.place} championship pts</span></div>`).join(''):note('Game in progress','Finish every round or attempt to send points to the main Scores overview.',true)}`;
 }
 function resultsPanel() {
   const c=championship(state),leaders=leadersFor(c);
@@ -208,7 +231,10 @@ async function recordTugWinner(match,id) {
   affected.forEach(k=>delete state.timers['tug:'+k]);
   save();renderPoster();return true;
 }
-const live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit});
+live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit,
+  syncStatus:()=>sync?.status||{localPreview:true},preferences:()=>state.preferences,
+  savePreference:(key,value)=>{state.preferences[key]=value;save();}
+});
 timeline=createGameTimeline({getState:()=>state,container:$('#game-grid')});
 if(!localPreview){
   sync=createSyncService({...SYNC_CONFIG,
@@ -265,7 +291,7 @@ document.addEventListener('click',async event=>{
   try {
     if(el.dataset.syncAction){await syncAction(el.dataset.syncAction);return;}
     if(el.dataset.open){openPanel(el.dataset.open,el.dataset.initialTab||null);return;}
-    if(el.dataset.department){department=el.dataset.department;renderPanel();return;}
+    if(el.dataset.department){department=el.dataset.department;state.preferences.department=department;save();renderPanel();return;}
     if(el.dataset.tab){tab=el.dataset.tab;renderPanel();return;}
     if(el.dataset.scoreOpen){openPanel('event:'+GAME_EVENTS[el.dataset.scoreOpen],gameDone(state,el.dataset.scoreOpen)?'scores':'timer');return;}
     if(el.dataset.assignSlot!==undefined){if(!requireEditor())return;assignSlot(state.tug,Number(el.dataset.assignSlot),el.dataset.teamId);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();return;}
@@ -284,7 +310,7 @@ document.addEventListener('click',async event=>{
       case 'recover-sync':if(await confirmChange('Replace the unreadable original-backup record with this phone’s current scores, then load confirmed shared scores? Download the recovery copy first. Any pending results will be discarded.')){beforeSync.recover(state);await sync.acceptRemote();renderPanel();}break;
       case 'export-before-sync':if(beforeSync.raw)downloadBlob(new Blob([beforeSync.raw],{type:'application/json'}),'cg-sports-day-before-sync.json');break;
       case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current local reminders will stay.')&&requireWriter()){state=mergePublicState(publicSnapshot(validateState(JSON.parse(beforeSync.raw))),state);store.replace(state);changed();toast('Original phone scores restored.');}break;
-      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, scores, timers and draw will be cleared. Download a backup first to keep them.')&&requireWriter()){state=defaultState();store.replace(state);changed();toast('Event data reset.');}break;
+      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, scores, timers and draw will be cleared. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
       case 'download-media':if(mediaCanvas)mediaCanvas.toBlob(blob=>{if(blob)downloadBlob(blob,`cg-sports-day-${exportSize}.png`);else toast('Image export failed. Please try again.');},'image/png');break;
     }
   }catch(e){toast(e.message);}
@@ -292,6 +318,7 @@ document.addEventListener('click',async event=>{
 document.addEventListener('change',async event=>{
   const el=event.target,d=el.dataset;if(el.closest('[data-live-event]'))return;let n=el.value===''?null:Number(el.value);
   try {
+    if(d.checklist){state.committeeChecklist[d.checklist]=el.checked;el.closest('.inventory-row')?.classList.toggle('checked',el.checked);save();return;}
     if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
     if(d.team!==undefined){if(['name','seed'].includes(d.field)&&!requireEditor()){renderPanel();return;}const t=state.teams[Number(d.team)];if(d.field==='name'&&!el.value.trim()){el.value=t.name;toast('Team names cannot be blank.');return;}t[d.field]=['seed','participants'].includes(d.field)?n:el.value.trim();changed(false);}
     else if(d.placement){if(!requireEditor())return;const p=state.placements[d.placement];if(n!==null&&p.values.some((v,i)=>i!==Number(d.row)&&v===n)){toast('Each team needs a unique final place.');renderPanel();return;}p.values[Number(d.row)]=n;changed();}
@@ -301,7 +328,7 @@ document.addEventListener('change',async event=>{
       if(!requireWriter())return;
       const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
-      if(await confirmChange('Replace shared scores for everyone and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;store.replace(state);changed();toast('Backup restored.');}
+      if(await confirmChange('Replace shared scores for everyone and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}
@@ -311,14 +338,15 @@ document.addEventListener('input',event=>{
   if(d.team!==undefined&&['leader','name'].includes(d.field)){
     if(d.field==='name'&&!canEdit())return;
     const value=event.target.value.trim();
-    if(d.field==='leader'||value){state.teams[Number(d.team)][d.field]=value;save();renderPoster();}
+    if(d.field==='leader'||value){state.teams[Number(d.team)][d.field]=value;event.target.dataset.committedValue=value;save();renderPoster();}
   }
-  if(d.eventNote!==undefined){state.notes[d.eventNote]=event.target.value;save();}
-  if(d.committeeNote){state.committeeNotes[d.committeeNote]||={};state.committeeNotes[d.committeeNote][d.noteKey]=event.target.value;save();}
+  if(d.eventNote!==undefined){state.notes[d.eventNote]=event.target.value;event.target.dataset.committedValue=event.target.value;save();}
+  if(d.committeeNote){state.committeeNotes[d.committeeNote]||={};state.committeeNotes[d.committeeNote][d.noteKey]=event.target.value;event.target.dataset.committedValue=event.target.value;save();}
 });
 $('#close-detail').addEventListener('click',closePanel);
+$('#back-detail').addEventListener('click',backPanel);
 dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closePanel();}});
-dialog.addEventListener('close',restoreFocus);
+dialog.addEventListener('close',()=>{navigation.clear();restoreFocus();});
 let fitEnabled=true;
 function fitPoster(){
   const viewport=$('#poster-viewport'),poster=$('#poster');
