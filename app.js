@@ -1,15 +1,17 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=18';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=18';
-import { createLiveDesk } from './live.js?v=18';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=18';
-import { icon } from './icons.js?v=18';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=18';
-import { renderMedia, downloadBlob } from './media.js?v=18';
-import { captureView } from './view-state.js?v=18';
-import { createDeviceStore } from './device-store.js?v=18';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=18';
-import { createBeforeSyncBackup } from './before-sync.js?v=18';
-import { SYNC_CONFIG } from './sync-config.js?v=18';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=19';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=19';
+import { createLiveDesk } from './live.js?v=19';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=19';
+import { icon } from './icons.js?v=19';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=19';
+import { renderMedia, downloadBlob } from './media.js?v=19';
+import { captureView } from './view-state.js?v=19';
+import { createDeviceStore } from './device-store.js?v=19';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=19';
+import { createBeforeSyncBackup } from './before-sync.js?v=19';
+import { SYNC_CONFIG } from './sync-config.js?v=19';
+import { renderLiveConnection } from './connection-badge.js?v=19';
+import { createGameTimeline } from './game-timeline.js?v=19';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -18,13 +20,14 @@ const beforeSync = createBeforeSyncBackup();
 let state = store.state, saveAvailable = store.saved, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
 let department = 'all';
 let renderedPanel = null;
+let timeline = null;
 let sync = null, applyingRemote = false, lastSyncEditable = false;
 const localPreview = ['localhost','127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
 const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.status.phase !== 'conflict' && !sync.status.storageError;
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=18', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=19', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -45,6 +48,7 @@ function save() {
   $('#save-state').textContent = saveAvailable ? 'Saved on this device' : store.protected ? 'Existing backup protected' : 'Not saved · export a backup';
   $('#panel-save').textContent = saveAvailable ? 'Changes save on this device' : store.protected ? 'Saved data unreadable · export before replacing' : 'Storage unavailable · export a backup';
   updateLeaderCrowns();
+  timeline?.update();
   if(sync&&!applyingRemote&&canEdit())sync.queue(state);
   updateSyncLabels();
 }
@@ -52,6 +56,7 @@ function updateSyncLabels(){
   if(!sync)return;
   const status=sync.status,labels={connecting:'Connecting',watching:'Watching live',synced:'Synced',syncing:'Syncing',pending:'Pending',offline:'Offline',conflict:'Review pending',busy:'Viewing scores','signed-out':'Sign in again',error:'Sync unavailable'};
   $('#sync-label').textContent=labels[status.phase]||'Live scores';
+  renderLiveConnection($('#sync-tool'),status);
   $('#sync-tool').dataset.syncPhase=status.phase;
   $('#save-state').textContent=status.role==='writer'?(status.pending?'Pending on this phone':status.connected?'Shared scores synced':'Offline · cached scores'):status.connected?'Viewing shared scores':'Cached scores · reconnecting';
   $('#panel-save').textContent=status.role==='writer'?'Scores sync automatically · reminders stay on this phone':'Live scores · reminders stay on this phone';
@@ -98,6 +103,7 @@ function renderPoster() {
   });
   requestAnimationFrame(fitPoster);
   document.querySelectorAll('[data-icon]').forEach(el => el.innerHTML = icon(el.dataset.icon));
+  timeline?.update();
 }
 function openPanel(key, initialTab = null) {
   if (!dialog.open) returnFocus = document.activeElement;
@@ -197,6 +203,7 @@ async function recordTugWinner(match,id) {
   save();renderPoster();return true;
 }
 const live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit});
+timeline=createGameTimeline({getState:()=>state,container:$('#game-grid')});
 if(!localPreview){
   sync=createSyncService({...SYNC_CONFIG,
     onStatus(status){
@@ -311,9 +318,10 @@ function fitPoster(){
   const viewport=$('#poster-viewport'),poster=$('#poster');
   document.body.classList.toggle('fit-home',fitEnabled);
   poster.style.removeProperty('transform');poster.style.removeProperty('width');
-  if(!fitEnabled){viewport.style.removeProperty('height');return;}
+  if(!fitEnabled){viewport.style.removeProperty('height');timeline?.update();return;}
   const available=Math.max(420,innerHeight-$('.toolbar').offsetHeight-$('#home-shortcuts').offsetHeight);
   viewport.style.height=available+'px';
+  timeline?.update();
 }
 $('#fit-toggle').addEventListener('click',()=>{fitEnabled=!fitEnabled;$('#fit-toggle').textContent=fitEnabled?'Expand layout':'Fit screen';$('#fit-toggle').setAttribute('aria-pressed',String(!fitEnabled));fitPoster();});
 document.querySelectorAll('[data-home-view-button]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.homeView=button.dataset.homeViewButton;document.querySelectorAll('[data-home-view-button]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));fitPoster();}));

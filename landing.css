@@ -242,6 +242,23 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
 .sync-summary h3{margin:10px 0 8px}
 .sync-error{color:#9a564a;margin-top:10px!important}
 #download-media{min-height:42px}
+.game-grid{position:relative;isolation:isolate}
+.game-grid>.game-card{position:relative;z-index:1}
+.game-timeline{position:absolute;inset:0;width:100%;height:100%;overflow:visible;pointer-events:none;z-index:0}
+.game-timeline-link{fill:none;stroke:#d2dccb;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.game-timeline-link--completed{stroke:#8da780}
+.game-timeline-link--current{stroke:#6e8d5e;animation:timeline-breathe 2.4s ease-in-out infinite}
+.game-timeline-dot{fill:#c6d2bf;stroke:#f4f5f0;stroke-width:1.2}
+.game-timeline-dot--completed{fill:#8da780}.game-timeline-dot--current{fill:#6e8d5e;animation:timeline-breathe 2.4s ease-in-out infinite}
+.game-timeline.is-drawing .game-timeline-link{stroke-dasharray:1;stroke-dashoffset:1;animation:timeline-draw 1.8s ease forwards;animation-delay:calc(var(--timeline-order,0)*.25s)}
+.game-timeline.is-drawing .game-timeline-link--current{animation:timeline-draw 1.8s ease forwards,timeline-breathe 2.4s ease-in-out infinite;animation-delay:calc(var(--timeline-order,0)*.25s),0s}
+.game-card[data-timeline-state="active"] .game-head>.game-number{animation:timeline-marker 2.4s ease-in-out infinite;background:#607852}
+.game-card[data-timeline-state="next"] .game-head>.game-number{box-shadow:0 0 0 2px #9bb38b42}
+.game-card[data-timeline-state="completed"] .game-head>.game-number{background:#85997b}
+@keyframes timeline-draw{to{stroke-dashoffset:0}}
+@keyframes timeline-breathe{0%,100%{opacity:.45}50%{opacity:1}}
+@keyframes timeline-marker{0%,100%{box-shadow:0 0 0 1px #829b6e20}50%{box-shadow:0 0 0 5px #829b6e35}}
+@media(prefers-reduced-motion:reduce){.game-timeline :is(.game-timeline-link,.game-timeline-dot),.game-card[data-timeline-state="active"] .game-head>.game-number{animation:none!important;stroke-dashoffset:0!important;stroke-dasharray:none!important}}
 @media(max-width:760px){
  :root{--desk-inset:16px}
  .team-choices:not(.slot-choices) .team-choice>span.team-choice-name{display:block;width:100%}
@@ -249,3 +266,16 @@ body{background:#f4f5f0}.toolbar{max-width:1680px;padding-inline:28px;border-col
  .live-bottom-actions>button{flex:0 1 auto}
  #home-shortcuts .sync-tool{width:94px}
 }
+
+/* A quiet connection light keeps confirmed scores distinct from pending edits. */
+#home-shortcuts .connection-badge{display:inline-flex;align-items:center;justify-content:center;gap:7px}
+#home-shortcuts .connection-badge>span{display:inline;margin:0}
+#home-shortcuts .connection-badge>.connection-light{display:block}
+.connection-light{display:block;width:6px;height:6px;flex:0 0 6px;border-radius:50%;background:#92988b;opacity:1}
+#home-shortcuts .connection-badge[data-connection-tone="live"]{color:#49613c!important}
+.connection-badge[data-connection-tone="live"] .connection-light{background:#6e865f;animation:connection-breathe 1.8s ease-in-out infinite}
+#home-shortcuts .connection-badge[data-connection-tone="attention"]{color:#946347!important;border-color:#cbbb9e!important}
+.connection-badge[data-connection-tone="attention"] .connection-light{background:#aa8050}
+#home-shortcuts .connection-badge[data-connection-tone="offline"]{color:#747b6c!important}
+@keyframes connection-breathe{0%,100%{opacity:1}50%{opacity:.3}}
+@media(prefers-reduced-motion:reduce){.connection-badge[data-connection-tone="live"] .connection-light{animation:none}}

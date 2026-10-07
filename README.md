@@ -4,7 +4,7 @@
 
 The published site is installable and keeps its app shell available offline after the first successful visit. On iPhone, open the GitHub Pages URL in Safari, choose **Share → Add to Home Screen**, and open it once while online. On Android, open the URL in Chrome and choose **Install app** or **Add to Home screen**.
 
-Shared scores, brackets and timers use Supabase. Everyone watches the same GitHub Pages link; one registered scorekeeper signs in through the status button at the bottom. Committee reminders, leaders and headcounts stay in the browser on that phone. Use **Reset / backup → Download JSON backup** to safeguard device data.
+Shared scores, brackets and timers use Supabase. Everyone watches the same GitHub Pages link; one registered scorekeeper signs in through the status button at the bottom. A blinking ● Live appears only while connected with confirmed scores; Pending / Review and Offline remain distinct. Committee reminders, leaders and headcounts stay in the browser on that phone. Use **Reset / backup → Download JSON backup** to safeguard device data.
 
 Updates install as a complete offline version and take effect on the next page load. They never reload a running timer. If an update download fails, the installed version remains available.
 
@@ -22,7 +22,7 @@ Open **http://127.0.0.1:4173** to watch shared scores, or **http://127.0.0.1:417
 
 ## Use
 
-- **Home:** the landing page uses a wide, screen-filling grid with readable type, aligned cards and muted sage / gold / rose accents. Phones have a **Rundown / Games** switch so each view fits without shrinking the entire poster. **Expand layout** offers the roomier scrollable version. A running or paused game stays highlighted with its matchup and timer.
+- **Home:** the landing page uses a wide, screen-filling grid with readable type, aligned cards and muted sage / gold / rose accents. Phones have a **Rundown / Games** switch so each view fits without shrinking the entire poster. **Expand layout** offers the roomier scrollable version. A running or paused game stays highlighted with its matchup and timer. A curved progress path links the five cards; completed steps stay marked and the current step breathes.
 - **Game desk:** games open on **Timer & scoring**, with numbered rounds/attempts above the controls. Round selection stays shared across Timer, Scores, Format and Committee tabs. Team choices are rounded colour buttons. Essential rules and committee checklists remain separate.
 - **Opening:** Prayer runs 12:15–12:17, followed by Opening / Safety 12:17–12:20. All game times stay the same. The rundown and poster exports show the new slot in chronological order; existing saved event notes and timers keep their original identities.
 - **Borrow-a-Thing:** tap **Success** in arrival order: 5 / 4 / 3 / 2 / 2. **Fail** awards zero and does not consume a success rank. Every team recorded completes and locks the round. Six rounds by default; the Scores tab can include the seventh contingency round.

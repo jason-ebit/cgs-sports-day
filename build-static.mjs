@@ -18,6 +18,8 @@ const files = [
   'sync.js',
   'sync-config.js',
   'before-sync.js',
+  'connection-badge.js',
+  'game-timeline.js',
   'schedule.json',
   'manifest.webmanifest',
   'sw.js'

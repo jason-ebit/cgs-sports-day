@@ -1,4 +1,4 @@
-const VERSION = '18';
+const VERSION = '19';
 const CACHE = `cg-sports-day-v${VERSION}`;
 const scopeURL = new URL('./', self.location.href);
 const homeURL = new URL('./index.html', scopeURL).href;
@@ -10,7 +10,7 @@ const APP_SHELL = [
     './styles.css', './landing.css', './app.js', './content.js',
     './icons.js', './live.js', './media.js', './model.js', './rounds.js',
     './timer-model.js', './timer-popup.js', './view-state.js', './device-store.js', './schedule.json',
-    './sync.js', './sync-config.js', './before-sync.js'
+    './sync.js', './sync-config.js', './before-sync.js', './connection-badge.js', './game-timeline.js'
   ].map(path => `${path}?v=${VERSION}`),
   './manifest.webmanifest',
   './assets/favicon.svg',
