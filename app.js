@@ -1,17 +1,17 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=19';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=19';
-import { createLiveDesk } from './live.js?v=19';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=19';
-import { icon } from './icons.js?v=19';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=19';
-import { renderMedia, downloadBlob } from './media.js?v=19';
-import { captureView } from './view-state.js?v=19';
-import { createDeviceStore } from './device-store.js?v=19';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=19';
-import { createBeforeSyncBackup } from './before-sync.js?v=19';
-import { SYNC_CONFIG } from './sync-config.js?v=19';
-import { renderLiveConnection } from './connection-badge.js?v=19';
-import { createGameTimeline } from './game-timeline.js?v=19';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=20';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=20';
+import { createLiveDesk } from './live.js?v=20';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=20';
+import { icon } from './icons.js?v=20';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=20';
+import { renderMedia, downloadBlob } from './media.js?v=20';
+import { captureView } from './view-state.js?v=20';
+import { createDeviceStore } from './device-store.js?v=20';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=20';
+import { createBeforeSyncBackup } from './before-sync.js?v=20';
+import { SYNC_CONFIG } from './sync-config.js?v=20';
+import { renderLiveConnection } from './connection-badge.js?v=20';
+import { createGameTimeline } from './game-timeline.js?v=20';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -27,7 +27,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=19', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=20', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -87,12 +87,18 @@ function renderPoster() {
     return `<span class="team-dot-label"><span class="legend-marker">${dot(id)}<span class="leader-crown" data-leader-crown="${id}" role="img" aria-label="Leading team" ${leaders.includes(id)?'':'hidden'}>${icon('crown')}</span></span><span class="team-name" title="${esc(label)}">${esc(label)}</span></span>`;
   }).join('');
   const head = (g, n) => `<div class="game-head"><span class="game-number">${n}</span>${icon(g)}<h3>${GAME_NAMES[g]}</h3></div>`;
-  $('#game-grid').innerHTML = `
+  const gameCards = `
     <button class="game-card" data-open="event:4">${head('borrow',1)}<p class="game-kicker">ALL FIVE TEAMS TOGETHER</p><div class="game-team-row">${teamDots()}</div><p class="game-copy">6–7 rounds · cumulative points</p><div class="game-bottom">Total points → placing</div></button>
     <button class="game-card" data-open="event:5">${head('basket',2)}<p class="game-kicker">TEAMS TAKE TURNS</p><div class="game-team-row">${teamDots(['yellow','white','red','green','blue'])}</div><p class="game-copy">2 attempts per team</p><div class="game-bottom">Best score → placing</div></button>
     <button class="game-card" data-open="event:7">${head('cavalry',3)}<p class="game-kicker">ALL-IN BATTLE</p><div class="cavalry-arena"><div class="arena-ring">${TEAM_IDS.map(dot).join('')}<span>ALL TEAMS</span></div></div><p class="game-copy">Same-gender rounds · last horse wins</p><div class="game-bottom">Elimination order → points</div></button>
     <button class="game-card" data-open="event:8">${head('tug',4)}<p class="game-kicker">DRAWN TOURNAMENT BRACKET</p>${miniBracket()}<p class="game-copy">1 preliminary · 2 semis · final</p><div class="game-bottom">${state.tug.locked ? 'Draw locked · view bracket' : 'Draw opponents → bracket'}</div></button>
     <button class="game-card relay" data-open="event:9"><div class="relay-left">${head('relay',5)}<p class="game-kicker">ALL FIVE TEAMS RACE</p><div class="relay-lanes">${TEAM_IDS.map(id=>`<div class="lane">${dot(id)}<span class="lane-name">${esc(team(id).name)}</span><span class="lane-line"></span></div>`).join('')}</div><div class="game-bottom">3-round points → placing</div></div><div class="relay-rounds"><h4>Relay Rounds</h4>${['Baton Relay','Three-Legged Relay','Spoon & Ball Relay'].map((s,i)=>`<div class="relay-round"><span class="game-number">${i+1}</span><span>${esc(s)}</span></div>`).join('')}</div></button>`;
+  const cardTemplate=document.createElement('template');
+  cardTemplate.innerHTML=gameCards;
+  const gameGrid=$('#game-grid');
+  // Keep the timeline attached so live score refreshes preserve its animation.
+  [...gameGrid.childNodes].forEach(child=>{if(child.nodeType!==1||!child.classList.contains('game-timeline'))child.remove();});
+  gameGrid.prepend(cardTemplate.content);
   document.querySelectorAll('.game-card').forEach(card=>{
     if(!card.classList.contains('relay')){
       const summary=document.createElement('div');summary.className='game-summary';

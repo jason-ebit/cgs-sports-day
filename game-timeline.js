@@ -1,5 +1,6 @@
-import { GAME_IDS, gameDone } from './model.js?v=19';
-import { remainingMs } from './timer-model.js?v=19';
+import { GAME_IDS, gameDone } from './model.js?v=20';
+import { remainingMs } from './timer-model.js?v=20';
+import { roundDone } from './rounds.js?v=20';
 
 const EVENTS = [4, 5, 7, 8, 9];
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -10,14 +11,16 @@ const gameForKey = key => {
 
 export function gameTimelineState(state, { now = Date.now() } = {}) {
   const complete = GAME_IDS.map(id => gameDone(state, id));
-  const running = Object.entries(state.timers).find(([, clock]) => clock.deadline !== null && remainingMs(clock, now) > 0);
-  const selectedKey = running?.[0] ?? (state.timers[state.activeKey]?.started ? state.activeKey : null);
+  const unfinished = key => !roundDone(state, key) && !gameDone(state, key.split(':')[0]);
+  const ongoing = Object.entries(state.timers).find(([key, clock]) => clock.deadline !== null && unfinished(key));
+  const selectedKey = ongoing?.[0] ?? (state.timers[state.activeKey]?.started && unfinished(state.activeKey) ? state.activeKey : null);
+  const running = Boolean(ongoing && remainingMs(ongoing[1], now) > 0);
   const selected = gameForKey(selectedKey), activeIndex = GAME_IDS.findIndex((id, i) => id === selected && !complete[i]);
   const nextIndex = complete.findIndex((done, i) => !done && (activeIndex === -1 || i > activeIndex));
   const steps = GAME_IDS.map((id, i) => ({
     id, number: i + 1, eventIndex: EVENTS[i],
     status: complete[i] ? 'completed' : i === activeIndex ? 'active' : i === nextIndex ? 'next' : 'upcoming',
-    running: i === activeIndex && Boolean(running),
+    running: i === activeIndex && running,
   }));
   const segments = steps.slice(0, -1).map((from, i) => {
     const to = steps[i + 1];
@@ -77,10 +80,15 @@ export function createGameTimeline({
   if (!container || typeof getState !== 'function') throw Error('The game timeline needs the Games grid and current scores.');
   const document = container.ownerDocument;
   let frame = null, svg = null, firstDraw = true, settleTimer = null, destroyed = false;
+  let pathNodes = [], dotNodes = [];
   const node = (tag, attrs = {}) => {
     const result = document.createElementNS(SVG_NS, tag);
     for (const [key, value] of Object.entries(attrs)) result.setAttribute(key, String(value));
     return result;
+  };
+  const attribute = (element, key, value) => {
+    const text = String(value);
+    if (element.getAttribute(key) !== text) element.setAttribute(key, text);
   };
   function render() {
     frame = null;
@@ -90,8 +98,8 @@ export function createGameTimeline({
     const progress = gameTimelineState(getState(), { now: now() });
     for (const [i, card] of cards.entries()) {
       const status = progress.steps[i].status;
-      card.dataset.timelineState = status;
-      card.setAttribute('aria-description', `Game ${i + 1} of 5. ${({ completed: 'Complete.', active: 'Ongoing game.', next: 'Next up.', upcoming: 'Coming up.' })[status]}`);
+      if (card.dataset.timelineState !== status) card.dataset.timelineState = status;
+      attribute(card, 'aria-description', `Game ${i + 1} of 5. ${({ completed: 'Complete.', active: 'Ongoing game.', next: 'Next up.', upcoming: 'Coming up.' })[status]}`);
     }
     const bounds = container.getBoundingClientRect();
     const width = container.clientWidth || bounds.width, height = container.clientHeight || bounds.height;
@@ -100,6 +108,7 @@ export function createGameTimeline({
     if (!paths.length || paths.some(path => path.gap < 0)) { if (svg) svg.style.display = 'none'; return; }
     if (!svg || svg.parentNode !== container) {
       svg = node('svg', { class: 'game-timeline', 'aria-hidden': 'true', focusable: 'false' });
+      pathNodes = []; dotNodes = [];
       if (firstDraw && !reducedMotion()) {
         svg.classList.add('is-drawing');
         if (settleTimer !== null) timers.clearTimeout(settleTimer);
@@ -110,19 +119,26 @@ export function createGameTimeline({
       container.append(svg);
     }
     svg.style.display = '';
-    svg.setAttribute('viewBox', `0 0 ${round(width)} ${round(height)}`);
-    svg.setAttribute('data-completed', progress.completed);
-    const children = [];
+    attribute(svg, 'viewBox', `0 0 ${round(width)} ${round(height)}`);
+    attribute(svg, 'data-completed', progress.completed);
     for (const [i, geometry] of paths.entries()) {
       const status = progress.segments[i].status;
-      const path = node('path', { d: geometry.d, pathLength: 1,
-        class: `game-timeline-link game-timeline-link--${status}`, 'data-game-from': geometry.from, 'data-game-to': geometry.to });
-      path.style.setProperty('--timeline-order', i);
-      children.push(path);
-      if (geometry.dot.radius >= 1) children.push(node('circle', { cx: round(geometry.dot.x), cy: round(geometry.dot.y),
-        r: round(geometry.dot.radius), class: `game-timeline-dot game-timeline-dot--${status}` }));
+      if (!pathNodes[i]) {
+        const path = node('path', { pathLength: 1, 'data-game-from': geometry.from, 'data-game-to': geometry.to });
+        path.style.setProperty('--timeline-order', i);
+        const dot = node('circle');
+        pathNodes[i] = path; dotNodes[i] = dot;
+        svg.append(path); svg.append(dot);
+      }
+      // Keep attached nodes so geometry/status updates do not restart the
+      // initial stroke reveal or the current segment's breathing animation.
+      attribute(pathNodes[i], 'd', geometry.d);
+      attribute(pathNodes[i], 'class', `game-timeline-link game-timeline-link--${status}`);
+      attribute(dotNodes[i], 'cx', round(geometry.dot.x)); attribute(dotNodes[i], 'cy', round(geometry.dot.y));
+      attribute(dotNodes[i], 'r', round(geometry.dot.radius));
+      attribute(dotNodes[i], 'class', `game-timeline-dot game-timeline-dot--${status}`);
+      dotNodes[i].style.display = geometry.dot.radius >= 1 ? '' : 'none';
     }
-    svg.replaceChildren(...children);
   }
   function update() { if (!destroyed && frame === null) frame = requestFrame(render); }
   const observer = typeof Observer === 'function' ? new Observer(update) : null;

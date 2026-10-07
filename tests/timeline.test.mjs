@@ -44,6 +44,18 @@ test('The actual running game takes precedence over a stale selected timer', () 
   assert.equal(gameTimelineState(state, { now: 3000 }).active, 'relay');
 });
 
+test('A completed round cannot keep its unfinished game ongoing through a stale active key or deadline', () => {
+  const state = defaultState(); state.borrow.scores.forEach(row => row[0] = 2);
+  state.timers['borrow:0'] = makeClock(30); startClock(state.timers, 'borrow:0', 1000); state.activeKey = 'borrow:0';
+  assert.equal(gameTimelineState(state, { now: 2000 }).active, null, 'A finished round with a lingering running deadline is excluded.');
+  pauseClock(state.timers['borrow:0'], 2000);
+  assert.equal(gameTimelineState(state, { now: 3000 }).active, null, 'A stale paused round is excluded too.');
+  state.timers['basket:red:0'] = makeClock(30); startClock(state.timers, 'basket:red:0', 3000); state.activeKey = 'basket:red:0';
+  state.basket.scores[0][0] = 0; state.finished.push('basket:red:0');
+  assert.equal(gameTimelineState(state, { now: 4000 }).active, null, 'A finished ball attempt cannot select an ongoing game.');
+  assert.equal(gameTimelineState(state, { now: 4000 }).next, 'borrow');
+});
+
 test('Prayer and other non-game clocks do not select a Games timeline step', () => {
   const state = defaultState(); state.timers['event:15'] = makeClock(120); startClock(state.timers, 'event:15', 1000); state.activeKey = 'event:15';
   assert.equal(gameTimelineState(state, { now: 2000 }).active, null); assert.equal(gameTimelineState(state).next, 'borrow');
@@ -143,6 +155,22 @@ test('Replacing the Games cards rebuilds the SVG without restarting the initial 
   const state = defaultState(); state.timers['tug:prelim'] = makeClock(60); startClock(state.timers, 'tug:prelim', 1000); state.activeKey = 'tug:prelim'; f.change(state);
   f.timeline.update(); f.draw(); assert.notEqual(f.svg(), first); assert.equal(f.svg().classList.contains('is-drawing'), false);
   assert.equal(f.container.children[3].dataset.timelineState, 'active'); assert.ok(f.svg().children.some(child => child.getAttribute('class')?.includes('--current'))); f.timeline.destroy();
+});
+
+test('Updates and resizes preserve attached SVG nodes and the original draw timer', () => {
+  const f = domFixture(); f.timeline.update(); f.draw(); const svg = f.svg(), original = [...svg.children];
+  const timer = [...f.timeouts.keys()][0];
+  f.timeline.update(); f.draw(); assert.equal(f.svg(), svg); assert.deepEqual(svg.children, original);
+  assert.equal([...f.timeouts.keys()][0], timer, 'An update cannot restart the initial animation timeout.');
+  const previous = original[0].getAttribute('d');
+  f.container.bounds = { ...grid, width: grid.width * .7, height: grid.height * .7 };
+  f.container.clientWidth = f.container.bounds.width; f.container.clientHeight = f.container.bounds.height;
+  f.container.children.filter(node => node.tag === 'button').forEach(card => card.bounds = { ...card.bounds,
+    left: card.bounds.left * .7, top: card.bounds.top * .7, width: card.bounds.width * .7, height: card.bounds.height * .7 });
+  f.observe(); f.draw(); assert.equal(f.svg(), svg); assert.deepEqual(svg.children, original);
+  assert.notEqual(original[0].getAttribute('d'), previous, 'Geometry still responds to a real resize.');
+  const settle = f.timeouts.get(timer); settle(); assert.equal(svg.classList.contains('is-drawing'), false);
+  f.timeline.update(); f.draw(); assert.deepEqual(svg.children, original); f.timeline.destroy();
 });
 
 test('Reduced-motion users see the complete timeline immediately', () => {
