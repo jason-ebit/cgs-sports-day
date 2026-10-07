@@ -1,5 +1,5 @@
-import { TEAM_IDS, defaultState, setWinner, gameDone } from './model.js?v=16';
-export { gameDone } from './model.js?v=16';
+import { TEAM_IDS, defaultState, setWinner, gameDone } from './model.js?v=17';
+export { gameDone } from './model.js?v=17';
 
 export function timerStarted(s,key) { return s.timers[key]?.started===true; }
 
@@ -14,8 +14,11 @@ export function roundDone(s, key) {
 export function recordSuccess(s, game, round, id, success=true) {
   const key=`${game}:${round}`, i=TEAM_IDS.indexOf(id);
   if (!['borrow','relay'].includes(game)||i<0||!Number.isInteger(round)||round<0||round>=(game==='borrow'?s.borrow.rounds:3)||!timerStarted(s,key)||gameDone(s,game)||roundDone(s,key)||s[game].scores[i][round]!==null) return false;
-  const recorded=s[game].scores.map(r=>r[round]).filter(n=>n!==null && n>0).length;
-  s[game].scores[i][round]=game==='borrow'?(success?[5,4,3,2,2][recorded]:0):recorded+1;
+  // Older sheets allowed results to be entered out of order. Consume their
+  // existing places so continuing a saved round never duplicates a relay place.
+  const awards=game==='borrow'?[5,4,3,2,2]:[1,2,3,4,5];
+  for(const row of s[game].scores){const used=awards.indexOf(row[round]);if(used!==-1)awards.splice(used,1);}
+  s[game].scores[i][round]=game==='borrow'&&!success?0:awards[0];
   s.placements[game].values=Array(5).fill(null);
   return true;
 }

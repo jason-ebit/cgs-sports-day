@@ -1,8 +1,9 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=16';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=16';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=16';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=16';
-import { createTimerPopup } from './timer-popup.js?v=16';
+import { TEAM_IDS, matchTeams } from './model.js?v=17';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=17';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=17';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame } from './rounds.js?v=17';
+import { createTimerPopup } from './timer-popup.js?v=17';
+import { captureView } from './view-state.js?v=17';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -58,9 +59,19 @@ export function createLiveDesk(api) {
     const markup=`<div class="live-desk ${big?'is-big':''} ${ctx.complete?'game-completed':ctx.done?'round-completed':''}" data-live-event="${index}" data-live-key="${ctx.key}">${roundButtons(ctx)}${teamChoices(ctx)}<div class="match-workspace"><section class="live-stage ${running?'is-running':''}"><span class="eyebrow">${esc(ctx.title)}</span>${matchup(ctx)}<output class="clock-digits ${ms===0?'expired':''}" data-clock-digits role="timer" aria-label="Time remaining">${formatTime(ms)}</output><span class="clock-status" data-clock-status>${ctx.complete?'Game complete':ctx.done?'Round complete':running?'LIVE':ms===0?'Time up':started?'Paused':'Ready'}</span><div class="clock-controls"><button class="primary" data-live-action="toggle" ${!ctx.ready||ms===0||ctx.done?'disabled':''}>${running?'Ⅱ Pause':'▶ Play'}</button><button class="secondary" data-live-action="add" ${ctx.done?'disabled':''}>+30s</button>${ctx.game==='tug'?`<button class="secondary" data-live-action="rematch" ${ctx.done?'disabled':''}>30s rematch</button>`:''}</div><details class="clock-options"><summary>Timer settings</summary><div class="clock-settings"><label class="field">Limit (seconds)<input type="number" min="1" max="${ctx.game==='cavalry'?2700:86400}" step="1" inputmode="numeric" data-live-limit value="${c.duration/1000}" ${running||ctx.done?'disabled':''}></label><label class="checkbox"><input type="checkbox" data-live-sound ${sound?'checked':''}> End sound</label></div><button class="text-button" data-live-action="reset-clock" ${ctx.done?'disabled':''}>Reset timer only</button></details><p class="help">${esc(ctx.hint)}</p></section>${ctx.game?`<section class="live-result">${results(ctx)}<p class="live-save-message" data-live-status role="status">${!api.saved()?'Storage unavailable — export a backup to keep these results.':ctx.complete?'Game complete. Points added to the main Scores overview.':ctx.done?'Round saved. Reset this round to edit.':!started?'Press Play to unlock scoring.':'Results save as you tap. All rounds must finish for overall points.'}</p>${ctx.complete?'<button class="primary" data-live-action="overview">Main Scores →</button>':ctx.done?'<button class="primary" data-live-action="next">Next →</button>':''}</section>`:''}</div><div class="live-bottom-actions">${!big?'<button class="secondary" data-live-action="expand">Big screen ↗</button>':''}${ctx.game?'<button class="text-button" data-live-action="sheet">Score sheet →</button>':''}<details class="reset-menu"><summary>Reset…</summary><button class="text-button" data-live-action="reset-round">Reset ${ctx.game==='basket'?'attempt':ctx.game==='tug'?'match':'round'}</button>${ctx.game?'<button class="text-button" data-live-action="reset-game">Reset whole game</button>':''}</details></div></div>`;
     return big?markup.replaceAll(' · ',' — '):markup;
   }
-  function renderOverlay(){if(overlayEvent===null)return;document.querySelector('#live-title').textContent=GAME_NAMES[EVENT_GAMES[overlayEvent]]||schedule[overlayEvent].title;document.querySelector('#live-body').innerHTML=view(overlayEvent,true);}
+  function renderOverlay(){if(overlayEvent===null)return;const restoreView=captureView(overlay,overlay.dataset.viewKey);document.querySelector('#live-title').textContent=GAME_NAMES[EVENT_GAMES[overlayEvent]]||schedule[overlayEvent].title;document.querySelector('#live-body').innerHTML=view(overlayEvent,true);overlay.dataset.viewKey=String(overlayEvent);restoreView(overlay.dataset.viewKey);}
   function open(index,match){context(index);if(match)choices[index].match=match;if(!overlay.open){overlayOpener=document.activeElement;popup.resetOverlay();}overlayEvent=index;renderOverlay();if(!overlay.open)overlay.showModal();document.querySelector('#close-live').focus();}
   function refreshViews(){refresh();if(overlay.open)renderOverlay();tick();}
+  function showReadyClock(ctx,c){
+    document.querySelectorAll(`[data-live-key="${ctx.key}"]`).forEach(desk=>{
+      desk.querySelector('[data-clock-status]').textContent='Ready';
+      desk.querySelector('[data-live-limit]').value=c.duration/1000;
+      desk.querySelector('[data-live-action="toggle"]').disabled=!ctx.ready||remainingMs(c)===0;
+      desk.querySelectorAll('[data-live-winner],[data-live-arrival],[data-live-fail],[data-live-eliminate],[data-live-score],[data-live-action="plus-ball"],[data-live-action="minus-ball"],[data-live-action="finish"]').forEach(control=>control.disabled=true);
+      const status=desk.querySelector('[data-live-status]');if(status)status.textContent='Press Play to unlock scoring.';
+    });
+    tick();
+  }
   function beep(){if(!sound||!audio)return;try{const o=audio.createOscillator(),g=audio.createGain();o.connect(g);g.connect(audio.destination);o.frequency.value=880;g.gain.setValueAtTime(.15,audio.currentTime);g.gain.exponentialRampToValueAtTime(.001,audio.currentTime+.7);o.start();o.stop(audio.currentTime+.7);}catch{}}
   function armAudio(){if(!sound)return;try{audio ||= new(window.AudioContext||window.webkitAudioContext)();audio.resume();}catch{}}
   function selectKey(key){const parts=key.split(':'),index=parts[0]==='event'?Number(parts[1]):GAME_EVENTS[parts[0]];context(index);const ch=choices[index];if(parts[0]==='tug')ch.match=parts[1];if(['borrow','relay'].includes(parts[0]))ch.round=Number(parts[1]);if(parts[0]==='basket'){ch.team=parts[1];ch.attempt=Number(parts[2]);}if(parts[0]==='cavalry')getState().cavalry.division=parts[1];return index;}
@@ -99,8 +110,8 @@ export function createLiveDesk(api) {
       else switch(action){
         case 'toggle':if(c.deadline!==null)pauseClock(c);else if(ctx.ready){armAudio();if(startClock(s.timers,ctx.key)){s.activeKey=ctx.key;if(ctx.game==='cavalry')s.cavalry.divisions[ctx.division].started=true;}}popup.reveal();break;
         case 'add':addTime(c,30);break;
-        case 'reset-clock':resetClock(c);break;
-        case 'rematch':resetClock(c,30);break;
+        case 'reset-clock':resetClock(c);if(s.activeKey===ctx.key)s.activeKey=null;break;
+        case 'rematch':resetClock(c,30);if(s.activeKey===ctx.key)s.activeKey=null;break;
         case 'plus-ball':case 'minus-ball':{const value=s.basket.scores[TEAM_IDS.indexOf(ctx.team)][ctx.round]||0;setBasketScore(s,ctx.team,ctx.round,Math.max(0,Math.min(999,value+(action==='plus-ball'?1:-1))));break;}
         case 'finish':{const input=desk.querySelector('[data-live-score]');if(!input.validity.valid||input.value===''){toast('Enter a valid ball count.');return;}setBasketScore(s,ctx.team,ctx.round,Number(input.value));finishBasketAttempt(s,ctx.team,ctx.round);break;}
       }
@@ -115,11 +126,20 @@ export function createLiveDesk(api) {
     if(ctx.done||ctx.complete)return;
     if(el.matches('[data-live-limit]')){
       if(c.deadline!==null||!el.validity.valid||el.value===''){el.value=c.duration/1000;toast('Enter a valid whole-second limit while paused.');return;}
-      resetClock(c,Number(el.value));if(ctx.game==='cavalry')s.cavalry.cap=Number(el.value);save();refreshViews();
+      resetClock(c,Number(el.value));if(s.activeKey===ctx.key)s.activeKey=null;if(ctx.game==='cavalry')s.cavalry.cap=Number(el.value);save();showReadyClock(ctx,c);
     }else if(el.matches('[data-live-score]')){
       if(!timerStarted(s,ctx.key)||!el.validity.valid||el.value===''){el.value=s.basket.scores[TEAM_IDS.indexOf(ctx.team)][ctx.round]??0;return;}
       setBasketScore(s,ctx.team,ctx.round,Number(el.value));save();desk.querySelector('[data-live-status]').textContent=api.saved()?'Saved to the game score sheet.':'Storage unavailable — export a backup.';
     }
+  });
+  document.addEventListener('input',e=>{
+    const el=e.target,desk=el.closest('[data-live-event]');
+    if(!desk||!el.matches('[data-live-score]'))return;
+    const ctx=context(Number(desk.dataset.liveEvent)),s=getState();
+    if(ctx.done||ctx.complete||!timerStarted(s,ctx.key)||!el.validity.valid||el.value==='')return;
+    setBasketScore(s,ctx.team,ctx.round,Number(el.value));save();
+    document.querySelectorAll(`[data-live-key="${ctx.key}"] [data-live-score]`).forEach(peer=>{if(peer!==el)peer.value=el.value;});
+    desk.querySelector('[data-live-status]').textContent=api.saved()?'Saved to the game score sheet.':'Storage unavailable — export a backup.';
   });
   function describe(key){const [g,p,a]=key.split(':'),s=getState();if(g==='tug')return matchTeams(s.tug,p).map(name).join(' vs ');if(g==='basket')return `${name(p)} — attempt ${Number(a)+1}`;if(g==='cavalry')return s.cavalry.divisions[p].active.filter(id=>!s.cavalry.divisions[p].eliminated.includes(id)).map(name).join(' vs ');return g==='event'?schedule[Number(p)].title:`All teams — round ${Number(p)+1}`;}
   function tick(){

@@ -1,4 +1,4 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=16';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=17';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
@@ -114,10 +114,13 @@ export function validateState(input) {
   const text = (v, max) => { if (typeof v !== 'string' || v.length > max) fail(); return v; };
   const num = (v, max, min = 0) => { if (v !== null && (!Number.isInteger(v) || v < min || v > max)) fail(); return v; };
   const list = (v, length) => { if (!Array.isArray(v) || v.length !== length) fail(); return v; };
+  const object = v => { if (!v || typeof v !== 'object' || Array.isArray(v)) fail(); return v; };
   const ids = v => { if (!Array.isArray(v) || v.some(x => !TEAM_IDS.includes(x)) || new Set(v).size !== v.length) fail(); return [...v]; };
   const bool = v => { if (typeof v !== 'boolean') fail(); return v; };
-  if (!input || input.version !== 1) fail();
-  s.teams = list(input.teams, 5).map((t,i) => { if (t.id !== TEAM_IDS[i] || !t.name?.trim()) fail(); return { id:t.id, name:text(t.name,24), leader:text(t.leader,60), participants:num(t.participants,100), seed:num(t.seed,5,1) }; });
+  if (object(input).version !== 1) fail();
+  for(const key of ['tug','borrow','basket','relay','cavalry','placements'])object(input[key]);
+  object(input.tug.winners);object(input.cavalry.divisions);
+  s.teams = list(input.teams, 5).map((t,i) => { object(t);if (t.id !== TEAM_IDS[i] || typeof t.name !== 'string' || !t.name.trim()) fail(); return { id:t.id, name:text(t.name,24), leader:text(t.leader,60), participants:num(t.participants,100), seed:num(t.seed,5,1) }; });
   s.tug.slots = list(input.tug.slots, 5).map(id => { if (id !== null && !TEAM_IDS.includes(id)) fail(); return id; });
   const assigned = s.tug.slots.filter(Boolean); if (new Set(assigned).size !== assigned.length) fail();
   s.tug.locked = bool(input.tug.locked); if (s.tug.locked && !validSlots(s.tug.slots)) fail();
@@ -130,11 +133,11 @@ export function validateState(input) {
   if(!['men','women'].includes(input.cavalry.division)) fail(); s.cavalry.division=input.cavalry.division;
   s.cavalry.cap=num(input.cavalry.cap,2700,1); s.cavalry.rule=text(input.cavalry.rule,1200);
   for(const division of ['men','women']) {
-    const d=input.cavalry.divisions[division];const counts=list(d.counts,5).map(v=>num(v,100));const active=ids(d.active),eliminated=ids(d.eliminated),started=bool(d.started);
+    const d=object(input.cavalry.divisions[division]);const counts=list(d.counts,5).map(v=>num(v,100));const active=ids(d.active),eliminated=ids(d.eliminated),started=bool(d.started);
     if(eliminated.some(id=>!active.includes(id))||eliminated.length>Math.max(0,active.length-1)||(!started&&eliminated.length)||(started&&active.length<2))fail();
     s.cavalry.divisions[division]={counts,active,eliminated,started};
   }
-  for(const g of GAME_IDS){const p=input.placements[g];if(!p && ['borrow','basket','relay'].includes(g))continue;s.placements[g]={rule:text(p.rule,1200),values:list(p.values,5).map(v=>num(v,5,1))};const filled=s.placements[g].values.filter(v=>v!==null);if(new Set(filled).size!==filled.length)fail();}
+  for(const g of GAME_IDS){const p=input.placements[g];if(!p && ['borrow','basket','relay'].includes(g))continue;object(p);s.placements[g]={rule:text(p.rule,1200),values:list(p.values,5).map(v=>num(v,5,1))};const filled=s.placements[g].values.filter(v=>v!==null);if(new Set(filled).size!==filled.length)fail();}
   if(!input.notes||typeof input.notes!=='object'||Array.isArray(input.notes))fail();
   for(const [key,value] of Object.entries(input.notes)){if(!/^\d{1,2}$/.test(key)||Number(key)>15)fail();s.notes[key]=text(value,2000);}
   if(input.committeeNotes!==undefined){

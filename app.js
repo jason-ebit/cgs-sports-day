@@ -1,18 +1,20 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=16';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=16';
-import { createLiveDesk } from './live.js?v=16';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=16';
-import { icon } from './icons.js?v=16';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=16';
-import { renderMedia, downloadBlob } from './media.js?v=16';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=17';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=17';
+import { createLiveDesk } from './live.js?v=17';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=17';
+import { icon } from './icons.js?v=17';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=17';
+import { renderMedia, downloadBlob } from './media.js?v=17';
+import { captureView } from './view-state.js?v=17';
+import { createDeviceStore } from './device-store.js?v=17';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const KEY = 'cg-sports-day-v1';
-let state = defaultState(), saveAvailable = true, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
+const store = createDeviceStore();
+let state = store.state, saveAvailable = store.saved, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster', mediaCanvas = null, mediaToken = 0;
 let department = 'all';
-try { const saved = localStorage.getItem(KEY); if (saved) state = validateState(JSON.parse(saved)); } catch { saveAvailable = false; }
-const response = await fetch('./schedule.json?v=16', {cache:'no-cache'});
+let renderedPanel = null;
+const response = await fetch('./schedule.json?v=17', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -29,9 +31,9 @@ const note = (title, text, pending = false) => `<section class="note-card ${pend
 const numberInput = (label, value, attrs = '', max = 100, min = 0) => `<label class="field">${esc(label)}<input type="number" inputmode="numeric" min="${min}" max="${max}" step="1" value="${value ?? ''}" ${attrs}></label>`;
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('visible'); clearTimeout(toast.timer); toast.timer = setTimeout(() => $('#toast').classList.remove('visible'), 3000); }
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify(state)); saveAvailable = true; } catch { saveAvailable = false; }
-  $('#save-state').textContent = saveAvailable ? 'Saved on this device' : 'Not saved · export a backup';
-  $('#panel-save').textContent = saveAvailable ? 'Changes save on this device' : 'Storage unavailable · export a backup';
+  saveAvailable = store.save(state);
+  $('#save-state').textContent = saveAvailable ? 'Saved on this device' : store.protected ? 'Existing backup protected' : 'Not saved · export a backup';
+  $('#panel-save').textContent = saveAvailable ? 'Changes save on this device' : store.protected ? 'Saved data unreadable · export before replacing' : 'Storage unavailable · export a backup';
   updateLeaderCrowns();
 }
 function miniBracket() {
@@ -99,6 +101,7 @@ function gameSheet(game) {
 
 }
 function renderPanel() {
+  const restoreView = captureView(dialog, renderedPanel);
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
   $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes' })[current];
@@ -119,6 +122,8 @@ function renderPanel() {
   else if(current==='results') body.innerHTML=resultsPanel();
   else if(current==='data') body.innerHTML=dataPanel();
   else if(current==='media') { body.innerHTML=mediaPanel(); updateMedia(); }
+  renderedPanel = `${current}/${tab}`;
+  restoreView(renderedPanel);
 }
 function teamsPanel() {
   return bullets('Team setup',['Add names, leaders and headcounts. The colour legend shows the leader’s name.','Seeds are optional. Use seeds puts 4 vs 5 in the prelim; 1–3 get byes.']) + state.teams.map((t,i)=>`<section class="team-edit"><h3 class="team-edit-title">${dot(t.id)}${t.id[0].toUpperCase()+t.id.slice(1)} team</h3><div class="field-row"><label class="field">Team name<input data-team="${i}" data-field="name" maxlength="24" value="${esc(t.name)}" required></label><label class="field">Leader<input data-team="${i}" data-field="leader" maxlength="60" placeholder="TBA" value="${esc(t.leader)}"></label>${numberInput('Members',t.participants,`data-team="${i}" data-field="participants"`)}${numberInput('Seed',t.seed,`data-team="${i}" data-field="seed"`,5,1)}</div></section>`).join('')+'<p class="help">Scores stay with their colour when names change. Pick Cavalry teams in Timer & scoring.</p><div class="button-row"><button class="primary" data-action="go-draw">Open tug-of-war draw ↗</button></div>';
@@ -138,7 +143,7 @@ function resultsPanel() {
   const c=championship(state),leaders=leadersFor(c);
   return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><span class="leader-score">${teamLabel(r.id)}${leaders.includes(r.id)?`<span class="score-crown" role="img" aria-label="Leading team">${icon('crown')}</span>`:''}</span></td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Crowns mark the leading total; tied leaders share a crown. A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
 }
-function dataPanel() { return bullets('Keep a backup',['Scores and notes stay on this device. Download a backup to move them to another phone.','JSON includes leaders and committee reminders. Poster images leave them out.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+bullets('Reset the day',['Clears teams, scores, timers, draw and notes on this device. Save a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
+function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+bullets('Keep a backup',['Scores and notes stay on this device. Download a backup to move them to another phone.','JSON includes leaders and committee reminders. Poster images leave them out.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+bullets('Reset the day',['Clears teams, scores, timers, draw and notes on this device. Save a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
 function mediaPanel() { return bullets('Share the rundown',['Full poster or 9:16 phone story, with the schedule, team names and game formats.','Leader names and committee reminders stay out of the image.'])+`<div class="field-row"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
 async function updateMedia(){const token=++mediaToken;try{mediaCanvas=await renderMedia({state,schedule,size:exportSize});if(token!==mediaToken||current!=='media')return;$('#export-preview').replaceChildren(mediaCanvas);$('#download-media').disabled=false;$('#download-media').textContent='Download PNG ↓';}catch(e){if(current==='media')$('#export-preview').textContent='Image could not be generated. Please try again.';console.error(e);}}
 async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
@@ -170,8 +175,8 @@ document.addEventListener('click',async event=>{
       case 'seed-draw':if(!state.tug.locked){state.tug.slots=seededSlots(state.teams);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Seeded draw ready. Review and lock it.');}break;
       case 'lock-draw':if(state.tug.locked){if(!await confirmChange('Unlock the draw? All match results and approved tug-of-war placements will be cleared.'))return;state.tug.locked=false;clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');}else if(validSlots(state.tug.slots))state.tug.locked=true;changed();break;
       case 'clear-matches':if(await confirmChange('Clear all tug-of-war winners and approved placements? The locked draw will stay.')){clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();}break;
-      case 'export-json':downloadBlob(new Blob([JSON.stringify(state,null,2)],{type:'application/json'}),'cg-sports-day-backup.json');break;
-      case 'reset-all':if(await confirmChange('Reset all event data on this device? Teams, scores, notes and the draw will be cleared. Save a JSON backup first to keep them.')){state=defaultState();changed();toast('Event data reset.');}break;
+      case 'export-json':downloadBlob(new Blob([store.backup(state)],{type:'application/json'}),'cg-sports-day-backup.json');break;
+      case 'reset-all':if(await confirmChange('Reset all event data on this device? Teams, scores, notes and the draw will be cleared. Save a JSON backup first to keep them.')){state=defaultState();store.replace(state);changed();toast('Event data reset.');}break;
       case 'download-media':if(mediaCanvas)mediaCanvas.toBlob(blob=>{if(blob)downloadBlob(blob,`cg-sports-day-${exportSize}.png`);else toast('Image export failed. Please try again.');},'image/png');break;
     }
   }catch(e){toast(e.message);}
@@ -187,7 +192,7 @@ document.addEventListener('change',async event=>{
     else if(el.id==='import-file'){
       const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
-      if(await confirmChange('Replace this device’s event data with the validated backup? Export your current data first if you want to keep it.')){state=imported;changed();toast('Backup restored.');}
+      if(await confirmChange('Replace this device’s event data with the validated backup? Export your current data first if you want to keep it.')){state=imported;store.replace(state);changed();toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}
@@ -217,10 +222,10 @@ $('#fit-toggle').addEventListener('click',()=>{fitEnabled=!fitEnabled;$('#fit-to
 document.querySelectorAll('[data-home-view-button]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.homeView=button.dataset.homeViewButton;document.querySelectorAll('[data-home-view-button]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));fitPoster();}));
 window.addEventListener('resize',fitPoster);document.fonts.ready.then(fitPoster);
 renderPoster();live.tick();
-if(!saveAvailable){$('#save-state').textContent='Saved data unavailable';toast('Saved data could not be loaded. Export a backup before resetting.');}else $('#save-state').textContent='Saved on this device';
+if(!saveAvailable){$('#save-state').textContent='Existing backup protected';toast('Saved data could not be loaded. Export it before restoring or resetting.');}else $('#save-state').textContent='Saved on this device';
 
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
+  const register = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if(document.readyState==='complete')register();
+  else window.addEventListener('load', register, {once:true});
 }

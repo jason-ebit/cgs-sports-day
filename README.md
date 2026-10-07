@@ -6,6 +6,8 @@ The published site is installable and keeps its app shell available offline afte
 
 Scores, timers, team names and notes stay in that browser on that phone. Use **Share / export → Download JSON backup** to move or safeguard event data.
 
+Updates install as a complete offline version and take effect on the next page load. They never reload a running timer. If an update download fails, the installed version remains available.
+
 Working responsive rundown and game desk, built from `reference.png`, `PROJECT_BRIEF.md` and the approved `schedule.json`. Date: **OCT 25**, with no invented year or weekday. Venue: **대현산배수지공원**.
 
 ## Run
@@ -24,7 +26,7 @@ Open **http://127.0.0.1:4173**. Keep the terminal running. Serve over HTTP; doub
 - **Game desk:** games open on **Timer & scoring**, with numbered rounds/attempts above the controls. Round selection stays shared across Timer, Scores, Format and Committee tabs. Team choices are rounded colour buttons. Essential rules and committee checklists remain separate.
 - **Opening:** Prayer runs 12:15–12:17, followed by Opening / Safety 12:17–12:20. All game times stay the same. The rundown and poster exports show the new slot in chronological order; existing saved event notes and timers keep their original identities.
 - **Borrow-a-Thing:** tap **Success** in arrival order: 5 / 4 / 3 / 2 / 2. **Fail** awards zero and does not consume a success rank. Every team recorded completes and locks the round. Six rounds by default; the Scores tab can include the seventh contingency round.
-- **Ball Basket:** select a team and attempt, count with + / − or enter the count, then **Finish attempt & lock**. The higher of two counts determines game placing.
+- **Ball Basket:** select a team and attempt, count with + / − or enter the count, then **Finish attempt & lock**. Valid counts save while typing, including before timer expiry. The higher of two counts determines game placing.
 - **Cavalry:** rounds 1 and 2 retain the existing women’s and men’s divisions. Select arena teams directly, press Play, then tap **Horse out** in elimination order while the timer runs. Last survivor gets 5, then 4 / 3 / 2 / 1 in reverse elimination order; teams outside that round receive 0. Both rounds are added, then converted to championship placing. The five-minute starting timer is adjustable; it is an operational preset, not a confirmed event rule. Eligibility forms and manual scoring approval are removed.
 - **Tug-of-War:** use random draw, unique seeds, or colour buttons for manual slots. Duplicate assignment swaps teams. Lock the draw, then run matches; selecting a winner saves and advances the bracket, ending and locking that match. Resetting an earlier match also clears dependent results and timers. The final awards championship points automatically; semifinal losers share third place.
 - **Team Relay:** tap each team’s **Finish** in arrival order. Places convert to 5 / 4 / 3 / 2 / 1 points. Completing all five results locks the round.
@@ -39,11 +41,14 @@ Open **http://127.0.0.1:4173**. Keep the terminal running. Serve over HTTP; doub
 
 Changes save to this browser’s local storage. There is **no live multi-device sync**, server database or automatic cloud backup. Use the same URL consistently: `localhost` and `127.0.0.1` have separate browser storage. Existing version-1 backups remain readable.
 
+If saved data cannot be read, the original record is protected from ordinary saves. **Download JSON backup** retains that original record; importing a valid backup or explicitly resetting authorizes its replacement. New entries cannot save while the original record is protected. Restored partial Borrow and Relay rounds preserve saved results and use the remaining score slots.
+
 ## Files
 
 - `index.html`, `styles.css`, `landing.css`, `app.js`: interface, responsive layout and interactions.
 - `model.js`: draw, advancement, scoring, tie resolution and import validation.
 - `live.js`, `timer-model.js`, `rounds.js`: shared timers, match overlay and automatic result entry.
+- `device-store.js`, `view-state.js`, `sw.js`: protected device saving, focus/settings preservation and complete offline releases.
 - `content.js`, `icons.js`: brief-derived notes and local SVG icons.
 - `media.js`: deterministic canvas rendering of public PNG exports.
 - `assets/`: locally bundled Poppins fonts, SIL Open Font License, favicon.
@@ -51,16 +56,21 @@ Changes save to this browser’s local storage. There is **no live multi-device 
 
 ## Verification
 
-Run the 88 domain, timer, round workflow and popup gesture tests with Node 18+ (no packages required):
+Run the 125 domain, timer, round workflow, popup gesture, desk integration, offline and storage tests with Node 18+ (no packages required):
 
 ```sh
 node tests/model.test.mjs
 node tests/timer.test.mjs
 node tests/rounds.test.mjs
 node tests/popup.test.mjs
+node tests/live.test.mjs
+node tests/offline.test.mjs
+node tests/storage.test.mjs
 ```
 
-Coverage includes bracket advancement and invalidation, seed validation, score conversion, ties, saved deadline clocks, ordered success/failure scoring, duplicate tap protection, Cavalry elimination/points, completion locks, scoped resets and backup compatibility.
+Coverage includes bracket advancement and invalidation, seed validation, score conversion, ties, saved deadline clocks, ordered success/failure scoring, duplicate tap protection, Cavalry elimination/points, completion locks, scoped resets and backup compatibility. Regression checks cover partial historical score continuation, malformed backups, protected storage, typed counts at expiry, timer reset indicators, the first Play tap after a limit edit, exact offline asset versions and interrupted updates.
+
+The October 7 inspection checked timer expiry with an unblurred count, its saved score sheet, keyboard focus/settings retention, overlay/main-desk count consistency, and all ten main panels at 320 CSS pixels. The landing page fit 320 × 667 without overflow. Offline failures were checked against the real worker source with simulated network/cache events; real device flight-mode behavior remains untested.
 
 The interface was checked in Safari on desktop and at 390/320 CSS pixels using `tests/responsive.html`. Both phone widths reported document width and height within the home viewport. Live Borrow scoring reached the sheet and locked; Cavalry selection, live elimination, automatic points, round reset and phone overlay return were exercised. A seeded tug match accepted its winner while running and advanced to the correct semifinal. Real iOS/Android hardware has not been tested.
 

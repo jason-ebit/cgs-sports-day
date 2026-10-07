@@ -1,19 +1,16 @@
-const CACHE = 'cg-sports-day-v16';
+const VERSION = '17';
+const CACHE = `cg-sports-day-v${VERSION}`;
+const scopeURL = new URL('./', self.location.href);
+const homeURL = new URL('./index.html', scopeURL).href;
+const scheduleURL = new URL('./schedule.json', scopeURL).pathname;
 const APP_SHELL = [
   './',
   './index.html',
-  './styles.css',
-  './landing.css',
-  './app.js',
-  './content.js',
-  './icons.js',
-  './live.js',
-  './media.js',
-  './model.js',
-  './rounds.js',
-  './timer-model.js',
-  './timer-popup.js',
-  './schedule.json',
+  ...[
+    './styles.css', './landing.css', './app.js', './content.js',
+    './icons.js', './live.js', './media.js', './model.js', './rounds.js',
+    './timer-model.js', './timer-popup.js', './view-state.js', './device-store.js', './schedule.json'
+  ].map(path => `${path}?v=${VERSION}`),
   './manifest.webmanifest',
   './assets/favicon.svg',
   './assets/icon-192.png',
@@ -24,8 +21,11 @@ const APP_SHELL = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(APP_SHELL.map(path => new Request(path, {cache:'reload'})))));
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE)
+      .then(cache => cache.addAll(APP_SHELL.map(path => new Request(new URL(path, scopeURL), {cache:'reload'}))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener('activate', event => {
@@ -36,30 +36,48 @@ self.addEventListener('activate', event => {
   );
 });
 
-self.addEventListener('fetch', event => {
-  if (event.request.method !== 'GET' || new URL(event.request.url).origin !== self.location.origin) return;
+// Keep successful responses usable even if a cache write fails (for example, when storage is full).
+function remember(event, cache, key, response) {
+  event.waitUntil(cache.put(key, response.clone()).catch(() => {}));
+}
 
-  const scheduleRequest = new URL(event.request.url).pathname.endsWith('/schedule.json');
-  if (event.request.mode === 'navigate' || scheduleRequest) {
-    event.respondWith(
-      fetch(event.request)
-        .then(response => {
-          const copy = response.clone();
-          caches.open(CACHE).then(cache => cache.put(scheduleRequest ? event.request : './index.html', copy));
-          return response;
-        })
-        .catch(() => caches.match(scheduleRequest ? event.request : './index.html', { ignoreSearch: true }))
-    );
-    return;
+async function networkFirst(event, cache, key) {
+  let response;
+  try {
+    response = await fetch(event.request);
+  } catch (error) {
+    const cached = await cache.match(key);
+    if (cached) return cached;
+    throw error;
   }
+  if (response.ok) {
+    remember(event, cache, key, response);
+    return response;
+  }
+  // A temporary server error must not replace the usable offline page or schedule.
+  return await cache.match(key) || response;
+}
 
-  event.respondWith(
-    caches.match(event.request, { ignoreSearch: true }).then(cached => cached || fetch(event.request).then(response => {
-      if (response.ok) {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
-      }
-      return response;
-    }))
-  );
+self.addEventListener('fetch', event => {
+  const url = new URL(event.request.url);
+  if (event.request.method !== 'GET' || url.origin !== scopeURL.origin || !url.href.startsWith(scopeURL.href)) return;
+  const homeRequest = event.request.mode === 'navigate' && (url.pathname === scopeURL.pathname || url.pathname === new URL(homeURL).pathname);
+
+  event.respondWith(caches.open(CACHE).then(async cache => {
+    if (homeRequest) {
+      // Only installation replaces the page, after every asset for that release is cached.
+      // Serving future HTML here could strand an offline desk with missing future modules.
+      return await cache.match(homeURL) || fetch(event.request);
+    }
+    if (url.pathname === scheduleURL) {
+      return networkFirst(event, cache, event.request);
+    }
+
+    // Query versions are intentional: a new page must never receive a previous release's module.
+    const cached = await cache.match(event.request);
+    if (cached) return cached;
+    const response = await fetch(event.request);
+    if (response.ok) remember(event, cache, event.request, response);
+    return response;
+  }));
 });

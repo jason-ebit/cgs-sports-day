@@ -13,6 +13,8 @@ const files = [
   'rounds.js',
   'timer-model.js',
   'timer-popup.js',
+  'view-state.js',
+  'device-store.js',
   'schedule.json',
   'manifest.webmanifest',
   'sw.js'
