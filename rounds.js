@@ -1,5 +1,5 @@
-import { TEAM_IDS, defaultState, setWinner, gameDone } from './model.js?v=23';
-export { gameDone } from './model.js?v=23';
+import { TEAM_IDS, defaultState, setWinner, gameDone } from './model.js?v=24';
+export { gameDone } from './model.js?v=24';
 
 export function timerStarted(s,key) { return s.timers[key]?.started===true; }
 
