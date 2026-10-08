@@ -1,6 +1,6 @@
-import { TEAM_IDS, COLOURS } from './model.js?v=27';
-import { iconData } from './icons.js?v=27';
-import { EVENT_ICONS, orderedSchedule } from './content.js?v=27';
+import { TEAM_IDS, COLOURS } from './model.js?v=28';
+import { iconData } from './icons.js?v=28';
+import { EVENT_ICONS, orderedSchedule } from './content.js?v=28';
 
 export function downloadBlob(blob, filename) {
   const url=URL.createObjectURL(blob), a=document.createElement('a');

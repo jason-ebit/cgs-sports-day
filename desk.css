@@ -24,7 +24,8 @@
 .committee-event-links .section-label{flex-basis:100%;margin:0 0 2px}
 .committee-event-links button{font-size:10px;padding:8px 10px;border-radius:9px;min-height:36px}
 .committee-inventory{margin:16px 0 0}
-.committee-inventory>h3{font-size:12px;margin:0 0 10px}
+.inventory-heading{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;margin:0 0 10px}
+.inventory-heading h3{font-size:12px;margin:0}
 .inventory-grid{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.2fr);gap:12px;align-items:start}
 .inventory-group{border:1px solid #dce3d7;border-radius:12px;background:#f5f7ef;padding:12px 14px;min-width:0}
 .inventory-group h4{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;margin:0 0 9px;color:#42563f}

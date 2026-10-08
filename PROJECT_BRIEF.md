@@ -107,23 +107,22 @@ Five championship categories, normally 5/4/3/2/1 points by placing, highest tota
 
 ## Operations and notes
 
-- User: Game Director / Head Judge / Scorekeeper, owns whistle and timing. Record only during safe pauses, not while attention is required for live contact play.
-- Assistant Judge: observation, finish/boundary checks, next matchup preparation.
-- First-Aid: two TBA volunteers; ensure qualified coverage and emergency escalation plan.
-- Equipment / Food & Water: rotating roles.
-- Comm: Mario and Cindy; announcements, communication, photos/video.
+- Main Judge / Scorekeeper: one combined role owns final decisions, whistle, timing and all score entry. Confirm observations with the assistant and record during safe pauses while the assistant oversees play.
+- Assistant Judge: one observer oversees play, calls out finish/boundary observations and confirms them with the main judge / scorer. The main judge finalizes results and scores; the assistant also prepares the next matchup.
+- First-Aid: 2 volunteers, one at the kit and one covering the field. Pair them so one can escort someone while the other stays; ensure qualified coverage and emergency contacts.
+- Equipment: 3 volunteers, one per game area plus one for packing; cover rope, markers, cones and the tug-of-war anchor.
+- Food & Water: 2–3 volunteers, one at the cooler and one serving; the third helps with setup, bins or break cover.
+- Comm: 2 volunteers, Mario and Cindy; one runs the schedule and calls teams, one handles the mic or photos and supports announcements of confirmed results.
+- Support total: 9–10 across First-Aid, Equipment, Food & Water and Comm. Including the main judge / scorer and assistant judge: 11–12 total.
 - First-aid notes may include voluntarily disclosed asthma, allergies, diabetes, seizure conditions, fainting, cardiovascular conditions or injuries and access to participants' own emergency medication. Keep identifiable health notes private and out of public/media exports.
 - Existing items: mat, one whistle, icebox, transport cart, umbrellas, pens/markers, phones/timer and equipment bags.
 - No handball, extra medium balls, long basket pole, canopy, medals or certificates. Winner coupons/gift vouchers planned.
 
-## Recorded shopping links — not live-verified prices or endorsements
+## Shopping cart
 
-- Gloves: https://www.coupang.com/vp/products/7897300869
-- Cones: https://www.coupang.com/vp/products/8508042796
-- Ping-pong balls: https://www.coupang.com/vp/products/8371729751
-- Batons: https://www.coupang.com/vp/products/8710269702
-- Hachimaki alternative: https://item.gmarket.co.kr/Item?goodsCode=3112127158
-- Hachimaki alternative is a 소고띠 listing; supplied photo showed 165 × 9 cm, 10 pieces. Fibre composition was not verified. Keep it as an alternative, not confirmed cotton. Do not invent material, current reviews or prices.
+- Shared Temu cart: https://share.temu.com/lmk1A7RfDsA
+- Use this one cart link for the shopping list; it replaces the individual store links.
+- The cart's contents, quantities and prices have not been verified. Keep the existing kit checklist until confirmed item details are supplied.
 
 ## First implementation pass
 

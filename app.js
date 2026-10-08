@@ -1,18 +1,18 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=27';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=27';
-import { createLiveDesk } from './live.js?v=27';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=27';
-import { icon } from './icons.js?v=27';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=27';
-import { renderMedia, downloadBlob } from './media.js?v=27';
-import { captureView } from './view-state.js?v=27';
-import { createDeviceStore } from './device-store.js?v=27';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=27';
-import { createBeforeSyncBackup } from './before-sync.js?v=27';
-import { SYNC_CONFIG } from './sync-config.js?v=27';
-import { renderLiveConnection } from './connection-badge.js?v=27';
-import { createGameTimeline } from './game-timeline.js?v=27';
-import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=27';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=28';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=28';
+import { createLiveDesk } from './live.js?v=28';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=28';
+import { icon } from './icons.js?v=28';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=28';
+import { renderMedia, downloadBlob } from './media.js?v=28';
+import { captureView } from './view-state.js?v=28';
+import { createDeviceStore } from './device-store.js?v=28';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=28';
+import { createBeforeSyncBackup } from './before-sync.js?v=28';
+import { SYNC_CONFIG } from './sync-config.js?v=28';
+import { renderLiveConnection } from './connection-badge.js?v=28';
+import { createGameTimeline } from './game-timeline.js?v=28';
+import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=28';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -29,7 +29,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=27', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=28', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -141,8 +141,8 @@ function panelName(key){return key?.startsWith('event:')?schedule[Number(key.spl
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 function inventoryPanel() {
-  const row=(item,group)=>{const key=checklistKey('inventory:'+group,item.name),checked=state.committeeChecklist[key];return `<li class="inventory-row ${checked?'checked':''}"><label class="inventory-item"><input type="checkbox" data-checklist="${key}" ${checked?'checked':''} aria-label="${esc(item.name+' ready')}"><span><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></label>${item.links?`<span class="inventory-links">${item.links.map(link=>`<a href="${esc(link.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(item.name+' · '+link.label+' · opens in a new tab')}">${esc(link.label)} <span aria-hidden="true">↗</span></a>`).join('')}</span>`:item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;};
-  return `<section class="committee-inventory" aria-labelledby="inventory-title"><h3 id="inventory-title">Items &amp; shopping links</h3><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(item=>row(item,'have')).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(item=>row(item,'prepare')).join('')}</ul></section></div><p class="help">Tick when packed or ready. Checks stay on this phone.</p></section>`;
+  const row=(item,group)=>{const key=checklistKey('inventory:'+group,item.name),checked=state.committeeChecklist[key];return `<li class="inventory-row ${checked?'checked':''}"><label class="inventory-item"><input type="checkbox" data-checklist="${key}" ${checked?'checked':''} aria-label="${esc(item.name+' ready')}"><span><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></label>${item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;};
+  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Items &amp; shopping cart</h3><span class="inventory-links"><a href="${esc(SUPPLIES.cart.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(SUPPLIES.cart.label+' · opens in a new tab')}">${esc(SUPPLIES.cart.label)} <span aria-hidden="true">↗</span></a></span></div><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(item=>row(item,'have')).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(item=>row(item,'prepare')).join('')}</ul></section></div><p class="help">Tick when packed or ready. Checks stay on this phone.</p></section>`;
 }
 function committeePanel(index = null) {
   const general=index===null;
@@ -153,7 +153,7 @@ function committeePanel(index = null) {
   const key=general?'general':String(index);
   const value=selected?state.committeeNotes[selected.id]?.[key]:state.notes[index];
   const gameLinks=general?`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`:'';
-  const reminder=selected?.id==='director'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Items &amp; shopping links →</button>'):`<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
+  const reminder=selected?.id==='director'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Items &amp; shopping cart →</button>'):`<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
   const extras=selected?.id==='director'?reminder+gameLinks:gameLinks+reminder;
   const scope=`${selectedDepartment}:${general?'general':'event:'+index}`;
   const tasks=items.length?`<section class="note-card compact-note"><h3>${esc(selected?.name||'Everyone')}</h3><ul class="committee-checklist">${items.map(item=>{const key=checklistKey(scope,item);return `<li><label class="committee-check"><input type="checkbox" data-checklist="${key}" ${state.committeeChecklist[key]?'checked':''}><span>${esc(item)}</span></label></li>`;}).join('')}</ul></section>`:'<p class="committee-empty">No extra task for this event.</p>';
