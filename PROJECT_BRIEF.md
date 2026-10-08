@@ -14,7 +14,8 @@ The user then asked to move the work to Codex. No completed interactive app sour
 ## Event and participants
 
 - Title: CG SPORTS DAY.
-- Date: OCT 25. Do not add a year or weekday: neither was explicitly confirmed. Some previous generated images invented 2024/Saturday; those are not authoritative.
+- Date: October 25, 2026, explicitly confirmed by the user for the Google Calendar link. Keep the compact OCT 25 display; earlier artwork that used a different year or weekday is not authoritative.
+- The date card opens a pre-filled Google Calendar event for 11:40–16:00 in Asia/Seoul, matching the card. Its description distinguishes committee setup at 11:40 from the participant program at 12:00.
 - Venue: 응봉공원 · 다목적구장. Meet at the second, larger rectangular court on the supplied park map.
 - Venue map: https://naver.me/59lqYcXJ. Toilet map: https://naver.me/G6RwJ9lQ.
 - Walking guide: from the entrance turn right, go up the stairs, then right to the larger court. Both supplied HEIC attachments were the same entrance photo; the distinct staircase photo is still needed.

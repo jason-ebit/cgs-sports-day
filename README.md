@@ -8,7 +8,7 @@ Shared scores, brackets and timers use Supabase. Everyone watches the same GitHu
 
 Updates install as a complete offline version and take effect on the next page load. They never reload a running timer. If an update download fails, the installed version remains available.
 
-Working responsive rundown and game desk, built from `reference.png`, `PROJECT_BRIEF.md` and the approved `schedule.json`. Date: **OCT 25**, with no invented year or weekday. Venue: **응봉공원 · 다목적구장**.
+Working responsive rundown and game desk, built from `reference.png`, `PROJECT_BRIEF.md` and the approved `schedule.json`. Date: **October 25, 2026**, confirmed by the user. The compact card keeps **OCT 25**. Venue: **응봉공원 · 다목적구장**.
 
 ## Run
 
@@ -24,6 +24,7 @@ Open **http://127.0.0.1:4173** to watch shared scores, or **http://127.0.0.1:417
 
 - **Home:** the landing page uses a wide, screen-filling grid with readable type, aligned cards and muted sage / gold / rose accents. Phones have a **Rundown / Games** switch so each view fits without shrinking the entire poster. **Expand layout** offers the roomier scrollable version. Small rounded game tiles follow an S route: Borrow → Basket → Cavalry on the right → Tug on the left → Relay below. A running or paused game stays highlighted with its matchup and timer; completed steps stay marked and the current step breathes. Full round details are inside each game.
 - **Location:** a separate card beside the date opens venue and toilet links in Naver Maps, concise walking steps, the annotated entrance photo and park route map. Tap an image to view it larger. Guide images are cached with the app for offline use. The separate staircase photo remains to be supplied; both uploaded HEIC files were identical. Image editing used the built-in image generator; the assets and exact prompts are in `assets/location/`.
+- **Calendar:** tap the date card to review and save a pre-filled Google Calendar event for October 25, 2026, 11:40–16:00 in Korea time. It includes the venue, walking directions, toilet link and live site; the description notes the participant start at 12:00.
 - **Game desk:** games open on **Timer & scoring**, with numbered rounds/attempts above the controls. Round selection stays shared across Timer, Scores, Format and Committee tabs. Team choices are rounded colour buttons. A single Play / Pause / Next action stays visible on phones while results scroll. Next names its destination and skips finished work, including missing earlier rounds.
 - **Follow live:** spectators follow the active round or match within the selected game. Choosing a round or team enters Review; **Follow live** resumes following. Spectator desks show timers and results without scoring inputs, timer settings or reset menus. The in-game connection label updates without rebuilding input fields.
 - **Back:** linked panels return to their previous tab, department, round/attempt, focus and scroll position. Updates preserve unfinished input drafts when the underlying saved value is unchanged; genuine shared changes take precedence.

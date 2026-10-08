@@ -1,7 +1,8 @@
 {
   "title": "CG SPORTS DAY",
   "dateLabel": "OCT 25",
-  "year": null,
+  "date": "2026-10-25",
+  "year": 2026,
   "weekday": null,
   "venue": "응봉공원 · 다목적구장",
   "timezone": "Asia/Seoul",

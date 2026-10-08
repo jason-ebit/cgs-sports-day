@@ -24,6 +24,7 @@ const files = [
   'connection-badge.js',
   'game-timeline.js',
   'location-guide.js',
+  'calendar-link.js',
   'schedule.json',
   'manifest.webmanifest',
   'sw.js'
