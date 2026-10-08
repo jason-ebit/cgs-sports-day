@@ -1,4 +1,4 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=28';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=29';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.

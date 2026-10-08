@@ -23,6 +23,7 @@ const files = [
   'before-sync.js',
   'connection-badge.js',
   'game-timeline.js',
+  'location-guide.js',
   'schedule.json',
   'manifest.webmanifest',
   'sw.js'

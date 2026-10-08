@@ -1,18 +1,19 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=28';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=28';
-import { createLiveDesk } from './live.js?v=28';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=28';
-import { icon } from './icons.js?v=28';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=28';
-import { renderMedia, downloadBlob } from './media.js?v=28';
-import { captureView } from './view-state.js?v=28';
-import { createDeviceStore } from './device-store.js?v=28';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=28';
-import { createBeforeSyncBackup } from './before-sync.js?v=28';
-import { SYNC_CONFIG } from './sync-config.js?v=28';
-import { renderLiveConnection } from './connection-badge.js?v=28';
-import { createGameTimeline } from './game-timeline.js?v=28';
-import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=28';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=29';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=29';
+import { createLiveDesk } from './live.js?v=29';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=29';
+import { icon } from './icons.js?v=29';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=29';
+import { renderMedia, downloadBlob } from './media.js?v=29';
+import { captureView } from './view-state.js?v=29';
+import { createDeviceStore } from './device-store.js?v=29';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=29';
+import { createBeforeSyncBackup } from './before-sync.js?v=29';
+import { SYNC_CONFIG } from './sync-config.js?v=29';
+import { renderLiveConnection } from './connection-badge.js?v=29';
+import { createGameTimeline } from './game-timeline.js?v=29';
+import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=29';
+import { renderLocationGuide } from './location-guide.js?v=29';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -29,7 +30,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=28', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=29', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const schedule = (await response.json()).schedule;
 const dialog = $('#detail-dialog'), body = $('#detail-body');
@@ -137,7 +138,7 @@ function restoreFocus(){
   const target=[...replacements,$('#teams-tool')].find(canFocus);target?.focus();
 }
 function closePanel() { dialog.close(); }
-function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper'})[key]||'Back';}
+function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide'})[key]||'Back';}
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 function inventoryPanel() {
@@ -168,7 +169,7 @@ function renderPanel() {
   const restoreView = captureView(dialog, renderedPanel);
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
-  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', sync:'Scorekeeper' })[current];
+  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', sync:'Scorekeeper',location:'Location guide' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : 'CG SPORTS DAY / OCT 25';
   $('#back-detail').hidden=!navigation.previous;
   $('#back-detail').textContent=navigation.previous?'‹ Back to '+panelName(navigation.previous.key):'';
@@ -176,6 +177,7 @@ function renderPanel() {
   const tabs=[['timer','Timer & scoring'],...(game==='tug'?[['play','Bracket']]:[]),...(game?[['scores','Scores']]:[]),['notes','Format'],['committee','Committee']];
   dialog.classList.toggle('game-dialog',Boolean(game));
   dialog.classList.toggle('sync-dialog',current==='sync');
+  dialog.classList.toggle('location-dialog',current==='location');
   if(tab==='play'&&game&&game!=='tug')tab=game==='cavalry'?'timer':'scores';
   $('#detail-tabs').innerHTML=event?tabs.map(([key,label])=>`<button data-tab="${key}" class="${tab===key?'active':''}" aria-pressed="${tab===key}">${label}</button>`).join(''):'';
   if(event) {
@@ -190,6 +192,7 @@ function renderPanel() {
   else if(current==='results') body.innerHTML=resultsPanel();
   else if(current==='data') body.innerHTML=dataPanel();
   else if(current==='sync') body.innerHTML=syncPanel();
+  else if(current==='location') body.innerHTML=renderLocationGuide();
   else if(current==='media') { body.innerHTML=mediaPanel(); updateMedia(); }
   if(!canEdit())body.querySelectorAll('[data-assign-slot],[data-borrow-rounds],[data-winner],[data-placement],[data-placement-rule],[data-team][data-field="name"],[data-team][data-field="seed"],[data-action="random-draw"],[data-action="seed-draw"],[data-action="lock-draw"],[data-action="clear-matches"]').forEach(el=>el.disabled=true);
   if(!writerAuthority())body.querySelectorAll('[data-action="reset-all"],[data-action="restore-before-sync"],#import-file').forEach(el=>el.disabled=true);
