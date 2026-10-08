@@ -20,6 +20,25 @@
 .sync-error{color:#9a564a;margin-top:10px!important}
 #download-media{min-height:42px}
 
+/* Public sharing stays together, above the existing image exports. */
+.viewing-share{display:grid;grid-template-columns:176px minmax(0,1fr);align-items:center;gap:22px;padding:20px;border:1px solid #dce3d7;border-radius:14px;background:#f5f7ef}
+.viewing-qr{display:block;width:176px;height:176px;background:#fff;border-radius:8px}
+.viewing-share-details{min-width:0}
+.viewing-share h3{font-size:17px;line-height:1.3;margin:0;color:#3e5045}
+.viewing-share p{font-size:11px;line-height:1.6;color:#73806b;margin:7px 0 13px}
+.viewing-share .field input{font-family:Arial,sans-serif;font-size:12px;min-height:40px;background:#fff}
+.viewing-share .button-row{margin:12px 0 0;gap:8px}
+.viewing-share .button-row :is(button,a){display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 13px;text-decoration:none;font-size:11px}
+.viewing-share a.secondary{color:#3e5045}
+.viewing-share :is(button,a,input):focus-visible{outline:2px solid #829374;outline-offset:3px}
+@media(max-width:760px){
+ .viewing-share{grid-template-columns:minmax(0,1fr);gap:15px;padding:16px}
+ .viewing-qr{justify-self:center}
+ .viewing-share h3,.viewing-share p{text-align:center}
+ .viewing-share .button-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+ .viewing-share .field input{font-size:16px}
+}
+
 .committee-event-links{display:flex;flex-wrap:wrap;gap:6px;margin:14px 0 18px}
 .committee-event-links .section-label{flex-basis:100%;margin:0 0 2px}
 .committee-event-links button{font-size:10px;padding:8px 10px;border-radius:9px;min-height:36px}

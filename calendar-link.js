@@ -1,4 +1,4 @@
-import { LOCATION } from './location-guide.js?v=30';
+import { LOCATION } from './location-guide.js?v=31';
 
 export function googleCalendarLink(event) {
   const times=event.schedule.flatMap(item=>[item.start,item.end]).filter(Boolean).sort();

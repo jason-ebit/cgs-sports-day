@@ -1,10 +1,10 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=30';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=30';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=30';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=30';
-import { activeRoundKey, nextTarget } from './flow-model.js?v=30';
-import { createTimerPopup } from './timer-popup.js?v=30';
-import { captureView } from './view-state.js?v=30';
+import { TEAM_IDS, matchTeams } from './model.js?v=31';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=31';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=31';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=31';
+import { activeRoundKey, nextTarget } from './flow-model.js?v=31';
+import { createTimerPopup } from './timer-popup.js?v=31';
+import { captureView } from './view-state.js?v=31';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
