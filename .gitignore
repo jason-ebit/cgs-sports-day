@@ -6,3 +6,5 @@ supabase-setup-review.jpg
 supabase-setup-complete.jpg
 supabase/verify-private.sql
 supabase/debug-private.sql
+supabase/migration-private.sql
+supabase/migration-public-state.json

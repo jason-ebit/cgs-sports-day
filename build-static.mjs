@@ -3,6 +3,7 @@ import { cpSync, mkdirSync, rmSync } from 'node:fs';
 const files = [
   'index.html',
   'styles.css',
+  'palette.css',
   'landing.css',
   'desk.css',
   'app.js',

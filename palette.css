@@ -1,0 +1,45 @@
+/* One palette and spacing scale for the event desk. See README.md for references. */
+:root {
+  color-scheme: light;
+  --canvas: #f4f3ef;
+  --surface: #fffefb;
+  --surface-raised: #ffffff;
+  --surface-soft: #eef2ed;
+  --ink: #2b3530;
+  --muted: #606e65;
+  --line: #d5ddd5;
+  --line-strong: #a9bbb0;
+  --brand: #44695a;
+  --brand-strong: #304e41;
+  --brand-soft: #e1ece4;
+  --blue: #45647d;
+  --blue-soft: #eaf1f7;
+  --plum: #514354;
+  --warm: #8c583c;
+  --warm-soft: #f5e9df;
+  --warning: #795d24;
+  --warning-soft: #f5edda;
+  --schedule-break: #e9dcb7;
+  --schedule-results: #cddfcf;
+  --schedule-finish: #eaccc5;
+  --danger: #a44642;
+  --danger-soft: #f7e9e5;
+  --live: #147047;
+  --focus: #456c96;
+  --gold: #81642f;
+  --soft: var(--surface-soft);
+  --black: var(--brand-strong);
+  --radius: 16px;
+  --radius-control: 10px;
+  --radius-card: 16px;
+  --radius-dialog: 22px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --shadow-card: 0 3px 12px #263b2e06;
+  --shadow-dialog: 0 24px 80px #21362b24;
+}

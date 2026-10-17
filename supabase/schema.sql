@@ -200,6 +200,8 @@ create table if not exists sports_day_private.editors (
 );
 
 alter table public.sports_day_events enable row level security;
+alter table sports_day_private.operations enable row level security;
+alter table sports_day_private.editors enable row level security;
 drop policy if exists sports_day_public_read on public.sports_day_events;
 create policy sports_day_public_read on public.sports_day_events for select to anon, authenticated using (true);
 revoke all on public.sports_day_events from public, anon, authenticated;

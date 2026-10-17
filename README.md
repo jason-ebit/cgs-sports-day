@@ -58,7 +58,7 @@ If saved data cannot be read, the original record is protected from ordinary sav
 
 ## Files
 
-- `index.html`, `styles.css`, `landing.css`, `desk.css`, `app.js`: interface, responsive layout and interactions. `desk.css` groups shared panel spacing, committee checks and desk actions without changing the approved landing map.
+- `index.html`, `palette.css`, `styles.css`, `landing.css`, `desk.css`, `app.js`: interface, responsive layout and interactions. `palette.css` owns colour roles, spacing and radii; `desk.css` groups shared panel controls. The home keeps the approved winding game route.
 - `model.js`: draw, advancement, scoring, tie resolution and import validation.
 - `live.js`, `timer-model.js`, `rounds.js`, `flow-model.js`, `panel-navigation.js`: shared timers, match overlay, automatic result entry, incomplete-round targets and panel navigation.
 - `device-store.js`, `before-sync.js`, `view-state.js`, `sw.js`: protected device saving, pre-sync recovery, focus/settings preservation and complete offline releases.
@@ -86,13 +86,15 @@ node tests/before-sync.test.mjs
 node tests/flow.test.mjs
 node tests/view-state.test.mjs
 node tests/private-state.test.mjs
+node tests/connection-badge.test.mjs
+node tests/timeline.test.mjs
 ```
 
 Coverage includes bracket advancement and invalidation, seed validation, score conversion, ties, saved deadline clocks, ordered success/failure scoring, duplicate tap protection, Cavalry elimination/points, completion locks, scoped resets and backup compatibility. Regression checks cover partial historical score continuation, malformed backups, protected storage, typed counts at expiry, timer reset indicators, the first Play tap after a limit edit, exact offline asset versions and interrupted updates.
 
 Release 26 passed 258 automated checks, including live following/manual review, Next wrapping to unfinished work, guarded Undo, fresh state after reset confirmation, one primary action across popups, draft isolation, and private checklist/preference backups. Browser checks used an isolated local scorekeeper preview and an anonymous read-only live viewer; production scores were not edited.
 
-The final flow check completed all Borrow rounds and verified automatic championship points, tested Cavalry Undo without interrupting its timer, restored Committee checks/reminders after Back and reload, retained Basket Blue / attempt 2 after returning from sync, and returned focus to an enabled control after a game completed. At 320 × 667, Play and Next remained visible; home and seven main panels showed no horizontal overflow at 390 × 844, 768 × 1024 and 1280 × 720. The compact Director inventory retained all five shopping links.
+The final flow check completed all Borrow rounds and verified automatic championship points, tested Cavalry Undo without interrupting its timer, restored Committee checks/reminders after Back and reload, retained Basket Blue / attempt 2 after returning from sync, and returned focus to an enabled control after a game completed. At 320 × 667, Play and Next remained visible; home and seven main panels showed no horizontal overflow at 390 × 844, 768 × 1024 and 1280 × 720. The Director inventory now uses the single shared Temu cart, following the later shopping-list instructions.
 
 The October 7 inspection checked timer expiry with an unblurred count, its saved score sheet, keyboard focus/settings retention, overlay/main-desk count consistency, and all ten main panels at 320 CSS pixels. The landing page fit 320 × 667 without overflow. Offline failures were checked against the real worker source with simulated network/cache events; real device flight-mode behavior remains untested.
 
@@ -101,3 +103,43 @@ The interface was checked in Safari on desktop and at 390/320 CSS pixels using `
 The original `PROJECT_BRIEF.md` is preserved as source history. The later user instructions supersede its Cavalry eligibility/scoring approval workflow.
 
 The landing-page refinement was visually checked on desktop, a tablet-sized viewport, 390 × 844 and 320 × 667 phone previews. Both phone views fit their viewport; the new Rundown / Games switch preserves readable text. Styling is isolated in `landing.css`; the printed/exported reference poster retains its own layout.
+
+## October 17 design and security review
+
+The interface combines several references rather than copying one template:
+
+| Reference | Used for |
+| --- | --- |
+| [Figma: Purity UI Dashboard](https://www.figma.com/community/file/1020707462188017225/purity-ui-dashboard-chakra-ui-dashboard/) | Consistent rounded cards, clear control hierarchy and quiet borders. |
+| [Figma: Dashboard Tennis](https://www.figma.com/community/file/882171933811828307/dashboard-tennis/) | Compact match summaries and a clear distinction between scores and supporting information. |
+| [Figma: Simple dashboard](https://www.figma.com/community/file/1048559673287861086/dashboard/) | Restrained information density and aligned panels. |
+
+These designs are listed in [Figma's dashboard collection](https://www.figma.com/templates/dashboard-designs/). The colour direction draws on Jade, Cool Blue and Plum Noir from [Pinterest Palette 2026](https://newsroom.pinterest.com/news/from-cool-blue-to-persimmon-meet-the-2026-pinterest-palette/). The app uses its own muted shades with warm ivory surfaces and readable dark text, rather than the report's exact swatch values. Team colours retain their identifying role. No third-party template assets are embedded.
+
+- Shared colour roles live in `palette.css`. Canvas poster exports read the same CSS colours; their established dimensions and content layout stay intact.
+- Cards, inputs, tabs, notes and button groups use the same spacing and corner sizes. Timer/scoring actions have 44px minimum targets. Tabs and rounds can scroll within their own strip on small screens.
+- The home preserves the five-stop S route, fixed team-name slots, compact date and separate location card. Short phones give the illustrations their own row above the game caption.
+- CSS has been formatted for maintenance and declarations overridden by later rules with the same selector have been removed. Local `?local` previews do not install a service worker, so development changes are not hidden behind an old release cache. Use a fresh local port after previewing a previously cached release.
+- New panels, rounds and reopened dialogs start at the top. Same-view updates retain drafts, focus and scroll; Back still restores the previous view. The Scores overview pins the team and Total columns while individual game columns scroll on narrow phones.
+
+Release 32 passed all 269 automated checks. Firefox inspection covered the 320 × 667 home in both modes, each game desk, the big match screen, committee departments, teams, scores, location, sharing, backup and scorekeeper panels. Wider phone, tablet and desktop proportions were also inspected. The hidden-dialog scroll regression was reproduced and checked again after its fix. Poster and phone-story previews rendered under the new CSP. Real phone keyboards, safe areas and a two-device event-day rehearsal remain untested.
+
+### Security boundaries
+
+The page now declares a Content Security Policy before loading resources. Scripts and fonts come from the site; network connections are limited to the site and the configured Supabase HTTPS/WSS endpoints. Inline scripts, object embeds, base-tag overrides and native form submissions are blocked. Inline styles remain necessary for team colours and draggable timers. External navigation sends no referrer. [CSP reference](https://developer.mozilla.org/en-US/docs/Web/HTTP/Reference/Headers/Content-Security-Policy).
+
+Live checks on October 17 confirmed that public score reads succeed, anonymous writer claims/result updates/direct table writes are denied, and the private editor schema is not exposed. Permission probes used a nonexistent event; no event results were changed. The live public snapshot contained none of the checked private notes, participant details or login-token fields. All three application tables explicitly enable RLS. Backend tests cover exact public payload keys, restricted grants, the assigned scorekeeper check, revisions and writer leases. [Supabase access-control reference](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+Private JSON backups contain this phone's leaders and committee reminders and are labelled accordingly. The app's backup functions export event state rather than authentication storage. Scorekeeper sessions persist in browser storage for event-day continuity; Sign out clears that session. Device-only notes and downloaded backups are not encrypted by the app.
+
+The review does not certify the entire cloud account. Account MFA, backup retention and GitHub administrative settings require a project-owner dashboard review. GitHub Pages cannot apply custom response headers such as CSP `frame-ancestors` through an HTML meta tag.
+
+### Supabase account move
+
+At the user's request, the site now uses the new `cgs` project in the CGS organization on the current Supabase account, hosted in Seoul. Only the project URL and browser-safe publishable key are included in the site. Public signups and anonymous sign-ins are disabled. The same sole scorekeeper was created privately by the user and assigned using that project's new Auth UID.
+
+The last confirmed public snapshot from the previous project (revision 37, no active timer) was validated and imported atomically. The destination starts at revision 1; its public state was compared with the source before and after verification. All 28 database role checks passed in an isolated event, and every test change was rolled back. The browser viewer connected successfully with the new endpoint and CSP.
+
+Device-only leaders, headcounts, reminders and preferences remain on each browser. A separate recovery key captures meaningful device state before the browser first adopts the new server, preserving the original before-sync backup as well. Old Auth sessions and pending sync queues are not copied into the new project.
+
+Refresh or reopen every viewing/scoring tab after deployment and sign in with the new scorekeeper login. Old tabs can still contact the previous project until refreshed; its administrator access was unavailable, so it has not been disabled or deleted. Keep the ignored private migration snapshot for recovery. After new results are recorded, any rollback must carry those newer results back before switching endpoints.

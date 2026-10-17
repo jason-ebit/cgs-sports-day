@@ -21,20 +21,25 @@ class Surface {
   hasPointerCapture(){return false;}
   close(){this.open=false;}
   showModal(){this.open=true;}
-  focus(){}
+  focus(options){this.focusOptions=options;}
   querySelector(){return null;}
   querySelectorAll(){return [];}
   contains(){return false;}
 }
 
 async function fixture(fn) {
-  const globals=['document','window','innerWidth','innerHeight','setInterval'];
+  const globals=['document','window','innerWidth','innerHeight','setInterval','CSS'];
   const saved=new Map(globals.map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
   const originalNow=Date.now;let now=1000,saves=0,refreshes=0,editable=true,offset=0,confirm=async()=>true,syncStatus={localPreview:true};const messages=[],panels=[],rendered=[],syncLabels=[];
   const document=new Surface(),window=new Surface();
   const elements=Object.fromEntries(['#timer-float','#active-timer','#live-dialog','#hide-timer','#timer-dropzone','#live-dropzone','#close-live','#live-title','#live-body'].map(selector=>[selector,new Surface()]));
+  const overlay=elements['#live-dialog'],overlayBody=elements['#live-body'];
+  overlayBody.id='live-body';
+  overlayBody.querySelector=selector=>selector==='[data-live-key]'&&overlayBody.innerHTML?.match(/data-live-key="([^"]+)"/)?new Surface({liveKey:overlayBody.innerHTML.match(/data-live-key="([^"]+)"/)[1]}):null;
+  overlay.querySelector=selector=>overlayBody.querySelector(selector);
+  overlay.querySelectorAll=selector=>selector==='[id]'||selector==='#live-body'?[overlayBody]:[];
   document.querySelector=selector=>elements[selector];document.querySelectorAll=selector=>selector==='[data-live-key]'?rendered:selector==='[data-live-sync]'?syncLabels:[];
-  Object.assign(globalThis,{document,window,innerWidth:1000,innerHeight:700,setInterval:()=>1});Date.now=()=>now;
+  Object.assign(globalThis,{document,window,innerWidth:1000,innerHeight:700,setInterval:()=>1,CSS:{escape:value=>String(value)}});Date.now=()=>now;
   let state=defaultState();const schedule=Array.from({length:16},(_,i)=>({title:'Event '+i,durationMinutes:1}));
   const desk=new Surface(),status=new Surface();
   desk.querySelector=selector=>selector==='[data-live-status]'?status:null;
@@ -350,6 +355,18 @@ await test('Play has one action slot and the underlying desk hides it while Big 
   assert.equal((elements['#live-body'].innerHTML.match(/data-live-action="toggle"/g)||[]).length,1);
   assert.doesNotMatch(live.panel(5),/data-live-action="toggle"/);
   elements['#live-dialog'].close();assert.match(live.panel(5),/data-live-action="toggle"/);
+});
+
+await test('Big screen starts at the timer after reopening or changing rounds while live refreshes retain its scroll',async({live,elements,emit,control})=>{
+  const overlay=elements['#live-dialog'],body=elements['#live-body'];
+  let scroll=420;
+  // Browsers may ignore scroll writes until a closed dialog has been shown.
+  Object.defineProperty(body,'scrollTop',{get:()=>scroll,set:value=>{if(overlay.open)scroll=value;}});
+  live.open(9);assert.equal(body.scrollTop,0);
+  body.scrollTop=310;live.refresh();assert.equal(body.scrollTop,310);
+  await emit('click',control(9,{liveChoice:'round',value:'1'}));assert.equal(body.scrollTop,0);
+  body.scrollTop=280;overlay.close();live.open(9);assert.equal(body.scrollTop,0);
+  assert.deepEqual(elements['#close-live'].focusOptions,{preventScroll:true});
 });
 
 await test('The desk sync indicator updates through pending, offline and conflict without rebuilding inputs',async({live,renderSync,setSyncStatus,refreshes,saves})=>{

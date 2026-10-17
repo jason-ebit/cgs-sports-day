@@ -50,6 +50,9 @@ test('Schema exposes read access and revokes direct public and authenticated wri
   assert.match(source, /grant select on public\.sports_day_events to anon, authenticated;/i);
   assert.doesNotMatch(source, /grant\s+(?:all|insert|update|delete)\s+on/i);
   assert.match(source, /revoke all on schema sports_day_private from public, anon, authenticated;/i);
+  for (const table of ['public.sports_day_events', 'sports_day_private.operations', 'sports_day_private.editors']) {
+    assert.ok(source.includes(`alter table ${table} enable row level security;`));
+  }
   assert.match(source, /revoke all on all tables in schema sports_day_private from public, anon, authenticated;/i);
   assert.match(source, /revoke all on all functions in schema sports_day_private from public, anon, authenticated;/i);
 });

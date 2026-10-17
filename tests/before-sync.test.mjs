@@ -26,3 +26,13 @@ values.set('bad','{unfinished');const bad=createBeforeSyncBackup({key:'bad',getS
 console.log('PASS Corrupt original backups remain intact');
 assert.equal(bad.recoveryRaw,'{unfinished');bad.recover(s);assert.equal(bad.error,'');assert.deepEqual(JSON.parse(bad.raw),s);assert.equal(bad.recoveryRaw,null);
 console.log('PASS Explicit recovery retains current scores and reconnects after the corrupt copy is exported');
+
+const originalRecord=values.get(key);
+values.set('old-sync-session',JSON.stringify({session:{access_token:'not-a-real-session-token'}}));
+const movedState=defaultState();movedState.teams[0].name='Pending result';movedState.committeeNotes['first-aid']={general:'Private handover'};
+const move=createBeforeSyncBackup({key:'server-move-backup',getStorage});move.capture(movedState);
+assert.deepEqual(JSON.parse(move.raw),movedState);
+assert.equal(values.get(key),originalRecord);
+assert.ok(!move.raw.includes('not-a-real-session-token'));
+move.capture(defaultState());assert.deepEqual(JSON.parse(move.raw),movedState);
+console.log('PASS A server move preserves current device data separately from the original backup and login storage');

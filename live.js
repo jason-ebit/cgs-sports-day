@@ -1,10 +1,10 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=31';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=31';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=31';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=31';
-import { activeRoundKey, nextTarget } from './flow-model.js?v=31';
-import { createTimerPopup } from './timer-popup.js?v=31';
-import { captureView } from './view-state.js?v=31';
+import { TEAM_IDS, matchTeams } from './model.js?v=32';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=32';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=32';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=32';
+import { activeRoundKey, nextTarget } from './flow-model.js?v=32';
+import { createTimerPopup } from './timer-popup.js?v=32';
+import { captureView } from './view-state.js?v=32';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -100,8 +100,17 @@ export function createLiveDesk(api) {
     return {text:status.role==='writer'?'Live · results synced':'Live scores · connected',className:'is-connected'};
   }
   function updateStatus(){const label=syncLabel();document.querySelectorAll('[data-live-sync]').forEach(el=>{if(el.textContent!==label.text)el.textContent=label.text;const className='live-sync '+label.className;if(el.className!==className)el.className=className;});}
-  function renderOverlay(){if(overlayEvent===null)return;const restoreView=captureView(overlay,overlay.dataset.viewKey);document.querySelector('#live-title').textContent=GAME_NAMES[EVENT_GAMES[overlayEvent]]||schedule[overlayEvent].title;document.querySelector('#live-body').innerHTML=view(overlayEvent,true);overlay.dataset.viewKey=String(overlayEvent);restoreView(overlay.dataset.viewKey);}
-  function open(index,match){context(index);if(match){choices[index].match=match;markManual(index);}if(!overlay.open){overlayOpener=document.activeElement;popup.resetOverlay();}overlayEvent=index;renderOverlay();if(!overlay.open)overlay.showModal();refresh();document.querySelector('#close-live').focus();}
+  function renderOverlay(){
+    if(overlayEvent===null)return;
+    const body=document.querySelector('#live-body'),previousLiveKey=body.querySelector('[data-live-key]')?.dataset.liveKey;
+    const previousView=overlay.dataset.viewKey,restoreView=captureView(overlay,previousView);
+    document.querySelector('#live-title').textContent=GAME_NAMES[EVENT_GAMES[overlayEvent]]||schedule[overlayEvent].title;
+    body.innerHTML=view(overlayEvent,true);
+    overlay.dataset.viewKey=String(overlayEvent);
+    if(overlay.open&&previousView===overlay.dataset.viewKey&&previousLiveKey===body.querySelector('[data-live-key]')?.dataset.liveKey)restoreView(overlay.dataset.viewKey);
+    else body.scrollTop=0;
+  }
+  function open(index,match){context(index);if(match){choices[index].match=match;markManual(index);}if(!overlay.open){overlayOpener=document.activeElement;popup.resetOverlay();}overlayEvent=index;renderOverlay();if(!overlay.open){overlay.showModal();document.querySelector('#live-body').scrollTop=0;}refresh();document.querySelector('#close-live').focus({preventScroll:true});}
   function refreshViews(){refresh();if(overlay.open)renderOverlay();tick();}
   function showReadyClock(ctx,c){
     document.querySelectorAll(`[data-live-key="${ctx.key}"]`).forEach(desk=>{

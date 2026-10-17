@@ -1,5 +1,5 @@
-import { defaultState } from './model.js?v=31';
-import { publicSnapshot } from './sync.js?v=31';
+import { defaultState } from './model.js?v=32';
+import { publicSnapshot } from './sync.js?v=32';
 
 // Retain the original device data once, before adopting shared results.
 export function createBeforeSyncBackup({ key = 'cg-sports-day-before-sync:cgs-oct25', getStorage = () => globalThis.localStorage } = {}) {

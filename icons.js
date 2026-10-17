@@ -22,4 +22,4 @@ const paths = {
  finish: '<path d="M7 45 11 5M13 7h31l-4 26H10" stroke-width="3"/><path d="m14 7-1 8h8l1-8h8l-1 8h8l1-8h6l-1 8h-6l-1 9h6l-2 9h-6l1-9h-8l-1 9h-8l1-9h-8l1-9h8l-1 9h8l1-9h-8l1-8Z" fill="currentColor" stroke="none"/>',
 };
 export function icon(name) { return `<svg class="icon" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.flag}</svg>`; }
-export function iconData(name) { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(icon(name).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replaceAll('currentColor','#111111')); }
+export function iconData(name, colour = '#111111') { return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(icon(name).replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ').replaceAll('currentColor',colour)); }
