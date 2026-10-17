@@ -1,21 +1,21 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=32';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=32';
-import { createLiveDesk } from './live.js?v=32';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=32';
-import { icon } from './icons.js?v=32';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=32';
-import { renderMedia, downloadBlob } from './media.js?v=32';
-import { captureView } from './view-state.js?v=32';
-import { createDeviceStore } from './device-store.js?v=32';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=32';
-import { createBeforeSyncBackup } from './before-sync.js?v=32';
-import { SYNC_CONFIG } from './sync-config.js?v=32';
-import { renderLiveConnection } from './connection-badge.js?v=32';
-import { createGameTimeline } from './game-timeline.js?v=32';
-import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=32';
-import { renderLocationGuide } from './location-guide.js?v=32';
-import { googleCalendarLink } from './calendar-link.js?v=32';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=32';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=33';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=33';
+import { createLiveDesk } from './live.js?v=33';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=33';
+import { icon } from './icons.js?v=33';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule } from './content.js?v=33';
+import { renderMedia, downloadBlob } from './media.js?v=33';
+import { captureView } from './view-state.js?v=33';
+import { createDeviceStore } from './device-store.js?v=33';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=33';
+import { createBeforeSyncBackup } from './before-sync.js?v=33';
+import { SYNC_CONFIG } from './sync-config.js?v=33';
+import { renderLiveConnection } from './connection-badge.js?v=33';
+import { createGameTimeline } from './game-timeline.js?v=33';
+import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=33';
+import { renderLocationGuide } from './location-guide.js?v=33';
+import { googleCalendarLink } from './calendar-link.js?v=33';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=33';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -32,7 +32,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=32', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=33', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -234,7 +234,7 @@ function resultsPanel() {
   return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table score-overview"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><span class="leader-score">${teamLabel(r.id)}${leaders.includes(r.id)?`<span class="score-crown" role="img" aria-label="Leading team">${icon('crown')}</span>`:''}</span></td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Crowns mark the leading total; tied leaders share a crown. A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
 }
 function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync automatically. Keep a JSON copy before resets or switching phones.','This file includes leaders and committee reminders. Keep it private.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download private JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
-function mediaPanel() { return renderViewingShare()+`<div class="section-label">POSTER &amp; PHONE STORY</div><p class="help">Schedule, teams and game formats. Private reminders stay out.</p><div class="field-row"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
+function mediaPanel() { return renderViewingShare()+`<div class="section-label">POSTER &amp; PHONE STORY</div><p class="help">Schedule, teams and game formats. Private reminders stay out.</p><div class="field-row export-controls"><label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label><div class="field">PNG image<button class="primary" id="download-media" data-action="download-media" disabled>Preparing image…</button></div></div><div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`; }
 async function updateMedia(){const token=++mediaToken;try{mediaCanvas=await renderMedia({state,schedule,size:exportSize});if(token!==mediaToken||current!=='media')return;$('#export-preview').replaceChildren(mediaCanvas);$('#download-media').disabled=false;$('#download-media').textContent='Download PNG ↓';}catch(e){if(current==='media')$('#export-preview').textContent='Image could not be generated. Please try again.';console.error(e);}}
 async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
 function changed(refresh=true){save();renderPoster();if(refresh)renderPanel();}

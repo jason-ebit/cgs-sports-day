@@ -14,7 +14,7 @@ body {
   gap: 16px;
   flex-shrink: 0;
 }
-.wordmark span {
+.wordmark-caption {
   color: var(--muted);
 }
 .toolbar .save-state {
@@ -686,6 +686,7 @@ body:not(.fit-home) .game-grid.game-map {
   background: transparent;
   box-shadow: none;
   font-size: 12px;
+  line-height: 1;
   font-weight: 700;
   color: var(--muted);
 }
@@ -1005,7 +1006,7 @@ body:not(.fit-home) .game-grid.game-map {
   .fit-home .team-legend h2 {
     font-size: 9px;
     letter-spacing: .09em;
-    margin-bottom: 8px;
+    margin-bottom: 14px;
   }
   .fit-home .legend-dots {
     gap: 6px;
@@ -1248,7 +1249,7 @@ body:not(.fit-home) .game-grid.game-map {
   }
   .fit-home .team-legend h2 {
     font-size: 8px;
-    margin-bottom: 6px;
+    margin-bottom: 14px;
   }
   .fit-home .legend-dots .dot {
     width: 12px;

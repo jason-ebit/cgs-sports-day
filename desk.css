@@ -1549,6 +1549,11 @@ input:focus,select:focus,textarea:focus {
 .score-overview th:first-child,.score-overview th:last-child {
   background: var(--blue-soft);
 }
+@media (max-width:520px) {
+  .field-row.export-controls {
+    grid-template-columns: minmax(0,1fr);
+  }
+}
 .location-links a {
   align-items: flex-start;
 }

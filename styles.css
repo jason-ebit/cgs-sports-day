@@ -75,16 +75,23 @@ a {
   border-bottom: 1px solid #efeff0;
 }
 .wordmark {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
   text-decoration: none;
   font-weight: 900;
   font-size: 18px;
+  line-height: 1;
   white-space: nowrap;
 }
-.wordmark span {
+.wordmark-logo {
+  display: block;
+}
+.wordmark-caption {
   font-size: 10px;
   letter-spacing: 1.5px;
   font-weight: 400;
-  margin-left: 9px;
+  line-height: 1;
 }
 .toolbar-actions {
   display: flex;
@@ -1041,6 +1048,8 @@ h1 {
 }
 .import-label {
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
 }
 .import-label input {
@@ -1295,7 +1304,7 @@ h1 {
     background: #fffffff2;
     backdrop-filter: blur(12px);
   }
-  .wordmark span,.save-state {
+  .wordmark-caption,.save-state {
     display: none;
   }
   .tool-button {
@@ -2684,7 +2693,7 @@ h1 {
   left: calc(50% - 2px);
 }
 @media (min-width:761px) and (max-width:1100px) {
-  .toolbar .wordmark span,.toolbar .save-state {
+  .toolbar .wordmark-caption,.toolbar .save-state {
     display: none;
   }
   .toolbar .timer-chip {
@@ -2774,7 +2783,7 @@ h1 {
   pointer-events: none;
 }
 .is-dragging {
-  box-shadow: 0 12px 35px var(--brand-strong)35;
+  box-shadow: 0 12px 35px color-mix(in srgb,var(--brand-strong) 21%,transparent);
 }
 .is-dragging,.is-dragging * {
   -webkit-user-select: none;
