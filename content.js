@@ -13,7 +13,7 @@ export const SUPPLIES={
   {name:'Game kit',items:[
    {name:'Coated work gloves'},
    {name:'Cones'},
-   {name:'Lightweight ping-pong balls',detail:'Basket + Relay'},
+   {name:'Lightweight plastic balls',detail:'Basket + Relay'},
    {name:'Batons'},
    {name:'Rider cloth (hachimaki)',detail:'Riders only'},
    {name:'Colour draw sticks',detail:'Separate men’s / women’s pools'},

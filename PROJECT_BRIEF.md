@@ -73,7 +73,7 @@ Suggested implementation details, not prior settled decisions:
 ### 2. Ball Basket — 25 minutes
 - Display name is Ball Basket, not Tamaire; inspired by Japanese tamaire.
 - Teams take turns, two 30-second attempts each; best successful-ball count determines placing. No elimination bracket.
-- Reuse lightweight coloured ping-pong balls and a lightweight laundry basket; no long pole because the organiser commutes.
+- Reuse lightweight coloured plastic balls and a lightweight laundry basket; no long pole because the organiser commutes.
 - Earlier plan: stationary committee-held basket with an exclusion zone. Do not treat this as a safety certification; test visibility, stability, stray balls and wind before use.
 - Equal participant opportunities, ball quantities and throwing distances must be set before play.
 - Earlier tie suggestion: 15-second playoff, subject to available time.
@@ -99,7 +99,7 @@ Suggested implementation details, not prior settled decisions:
 - All five teams race together; no elimination bracket.
 - Round 1: Baton Relay, around 8 minutes including setup/reset.
 - Round 2: Three-Legged Relay, around 10 minutes including practice/ties/changeover; typically three pairs per team with equal participation counts. Wide soft cloth/appropriate quick-release ties; no forced pairings or dragging.
-- Round 3: Spoon & Ball Relay, around 8 minutes; one hand-held spoon/team and a ping-pong ball. Drop: stop, replace and resume from the drop location; no finger-holding the ball while moving.
+- Round 3: Spoon & Ball Relay, around 8 minutes; one hand-held spoon/team and a plastic ball. Drop: stop, replace and resume from the drop location; no finger-holding the ball while moving.
 - Combined scoring/transitions: about 4 minutes.
 - Each round awards 5, 4, 3, 2, 1 by place. Sum round points; convert relay overall placing to championship points. Do not substitute combined race times for this system.
 - Rotate seventh/eighth members across rounds; keep runner/pair counts equal between teams.

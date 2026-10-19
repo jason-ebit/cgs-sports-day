@@ -1,6 +1,6 @@
-import { GAME_IDS, gameDone } from './model.js?v=44';
-import { remainingMs } from './timer-model.js?v=44';
-import { roundDone } from './rounds.js?v=44';
+import { GAME_IDS, gameDone } from './model.js?v=45';
+import { remainingMs } from './timer-model.js?v=45';
+import { roundDone } from './rounds.js?v=45';
 
 const EVENTS = [4, 5, 7, 8, 9];
 const SVG_NS = 'http://www.w3.org/2000/svg';
