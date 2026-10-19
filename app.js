@@ -1,22 +1,22 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=39';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=39';
-import { createLiveDesk } from './live.js?v=39';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=39';
-import { icon } from './icons.js?v=39';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=39';
-import { renderMedia, downloadBlob } from './media.js?v=39';
-import { createMediaExport, createMediaShare, posterSizeFromSearch } from './media-share.js?v=39';
-import { captureView } from './view-state.js?v=39';
-import { createDeviceStore } from './device-store.js?v=39';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=39';
-import { createBeforeSyncBackup } from './before-sync.js?v=39';
-import { SYNC_CONFIG } from './sync-config.js?v=39';
-import { renderLiveConnection } from './connection-badge.js?v=39';
-import { createGameTimeline } from './game-timeline.js?v=39';
-import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=39';
-import { renderLocationGuide } from './location-guide.js?v=39';
-import { googleCalendarLink } from './calendar-link.js?v=39';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=39';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=40';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=40';
+import { createLiveDesk } from './live.js?v=40';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=40';
+import { icon } from './icons.js?v=40';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=40';
+import { renderMedia, downloadBlob } from './media.js?v=40';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=40';
+import { captureView } from './view-state.js?v=40';
+import { createDeviceStore } from './device-store.js?v=40';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=40';
+import { createBeforeSyncBackup } from './before-sync.js?v=40';
+import { SYNC_CONFIG } from './sync-config.js?v=40';
+import { renderLiveConnection } from './connection-badge.js?v=40';
+import { createGameTimeline } from './game-timeline.js?v=40';
+import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=40';
+import { renderLocationGuide } from './location-guide.js?v=40';
+import { googleCalendarLink } from './calendar-link.js?v=40';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=40';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,7 +36,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=39', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=40', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -249,6 +249,7 @@ function mediaPanel() {
       <label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label>
       <div class="field"><span>PNG image</span><div class="export-actions"><button class="primary" id="share-media" data-action="share-media" aria-describedby="media-share-status" disabled>Share</button><button class="secondary" id="download-media" data-action="download-media" disabled>Download PNG ↓</button></div></div>
     </div><p class="help export-share-status" id="media-share-status" role="status">Preparing image…</p>
+    <div class="native-share-fallback" id="native-share-fallback" hidden><label class="field">Poster link<input id="poster-fallback-link" type="url" readonly spellcheck="false"></label><button class="secondary" data-action="copy-poster-link">Copy poster link</button></div>
     <div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`;
 }
 async function updateMedia() {
@@ -259,7 +260,9 @@ async function updateMedia() {
     preview.replaceChildren(asset.canvas);
     $('#download-media').disabled=false;
     $('#share-media').disabled=false;
-    $('#media-share-status').textContent=mediaShare.canShare(asset.file)?'Share opens your phone’s share sheet with this image.':'Native image sharing isn’t available in this browser. Try Safari or Chrome on your phone.';
+    const shareMode=mediaShare.mode(asset.file,asset.size);
+    $('#media-share-status').textContent={image:'Opens your device’s share sheet with this poster image.',link:'Opens your device’s share sheet with a poster link. This browser can’t share images.',unsupported:'Use your browser’s Share menu, or copy the poster link below.'}[shareMode];
+    if(shareMode==='unsupported')showPosterShareFallback(asset);
     if(revealLinkedPoster){$('#export-size').scrollIntoView({block:'start'});revealLinkedPoster=false;}
   } catch(error) {
     if(current==='media'&&preview===$('#export-preview')){
@@ -274,11 +277,29 @@ async function shareCurrentMedia(button) {
   if(!asset){toast('Image is still preparing.');return;}
   button.disabled=true;
   try {
-    const result=await mediaShare.share(asset.file);
-    const message={shared:'Poster handed to your share app.',cancelled:'Sharing cancelled.',busy:'A share sheet is already open.',unsupported:'Native image sharing isn’t available in this browser. Try Safari or Chrome on your phone.',failed:'Couldn’t open the share sheet. Tap Share to try again.',unavailable:'Image is still preparing.'}[result];
+    const result=await mediaShare.share(asset.file,asset.size);
+    const message={shared:'Poster image handed to your share app.','shared-link':'Poster link handed to your share app.','link-ready':'This browser can’t share images. Tap Share again to share the poster link.',cancelled:'Sharing cancelled.',busy:'A share sheet is already open.',unsupported:'This browser can’t open sharing from a page. Use its Share menu or copy the poster link.',failed:'Couldn’t open sharing. Tap Share to retry, or copy the poster link.',unavailable:'Image is still preparing.'}[result];
     if(message){toast(message);if(current==='media'&&mediaExport.asset===asset)$('#media-share-status').textContent=message;}
+    if(result==='unsupported'||result==='failed')showPosterShareFallback(asset,result==='unsupported');
   } finally {
     if(button.isConnected&&mediaExport.asset===asset)button.disabled=false;
+  }
+}
+function showPosterShareFallback(asset,select=false) {
+  if(current!=='media'||mediaExport.asset!==asset)return;
+  $('#native-share-fallback').hidden=false;
+  const input=$('#poster-fallback-link');input.value=posterURL(asset.size);
+  if(select){input.focus();input.select();}
+}
+async function copyPosterLink() {
+  const asset=mediaExport.asset;if(!asset)return;
+  try {
+    if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(posterURL(asset.size));
+    if(current==='media'&&mediaExport.asset===asset)$('#media-share-status').textContent='Poster link copied.';
+  } catch {
+    showPosterShareFallback(asset,true);
+    if(current==='media'&&mediaExport.asset===asset)$('#media-share-status').textContent='Poster link selected. Copy it from the field.';
   }
 }
 async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
@@ -385,6 +406,7 @@ document.addEventListener('click',async event=>{
       case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current local reminders will stay.')&&requireWriter()){state=mergePublicState(publicSnapshot(validateState(JSON.parse(beforeSync.raw))),state);store.replace(state);changed();toast('Original phone scores restored.');}break;
       case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, scores, timers and draw will be cleared. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
       case 'share-media':await shareCurrentMedia(el);break;
+      case 'copy-poster-link':await copyPosterLink();break;
       case 'download-media':if(mediaExport.asset)downloadBlob(mediaExport.asset.file,mediaExport.asset.file.name);break;
     }
   }catch(e){toast(e.message);}

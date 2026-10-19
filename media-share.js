@@ -1,3 +1,5 @@
+import { VIEWING_URL } from './share-link.js?v=40';
+
 export function createMediaExport({ render }) {
   let generation = 0, asset = null;
 
@@ -29,35 +31,60 @@ export function createMediaExport({ render }) {
 }
 
 export function createMediaShare({ navigator = globalThis.navigator } = {}) {
-  let busy = false;
+  let busy = false, imageUnsupported = false;
 
   function canShare(file) {
     if (!file) return false;
     try {
-      return Boolean(file.type === 'image/png' && typeof navigator?.share === 'function' && typeof navigator?.canShare === 'function' && navigator.canShare({ files: [file] }));
+      return Boolean(!imageUnsupported && file.type === 'image/png' && typeof navigator?.share === 'function' && typeof navigator?.canShare === 'function' && navigator.canShare({ files: [file] }));
     } catch { return false; }
   }
 
-  async function share(file) {
+  function mode(file, size) {
+    if (!file) return 'unavailable';
+    try {
+      if (file.type !== 'image/png') return 'unsupported';
+      if (canShare(file)) return 'image';
+      if ((size !== 'poster' && size !== 'phone') || typeof navigator?.share !== 'function') return 'unsupported';
+      if (typeof navigator.canShare === 'function' && !navigator.canShare({ url: posterURL(size) })) return 'unsupported';
+      return 'link';
+    } catch { return 'unsupported'; }
+  }
+
+  async function share(file, size) {
     if (!file) return 'unavailable';
     if (busy) return 'busy';
     busy = true;
     try {
-      if (!canShare(file)) return 'unsupported';
+      const selected = mode(file, size);
+      if (selected !== 'image' && selected !== 'link') return selected;
       try {
         // Invoke before yielding so the prepared file keeps the click's activation.
-        const attempt = navigator.share({ files: [file], title: 'OLYMPICS' });
+        const payload = selected === 'image' ? { files: [file], title: 'OLYMPICS' } : { url: posterURL(size), title: 'OLYMPICS' };
+        const attempt = navigator.share(payload);
         await attempt;
-        return 'shared';
+        return selected === 'image' ? 'shared' : 'shared-link';
       } catch (error) {
         if (error?.name === 'AbortError') return 'cancelled';
         if (error?.name === 'InvalidStateError') return 'busy';
+        if (selected === 'image' && error?.name === 'TypeError') {
+          imageUnsupported = true;
+          // A new click must supply activation for the URL share attempt.
+          if (mode(file, size) === 'link') return 'link-ready';
+        }
         return 'failed';
       }
     } finally { busy = false; }
   }
 
-  return { share, canShare };
+  return { share, canShare, mode };
+}
+
+export function posterURL(size) {
+  if (size !== 'poster' && size !== 'phone') throw new TypeError('Choose a full poster or phone story.');
+  const url = new URL(VIEWING_URL);
+  url.search = new URLSearchParams({ poster: size === 'poster' ? 'full' : 'phone' }).toString();
+  return url.href;
 }
 
 export function posterSizeFromSearch(search) {

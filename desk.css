@@ -1357,6 +1357,18 @@ input:focus,select:focus,textarea:focus {
 .export-share-status {
   margin: 0 0 12px;
 }
+.native-share-fallback {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: end;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.native-share-fallback .field {min-width: 0;}
+.native-share-fallback button {min-height: 44px;}
+@media (max-width:520px) {
+  .native-share-fallback {grid-template-columns: minmax(0,1fr);}
+}
 .sync-caution {
   border-color: #e6d2bd;
   background: var(--warm-soft);

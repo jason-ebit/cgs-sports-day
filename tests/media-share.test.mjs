@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { File as BufferFile } from 'node:buffer';
-import { createMediaExport, createMediaShare, posterSizeFromSearch } from '../media-share.js';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from '../media-share.js';
+import { VIEWING_URL } from '../share-link.js';
 
 globalThis.File ??= BufferFile;
 let count = 0;
@@ -174,6 +175,8 @@ await test('Only PNG files can be handed to the native image share sheet', async
   for (const file of [new File(['private'], 'backup.json', { type: 'application/json' }), new File(['image'], 'photo.jpg', { type: 'image/jpeg' })]) {
     assert.equal(sharing.canShare(file), false);
     assert.equal(await sharing.share(file), 'unsupported');
+    assert.equal(sharing.mode(file, 'poster'), 'unsupported');
+    assert.equal(await sharing.share(file, 'poster'), 'unsupported');
   }
 });
 
@@ -211,6 +214,128 @@ await test('Concurrent share clicks cannot open duplicate sheets or trigger a fa
   assert.equal(await first, 'shared');
   assert.equal(await sharing.share(file), 'shared');
   assert.equal(nativeCalls, 2);
+});
+
+await test('File-capable Safari and Android Chrome capabilities prefer the prepared PNG', async () => {
+  const file = png('olympics-full-poster.png'), payloads = [];
+  const sharing = createMediaShare({ navigator: { canShare(payload) { assert.deepEqual(payload, { files: [file] }); return true; }, share(payload) { payloads.push(payload); } } });
+  assert.equal(sharing.canShare(file), true);
+  assert.equal(sharing.mode(file, 'poster'), 'image');
+  assert.equal(await sharing.share(file, 'poster'), 'shared');
+  assert.deepEqual(payloads, [{ files: [file], title: 'OLYMPICS' }]);
+});
+
+await test('Android Firefox URL-only capabilities open the native share sheet synchronously', async () => {
+  const file = png('olympics-phone-story.png'), completion = deferred(), payloads = [];
+  const device = { canShare(payload) { assert.equal(this, device); return Boolean(payload.url); }, share(payload) { assert.equal(this, device); payloads.push(payload); return completion.promise; } };
+  const sharing = createMediaShare({ navigator: device });
+  assert.equal(sharing.canShare(file), false);
+  assert.equal(sharing.mode(file, 'phone'), 'link');
+  const pending = sharing.share(file, 'phone');
+  assert.deepEqual(payloads, [{ url: posterURL('phone'), title: 'OLYMPICS' }], 'Native URL sharing is invoked before the caller regains control.');
+  assert.equal(await sharing.share(file, 'phone'), 'busy');
+  completion.resolve();
+  assert.equal(await pending, 'shared-link');
+});
+
+await test('Legacy native sharing without canShare attempts only a canonical URL', async () => {
+  const file = png('olympics-full-poster.png'), payloads = [];
+  const sharing = createMediaShare({ navigator: { share(payload) { payloads.push(payload); } } });
+  assert.equal(sharing.canShare(file), false);
+  assert.equal(sharing.mode(file, 'poster'), 'link');
+  const pending = sharing.share(file, 'poster');
+  assert.deepEqual(payloads, [{ url: posterURL('poster'), title: 'OLYMPICS' }]);
+  assert.equal(await pending, 'shared-link');
+});
+
+await test('Desktop without native sharing and browsers rejecting URLs remain unsupported', async () => {
+  const file = png('poster.png');
+  for (const navigator of [{}, { canShare: () => true }, { canShare: () => false, share() { assert.fail(); } }]) {
+    const sharing = createMediaShare({ navigator });
+    assert.equal(sharing.mode(file, 'poster'), 'unsupported');
+    assert.equal(await sharing.share(file, 'poster'), 'unsupported');
+    assert.equal(sharing.mode(null, 'poster'), 'unavailable');
+  }
+});
+
+await test('Native URL sharing requires a valid public poster format', async () => {
+  const file = png('poster.png');
+  const sharing = createMediaShare({ navigator: { share() { assert.fail('Do not share a URL for an unknown format.'); } } });
+  for (const size of [undefined, null, '', 'full', 'story', 'Poster']) {
+    assert.equal(sharing.mode(file, size), 'unsupported');
+    assert.equal(await sharing.share(file, size), 'unsupported');
+    assert.throws(() => posterURL(size), TypeError);
+  }
+});
+
+await test('A failed file capability probe can still allow a confirmed URL share', async () => {
+  const payloads = [];
+  const sharing = createMediaShare({ navigator: { canShare(payload) { if (payload.files) throw new Error('Files unsupported'); return Boolean(payload.url); }, share(payload) { payloads.push(payload); } } });
+  assert.equal(await sharing.share(png('poster.png'), 'poster'), 'shared-link');
+  assert.deepEqual(payloads, [{ url: posterURL('poster'), title: 'OLYMPICS' }]);
+});
+
+await test('URL sharing cancellation and failures do not trigger downloads or app redirects', async () => {
+  const file = png('poster.png');
+  for (const [name, status] of [['AbortError', 'cancelled'], ['InvalidStateError', 'busy'], ['NotAllowedError', 'failed'], ['TypeError', 'failed']]) {
+    let calls = 0;
+    const sharing = createMediaShare({ navigator: { canShare: payload => Boolean(payload.url), share() { calls++; return Promise.reject(namedError(name)); } }, download() { assert.fail(); } });
+    assert.equal(await sharing.share(file, 'poster'), status);
+    assert.equal(calls, 1);
+    assert.equal(sharing.mode(file, 'poster'), 'link');
+  }
+});
+
+await test('A false PNG capability report requests a new click before trying the native URL', async () => {
+  const file = png('poster.png'), payloads = [];
+  const sharing = createMediaShare({ navigator: { canShare: () => true, share(payload) { payloads.push(payload); if (payload.files) return Promise.reject(new TypeError('Files unsupported')); } } });
+  assert.equal(await sharing.share(file, 'poster'), 'link-ready');
+  assert.deepEqual(payloads, [{ files: [file], title: 'OLYMPICS' }], 'Do not make another native share call after yielding.');
+  assert.equal(sharing.canShare(file), false);
+  assert.equal(sharing.mode(file, 'poster'), 'link');
+  const nextClick = sharing.share(file, 'poster');
+  assert.deepEqual(payloads[1], { url: posterURL('poster'), title: 'OLYMPICS' });
+  assert.equal(await nextClick, 'shared-link');
+});
+
+await test('An image TypeError with no supported native URL stays failed', async () => {
+  const file = png('poster.png');
+  const sharing = createMediaShare({ navigator: { canShare: payload => Boolean(payload.files), share() { throw new TypeError('Files unsupported'); } } });
+  assert.equal(await sharing.share(file, 'poster'), 'failed');
+  assert.equal(sharing.canShare(file), false);
+  assert.equal(sharing.mode(file, 'poster'), 'unsupported');
+});
+
+await test('Cancellation, blocked access and data failures do not downgrade native PNG sharing', async () => {
+  const file = png('poster.png');
+  for (const [name, status] of [['AbortError', 'cancelled'], ['NotAllowedError', 'failed'], ['DataError', 'failed']]) {
+    let calls = 0;
+    const sharing = createMediaShare({ navigator: { canShare: () => true, share() { calls++; return Promise.reject(namedError(name)); } } });
+    assert.equal(await sharing.share(file, 'poster'), status);
+    assert.equal(calls, 1);
+    assert.equal(sharing.canShare(file), true);
+    assert.equal(sharing.mode(file, 'poster'), 'image');
+  }
+});
+
+await test('Poster URLs contain only the canonical destination and selected public format', () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, 'location');
+  Object.defineProperty(globalThis, 'location', { configurable: true, get() { assert.fail('Do not read the device URL.'); } });
+  try {
+    for (const [size, route] of [['poster', 'full'], ['phone', 'phone']]) {
+      const expected = new URL(VIEWING_URL), actual = new URL(posterURL(size));
+      expected.searchParams.set('poster', route);
+      assert.equal(actual.href, expected.href);
+      assert.deepEqual([...actual.searchParams], [['poster', route]]);
+      assert.equal(actual.hash, '');
+      assert.equal(actual.username, '');
+      assert.equal(actual.password, '');
+      assert.equal(posterSizeFromSearch(actual.search), size);
+    }
+  } finally {
+    if (original) Object.defineProperty(globalThis, 'location', original);
+    else delete globalThis.location;
+  }
 });
 
 await test('Poster routes select full or phone views and ignore unknown or missing choices', () => {
