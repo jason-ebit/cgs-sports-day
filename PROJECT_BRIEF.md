@@ -73,7 +73,7 @@ Suggested implementation details, not prior settled decisions:
 ### 2. Ball Basket — 25 minutes
 - Display name is Ball Basket, not Tamaire; inspired by Japanese tamaire.
 - Teams take turns, two 30-second attempts each; best successful-ball count determines placing. No elimination bracket.
-- Reuse lightweight coloured plastic balls and a lightweight laundry basket; no long pole because the organiser commutes.
+- Reuse lightweight coloured plastic balls and a lightweight basket; no long pole because the organiser commutes.
 - Earlier plan: stationary committee-held basket with an exclusion zone. Do not treat this as a safety certification; test visibility, stability, stray balls and wind before use.
 - Equal participant opportunities, ball quantities and throwing distances must be set before play.
 - Earlier tie suggestion: 15-second playoff, subject to available time.
@@ -118,15 +118,15 @@ Five championship categories, normally 5/4/3/2/1 points by placing, highest tota
 - Comm: 2 volunteers, Mario and Cindy, documenting the day with photos and videos. Respect opt-outs and stay clear of play.
 - Warm-up: 1 lead, TBA, leading a five-minute session, mostly light stretching.
 - Support total: 10–11 across First-Aid, Equipment, Food & Water, Comm and Warm-up. Including the main judge / scorer and assistant judge: 12–13 total; five team leaders are separate.
-- Each committee shows numbered editable name slots above short essential bullets. Only the scorekeeper edits names; autosaved roster changes sync to all viewers while free-text reminders stay private on the device. Comm lists Cindy and Mario; remaining slots are TBA, including the optional third Food & Water helper. Duties and inventory use plain lists without checkboxes.
+- Each committee shows numbered editable name slots above short essential bullets. Only the scorekeeper edits names; autosaved roster changes sync to all viewers while free-text reminders stay private on the device. Comm lists Cindy and Mario; remaining slots are TBA, including the optional third Food & Water helper. Duties use plain lists. The equipment checklist saves ticks only on the current device.
 - Write committee duties as short, direct instructions in simple English. Keep role ownership, timer steps, game rules, safety and privacy details clear.
 - First-aid notes may include voluntarily disclosed asthma, allergies, diabetes, seizure conditions, fainting, cardiovascular conditions or injuries and access to participants' own emergency medication. Keep identifiable health notes private and out of public/media exports.
 - Existing items: mat, one whistle, icebox, transport cart, umbrellas, pens/markers, phones/timer and equipment bags.
 - No handball, extra medium balls, long basket pole, canopy, medals or certificates. Winner coupons/gift vouchers planned.
 
-## Equipment reminders
+## Equipment checklist
 
-- All listed items are purchased or already available. Show all 21 under Equipment as Game kit and Setup & support reminder lists, without purchase actions.
+- All listed items are purchased or already available. Show all 21 under Equipment as Game kit and Setup & support checklists, without purchase actions. Ticks save on the current device, survive reloads and stay out of shared scores.
 - Order reference (kept in source only): https://share.temu.com/lmk1A7RfDsA
 - Keep judging decisions, signals, timers and scoring with Judge / scores; the assistant observes and confirms. Support teams own their own kit, food, photos / videos, warm-up and team-readiness duties.
 

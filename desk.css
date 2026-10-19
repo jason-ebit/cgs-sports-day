@@ -1274,6 +1274,37 @@ input:focus,select:focus,textarea:focus {
 .inventory-row {
   border-color: var(--line);
   min-height: 44px;
+  padding: 0;
+}
+.inventory-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 6px;
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  cursor: pointer;
+}
+.inventory-check input {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--brand);
+  cursor: pointer;
+}
+.inventory-check:has(input:checked) {
+  background: var(--brand-soft);
+}
+.inventory-check input:checked + .inventory-item strong {
+  color: var(--brand);
+}
+.inventory-check input:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
 }
 .inventory-item strong {
   line-height: 1.55;

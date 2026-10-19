@@ -1,22 +1,22 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=45';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=45';
-import { createLiveDesk } from './live.js?v=45';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=45';
-import { icon } from './icons.js?v=45';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=45';
-import { renderMedia, downloadBlob } from './media.js?v=45';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=45';
-import { captureView } from './view-state.js?v=45';
-import { createDeviceStore } from './device-store.js?v=45';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=45';
-import { createBeforeSyncBackup } from './before-sync.js?v=45';
-import { SYNC_CONFIG } from './sync-config.js?v=45';
-import { renderLiveConnection } from './connection-badge.js?v=45';
-import { createGameTimeline } from './game-timeline.js?v=45';
-import { createPanelNavigation } from './panel-navigation.js?v=45';
-import { renderLocationGuide } from './location-guide.js?v=45';
-import { googleCalendarLink } from './calendar-link.js?v=45';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=45';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=46';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=46';
+import { createLiveDesk } from './live.js?v=46';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=46';
+import { icon } from './icons.js?v=46';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=46';
+import { renderMedia, downloadBlob } from './media.js?v=46';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=46';
+import { captureView } from './view-state.js?v=46';
+import { createDeviceStore } from './device-store.js?v=46';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=46';
+import { createBeforeSyncBackup } from './before-sync.js?v=46';
+import { SYNC_CONFIG } from './sync-config.js?v=46';
+import { renderLiveConnection } from './connection-badge.js?v=46';
+import { createGameTimeline } from './game-timeline.js?v=46';
+import { createPanelNavigation } from './panel-navigation.js?v=46';
+import { renderLocationGuide } from './location-guide.js?v=46';
+import { googleCalendarLink } from './calendar-link.js?v=46';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=46';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,7 +36,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=45', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=46', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -157,9 +157,12 @@ function closePanel() { dialog.close(); }
 function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide'})[key]||'Back';}
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
+const inventoryItems=SUPPLIES.groups.flatMap(group=>group.items);
+const inventoryKeys=new Set(inventoryItems.map(item=>`inventory:setup:${item.id}`));
+function inventoryProgress(){return `${inventoryItems.filter(item=>state.committeeChecklist[`inventory:setup:${item.id}`]).length} / ${inventoryItems.length} ready`;}
 function inventoryPanel() {
-  const row=item=>`<li class="inventory-row"><div class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</div></li>`;
-  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Equipment reminders</h3></div><div class="inventory-grid">${SUPPLIES.groups.map(group=>`<section class="inventory-group"><h4>${esc(group.name)} <span>${group.items.length}</span></h4><ul>${group.items.map(row).join('')}</ul></section>`).join('')}</div></section>`;
+  const row=item=>{const key=`inventory:setup:${item.id}`;return `<li class="inventory-row"><label class="inventory-check"><input type="checkbox" data-inventory-check="${key}" aria-label="${esc(item.name)} ready" ${state.committeeChecklist[key]?'checked':''}><span class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></label></li>`;};
+  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Equipment checklist</h3><span id="inventory-progress" class="help" role="status">${inventoryProgress()}</span></div><p class="help">Tick items when they are ready. Checks save only on this device.</p><div class="inventory-grid">${SUPPLIES.groups.map(group=>`<section class="inventory-group"><h4>${esc(group.name)} <span>${group.items.length}</span></h4><ul>${group.items.map(row).join('')}</ul></section>`).join('')}</div></section>`;
 }
 function committeeRoster(selected) {
   const members=selected?.members;if(!members?.length)return '';
@@ -182,7 +185,7 @@ function committeePanel(index = null) {
   const key=general?'general':String(index);
   const value=selected?state.committeeNotes[selected.id]?.[key]:state.notes[index];
   const gameLinks=general?(selected?.id==='warmup'?'<nav class="committee-event-links" aria-label="Warm-up session"><button class="secondary" data-open="event:3" data-initial-tab="timer">Open warm-up timer <span aria-hidden="true">↗</span></button></nav>':`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`):'';
-  const kit=selected?.id==='equipment'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Equipment reminders →</button>'):'';
+  const kit=selected?.id==='equipment'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Equipment checklist →</button>'):'';
   const reminder=selected?.id==='director'?'':`<label class="field">${selected?esc(selected.name)+' reminder':'Your reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved only on this device. Not shown on posters.</p>`;
   const extras=kit+gameLinks+reminder;
   const tasks=items.length?`<section class="note-card compact-note"><h3>${selected?'What to do':'Everyone'}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`:'<p class="committee-empty">No extra tasks for this event.</p>';
@@ -427,7 +430,13 @@ document.addEventListener('change',async event=>{
   const el=event.target,d=el.dataset;if(el.closest('[data-live-event]'))return;let n=el.value===''?null:Number(el.value);
   try {
     if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
-    if(d.team!==undefined){if(['name','seed'].includes(d.field)&&!requireEditor()){renderPanel();return;}const t=state.teams[Number(d.team)];if(d.field==='name'&&!el.value.trim()){el.value=t.name;toast('Team names cannot be blank.');return;}t[d.field]=['seed','participants'].includes(d.field)?n:el.value.trim();changed(false);}
+    if(d.inventoryCheck!==undefined){
+      if(!inventoryKeys.has(d.inventoryCheck))return;
+      state.committeeChecklist[d.inventoryCheck]=el.checked;save();
+      const progress=$('#inventory-progress');if(progress)progress.textContent=inventoryProgress();
+      if(!saveAvailable)toast('Checks could not be saved on this device. Download a backup to keep them.');
+    }
+    else if(d.team!==undefined){if(['name','seed'].includes(d.field)&&!requireEditor()){renderPanel();return;}const t=state.teams[Number(d.team)];if(d.field==='name'&&!el.value.trim()){el.value=t.name;toast('Team names cannot be blank.');return;}t[d.field]=['seed','participants'].includes(d.field)?n:el.value.trim();changed(false);}
     else if(d.placement){if(!requireEditor())return;const p=state.placements[d.placement];if(n!==null&&p.values.some((v,i)=>i!==Number(d.row)&&v===n)){toast('Each team needs a unique final place.');renderPanel();return;}p.values[Number(d.row)]=n;changed();}
     else if(d.placementRule){if(!requireEditor())return;state.placements[d.placementRule].rule=el.value;changed();}
     else if(el.id==='export-size'){exportSize=el.value;renderPanel();}
