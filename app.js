@@ -1,22 +1,22 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=37';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=37';
-import { createLiveDesk } from './live.js?v=37';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=37';
-import { icon } from './icons.js?v=37';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=37';
-import { renderMedia, downloadBlob } from './media.js?v=37';
-import { createMediaExport, createMediaShare } from './media-share.js?v=37';
-import { captureView } from './view-state.js?v=37';
-import { createDeviceStore } from './device-store.js?v=37';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=37';
-import { createBeforeSyncBackup } from './before-sync.js?v=37';
-import { SYNC_CONFIG } from './sync-config.js?v=37';
-import { renderLiveConnection } from './connection-badge.js?v=37';
-import { createGameTimeline } from './game-timeline.js?v=37';
-import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=37';
-import { renderLocationGuide } from './location-guide.js?v=37';
-import { googleCalendarLink } from './calendar-link.js?v=37';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=37';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=38';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=38';
+import { createLiveDesk } from './live.js?v=38';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=38';
+import { icon } from './icons.js?v=38';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=38';
+import { renderMedia, downloadBlob } from './media.js?v=38';
+import { createMediaExport, createMediaShare, posterShareTargets, posterSizeFromSearch } from './media-share.js?v=38';
+import { captureView } from './view-state.js?v=38';
+import { createDeviceStore } from './device-store.js?v=38';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=38';
+import { createBeforeSyncBackup } from './before-sync.js?v=38';
+import { SYNC_CONFIG } from './sync-config.js?v=38';
+import { renderLiveConnection } from './connection-badge.js?v=38';
+import { createGameTimeline } from './game-timeline.js?v=38';
+import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=38';
+import { renderLocationGuide } from './location-guide.js?v=38';
+import { googleCalendarLink } from './calendar-link.js?v=38';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=38';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -24,7 +24,8 @@ const store = createDeviceStore();
 const beforeSync = createBeforeSyncBackup(SYNC_CONFIG.recoveryKey ? {key:SYNC_CONFIG.recoveryKey} : {});
 let state = store.state, saveAvailable = store.saved, current = null, tab = 'notes', returnFocus = null, exportSize = 'poster';
 const mediaExport = createMediaExport({render:renderMedia});
-const mediaShare = createMediaShare({download:downloadBlob});
+const mediaShare = createMediaShare({});
+let shareAsset = null, shareOpener = null, revealLinkedPoster = false;
 let department = state.preferences.department;
 const navigation=createPanelNavigation();
 let renderedPanel = null, live = null;
@@ -35,7 +36,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=37', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=38', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -45,6 +46,7 @@ $('#calendar-link').href = googleCalendarLink(eventDetails);
 const calendarDate = new Intl.DateTimeFormat('en', {dateStyle:'long',timeZone:'UTC'}).format(new Date(`${eventDetails.date}T00:00:00Z`));
 $('#calendar-link').setAttribute('aria-label', `Add ${eventDetails.title} to Google Calendar · ${calendarDate}, ${eventTime.start} to ${eventTime.end} Korea time`);
 const dialog = $('#detail-dialog'), body = $('#detail-body');
+const shareDialog = $('#poster-share-dialog');
 const team = id => state.teams.find(t => t.id === id);
 const dot = id => `<span class="dot ${id === 'white' ? 'white' : ''}" style="--team-color:${COLOURS[TEAM_IDS.indexOf(id)]}"></span>`;
 const teamLabel = id => `<span class="score-team">${dot(id)}<span>${esc(team(id)?.name || '—')}</span></span>`;
@@ -246,7 +248,7 @@ function mediaPanel() {
   return renderViewingShare()+`<div class="section-label">POSTER &amp; PHONE STORY</div><p class="help">Schedule, teams and game formats. Private reminders stay out.</p>
     <div class="field-row export-controls">
       <label class="field">Image format<select id="export-size"><option value="poster" ${exportSize==='poster'?'selected':''}>Full poster · 1536 × 1610</option><option value="phone" ${exportSize==='phone'?'selected':''}>Phone story · 1080 × 1920</option></select></label>
-      <div class="field"><span>PNG image</span><div class="export-actions"><button class="primary" id="share-media" data-action="share-media" aria-describedby="media-share-status" disabled>Share to SNS ↗</button><button class="secondary" id="download-media" data-action="download-media" disabled>Download PNG ↓</button></div></div>
+      <div class="field"><span>PNG image</span><div class="export-actions"><button class="primary" id="share-media" data-action="share-media" aria-describedby="media-share-status" disabled>Share</button><button class="secondary" id="download-media" data-action="download-media" disabled>Download PNG ↓</button></div></div>
     </div><p class="help export-share-status" id="media-share-status" role="status">Preparing image…</p>
     <div class="export-preview" id="export-preview" aria-live="polite">Preparing preview…</div>`;
 }
@@ -258,7 +260,8 @@ async function updateMedia() {
     preview.replaceChildren(asset.canvas);
     $('#download-media').disabled=false;
     $('#share-media').disabled=false;
-    $('#media-share-status').textContent=mediaShare.canShare(asset.file)?'Share this image to an app on your phone.':'Share saves the PNG on this browser. Attach it in your app.';
+    $('#media-share-status').textContent='Choose an app to share the image or its poster link.';
+    if(revealLinkedPoster){$('#export-size').scrollIntoView({block:'start'});revealLinkedPoster=false;}
   } catch(error) {
     if(current==='media'&&preview===$('#export-preview')){
       preview.textContent='Image could not be generated. Please try again.';
@@ -267,17 +270,56 @@ async function updateMedia() {
     console.error(error);
   }
 }
-async function shareCurrentMedia(button) {
+function openMediaShare(button) {
   const asset=mediaExport.asset;
   if(!asset){toast('Image is still preparing.');return;}
+  shareAsset=asset;shareOpener=button;
+  const targets=posterShareTargets(asset.size),canShare=mediaShare.canShare(asset.file),canCopy=mediaShare.canCopyImage(asset.file);
+  $('#poster-share-kind').textContent=asset.size==='phone'?'Phone story · 1080 × 1920':'Full poster · 1536 × 1610';
+  $('#poster-share-options').innerHTML=`<div class="poster-share-apps">
+    <a class="poster-share-app" href="${esc(targets.whatsapp)}" target="_blank" rel="noopener noreferrer"><span class="share-app-symbol whatsapp">${icon('whatsapp')}</span><strong>WhatsApp</strong><small>Send poster link</small></a>
+    <a class="poster-share-app" href="${esc(targets.instagram)}" target="_blank" rel="noopener noreferrer"><span class="share-app-symbol instagram">${icon('instagram')}</span><strong>Instagram</strong><small>Open Instagram</small></a>
+    <a class="poster-share-app" href="${esc(targets.x)}" target="_blank" rel="noopener noreferrer"><span class="share-app-symbol x-social">${icon('x-social')}</span><strong>X / Twitter</strong><small>Post poster link</small></a>
+    </div>
+    <p class="poster-share-hint">${canShare?'Use Share image if Instagram is listed, or attach your poster in Instagram.':'Instagram opens separately. Attach your poster in the app.'}</p>
+    ${canShare||canCopy?`<div class="poster-share-tools">${canShare?'<button class="primary" data-action="share-poster-image">Share image…</button>':''}${canCopy?'<button class="secondary" data-action="copy-poster-image">Copy image</button>':''}</div>`:''}
+    <button class="secondary poster-share-copy" data-action="copy-poster-link">Copy poster link</button>
+    <label class="field poster-share-link" id="poster-share-link-field" hidden>Poster link<input id="poster-share-link" type="url" value="${esc(targets.poster)}" readonly spellcheck="false"></label>
+    <p class="poster-share-status" id="poster-share-status" role="status">WhatsApp and X open with a link to this poster.</p>`;
+  if(!shareDialog.open)shareDialog.showModal();
+}
+async function sharePosterImage(button) {
+  const asset=shareAsset;
+  if(!asset)return;
   button.disabled=true;
-  button.textContent='Opening share…';
   try {
     const result=await mediaShare.share(asset.file);
-    const message={shared:'Image handed to your share app.',downloaded:'PNG download started. Attach it in your SNS app.',cancelled:'Sharing cancelled.',busy:'A share menu is already open.',unavailable:'Image is still preparing.'}[result];
-    if(message){toast(message);if(button.isConnected)$('#media-share-status').textContent=message;}
+    const message={shared:'Image handed to your share app.',cancelled:'Sharing cancelled.',busy:'A share menu is already open.',unsupported:'Image sharing is unavailable here. Try a poster link.',failed:'Image sharing could not open. Try a poster link.',unavailable:'Image is still preparing.'}[result];
+    if(message){toast(message);if(shareAsset===asset)$('#poster-share-status').textContent=message;}
   } finally {
-    if(button.isConnected&&mediaExport.asset===asset){button.disabled=false;button.textContent='Share to SNS ↗';}
+    if(button.isConnected&&shareAsset===asset)button.disabled=false;
+  }
+}
+async function copyPosterImage(button) {
+  const asset=shareAsset;if(!asset)return;
+  button.disabled=true;
+  try {
+    const result=await mediaShare.copyImage(asset.file);
+    if(shareAsset===asset)$('#poster-share-status').textContent=result==='copied'?'Image copied. Paste it into an app that accepts images.':'Image copying is unavailable here. Try Share image on your phone.';
+  } finally {if(button.isConnected&&shareAsset===asset)button.disabled=false;}
+}
+async function copyPosterLink() {
+  const asset=shareAsset;if(!asset)return;
+  const link=posterShareTargets(asset.size).poster;
+  try {
+    if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(link);
+    if(shareDialog.open&&shareAsset===asset)$('#poster-share-status').textContent='Poster link copied.';
+  } catch {
+    if(!shareDialog.open||shareAsset!==asset)return;
+    $('#poster-share-link-field').hidden=false;
+    $('#poster-share-link').focus();$('#poster-share-link').select();
+    $('#poster-share-status').textContent='Copy the selected poster link.';
   }
 }
 async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
@@ -383,7 +425,10 @@ document.addEventListener('click',async event=>{
       case 'export-before-sync':if(beforeSync.raw)downloadBlob(new Blob([beforeSync.raw],{type:'application/json'}),'cg-sports-day-before-sync.json');break;
       case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current local reminders will stay.')&&requireWriter()){state=mergePublicState(publicSnapshot(validateState(JSON.parse(beforeSync.raw))),state);store.replace(state);changed();toast('Original phone scores restored.');}break;
       case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, scores, timers and draw will be cleared. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
-      case 'share-media':await shareCurrentMedia(el);break;
+      case 'share-media':openMediaShare(el);break;
+      case 'share-poster-image':await sharePosterImage(el);break;
+      case 'copy-poster-image':await copyPosterImage(el);break;
+      case 'copy-poster-link':await copyPosterLink();break;
       case 'download-media':if(mediaExport.asset)downloadBlob(mediaExport.asset.file,mediaExport.asset.file.name);break;
     }
   }catch(e){toast(e.message);}
@@ -419,7 +464,10 @@ document.addEventListener('input',event=>{
 $('#close-detail').addEventListener('click',closePanel);
 $('#back-detail').addEventListener('click',backPanel);
 dialog.addEventListener('click',event=>{if(event.target===dialog){const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)closePanel();}});
-dialog.addEventListener('close',()=>{mediaExport.invalidate();navigation.clear();restoreFocus();});
+dialog.addEventListener('close',()=>{if(shareDialog.open)shareDialog.close();mediaExport.invalidate();navigation.clear();restoreFocus();});
+$('#close-poster-share').addEventListener('click',()=>shareDialog.close());
+shareDialog.addEventListener('close',()=>{shareAsset=null;const opener=[shareOpener,$('#share-media'),$('#close-detail')].find(canFocus);opener?.focus({preventScroll:true});});
+shareDialog.addEventListener('click',event=>{if(event.target===shareDialog){const r=shareDialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)shareDialog.close();}});
 let fitEnabled=true;
 function fitPoster(){
   const viewport=$('#poster-viewport'),poster=$('#poster');
@@ -434,6 +482,8 @@ $('#fit-toggle').addEventListener('click',()=>{fitEnabled=!fitEnabled;$('#fit-to
 document.querySelectorAll('[data-home-view-button]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.homeView=button.dataset.homeViewButton;document.querySelectorAll('[data-home-view-button]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));fitPoster();}));
 window.addEventListener('resize',fitPoster);document.fonts.ready.then(fitPoster);
 renderPoster();live.tick();
+const linkedPosterSize=posterSizeFromSearch(location.search);
+if(linkedPosterSize){exportSize=linkedPosterSize;revealLinkedPoster=true;openPanel('media');}
 if(sync)void sync.start();else{$('#sync-label').textContent='Local preview';}
 if(!saveAvailable){$('#save-state').textContent='Existing backup protected';toast('Saved data could not be loaded. Export it before restoring or resetting.');}else $('#save-state').textContent='Saved on this device';
 

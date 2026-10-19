@@ -14,12 +14,12 @@
   <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="assets/icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="palette.css?v=37">
-  <link rel="stylesheet" href="styles.css?v=37">
-  <link rel="stylesheet" href="landing.css?v=37">
-  <link rel="stylesheet" href="desk.css?v=37">
+  <link rel="stylesheet" href="palette.css?v=38">
+  <link rel="stylesheet" href="styles.css?v=38">
+  <link rel="stylesheet" href="landing.css?v=38">
+  <link rel="stylesheet" href="desk.css?v=38">
   <script defer src="assets/vendor/supabase-2.117.2.js"></script>
-  <script type="module" src="app.js?v=37"></script>
+  <script type="module" src="app.js?v=38"></script>
 </head>
 <body data-home-view="games">
   <nav class="toolbar" aria-label="Event tools">
@@ -60,6 +60,10 @@
   </div>
   <div class="timer-dropzone" id="timer-dropzone" role="img" aria-label="Drop here to hide timer. Clock keeps running." hidden><span aria-hidden="true">×</span></div>
   <dialog class="live-dialog" id="live-dialog" aria-labelledby="live-title" aria-description="Hold and drag anywhere to move. When this popup is focused, use arrow keys to move." tabindex="0"><header class="live-header"><div><span class="eyebrow">TIMER &amp; SCORING</span><h2 id="live-title"></h2></div><button class="icon-button" id="close-live" aria-label="Return to game popup">×</button></header><div id="live-body"></div><footer class="live-footer">Scores save as you tap. Close this popup and the clock keeps running.</footer><div class="timer-dropzone" id="live-dropzone" role="img" aria-label="Drop here to close popup. Clock keeps running." hidden><span aria-hidden="true">×</span></div></dialog>
+  <dialog class="poster-share-dialog" id="poster-share-dialog" aria-labelledby="poster-share-title" aria-describedby="poster-share-kind">
+    <header class="poster-share-header"><div><h2 id="poster-share-title">Share poster</h2><p id="poster-share-kind"></p></div><button class="icon-button" id="close-poster-share" aria-label="Close sharing options">×</button></header>
+    <div id="poster-share-options"></div>
+  </dialog>
   <dialog class="confirm-dialog" id="confirm-dialog" aria-labelledby="confirm-title"><h2 id="confirm-title">Confirm change</h2><p id="confirm-copy"></p><div class="button-row"><button id="confirm-cancel" class="secondary">Cancel</button><button id="confirm-ok" class="primary">Continue</button></div></dialog>
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <noscript>This interactive rundown requires JavaScript. The approved schedule is available in schedule.json.</noscript>
