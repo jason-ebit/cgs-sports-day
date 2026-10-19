@@ -1,7 +1,7 @@
-import { TEAM_IDS, COLOURS } from './model.js?v=36';
-import { iconData } from './icons.js?v=36';
-import { EVENT_ICONS, orderedSchedule, scheduleBounds } from './content.js?v=36';
-import { LOCATION } from './location-guide.js?v=36';
+import { TEAM_IDS, COLOURS } from './model.js?v=37';
+import { iconData } from './icons.js?v=37';
+import { EVENT_ICONS, orderedSchedule, scheduleBounds } from './content.js?v=37';
+import { LOCATION } from './location-guide.js?v=37';
 
 export function downloadBlob(blob, filename) {
   const url=URL.createObjectURL(blob), a=document.createElement('a');
@@ -25,7 +25,7 @@ export async function renderMedia({state,schedule,size}) {
   const teamRow=(x,y,w,r=16,order=TEAM_IDS,font=16)=>order.forEach((id,i)=>{const cx=x+w*(i+.5)/5;circle(id,cx,y,r);text(label(id),cx,y+r+22,font,400,theme.ink,'center',w/5-8);});
   const badge=(n,x,y,r=20)=>{c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fillStyle=theme['brand-strong'];c.fill();text(String(n),x,y+1,r*1.08,400,'#fff','center');};
   const gameHead=(n,name,ic,x,y,w,font=25)=>{badge(n,x+20,y+21);icon(ic,x+64,y-1,44);text(name,x+126,y+22,font,700,theme.ink,'left',w-137);};
-  const footer=(y,w)=>{line(30,y,w-30,y,theme.muted,2);text('O C T  2 5 T H  ·  C G  S P O R T S  D A Y',w-34,y+36,15,400,theme.ink,'right');};
+  const footer=(y,w)=>{line(30,y,w-30,y,theme.muted,2);text('O C T  2 5 T H  ·  O L Y M P I C S',w-34,y+36,15,400,theme.ink,'right');};
   const dateCard=(x,y,w,h)=>{box(x,y,w,h,'#fff','#c6c9cd',20);icon('calendar',x+28,y+30,44);text('OCT 25',x+105,y+45,38,700);text(timeLabel,x+105,y+88,25);line(x+25,y+113,x+w-25,y+113,'#404345',2);icon('pin',x+31,y+129,40);text(LOCATION.venue,x+w-30,y+154,23,700,theme.ink,'right',w-100);};
   const rundown=(x,y,w,h,phone=false)=>{
     box(x,y,w,h);icon('clock',x+22,y+25,phone?46:60);text('RUNDOWN',x+(phone?87:106),y+(phone?48:55),phone?43:53,900);
@@ -67,6 +67,6 @@ export async function renderMedia({state,schedule,size}) {
     const copy=[['borrow','Borrow-a-Thing','All teams · 6–7 rounds · total points'],['basket','Ball Basket','Take turns · 2 attempts · best count'],['cavalry','Cavalry Game','All-in battle · elimination order → points'],['tug','Tug-of-War','Drawn bracket · preliminary → semis → final'],['relay','Team Relay','All teams · baton / three-legged / spoon & ball']];
     copy.forEach(([ic,name,desc],i)=>{const yy=1579+i*49;badge(i+1,73,yy+7,15);icon(ic,103,yy-10,32);text(name,151,yy+6,21,700,theme.ink,'left',270);text(desc,433,yy+6,19,400,'#656b71','left',572);});footer(1851,1080);
   }
-  canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`CG Sports Day ${size==='phone'?'phone story':'full poster'} export preview`);
+  canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`OLYMPICS ${size==='phone'?'phone story':'full poster'} export preview`);
   return canvas;
 }

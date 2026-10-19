@@ -1,4 +1,4 @@
-# CG Sports Day
+# OLYMPICS
 
 ## Use on a phone
 
@@ -24,7 +24,7 @@ Open **http://127.0.0.1:4173** to watch shared scores, or **http://127.0.0.1:417
 
 - **Home:** the landing page uses a wide, screen-filling grid with readable type, aligned cards and muted sage / gold / rose accents. Phones have a **Rundown / Games** switch so each view fits without shrinking the entire poster. **Expand layout** offers the roomier scrollable version. Small rounded game tiles follow an S route: Borrow → Basket → Cavalry on the right → Tug on the left → Relay below. A running or paused game stays highlighted with its matchup and timer; completed steps stay marked and the current step breathes. Full round details are inside each game.
 - **Location:** a separate card beside the date opens venue and toilet links in Naver Maps, concise walking steps, the annotated entrance photo and park route map. Tap an image to view it larger. Guide images are cached with the app for offline use. The separate staircase photo remains to be supplied; both uploaded HEIC files were identical. Image editing used the built-in image generator; the assets and exact prompts are in `assets/location/`.
-- **Calendar:** tap the blue **Add to calendar** date card (**Add** on phones) to review and save a pre-filled Google Calendar event for October 25, 2026, 11:00–16:18 in Korea time. It includes the venue, walking directions, toilet link and live site; the description includes setup, CG-IN and registration times.
+- **Calendar:** tap the blue **Add to calendar** date card (**Add** on phones) to review and save a pre-filled OLYMPICS Google Calendar event for October 25, 2026, 11:00–16:18 in Korea time. It includes the venue, walking directions, toilet link and live site; the description includes setup, CG-IN and registration times.
 - **Game desk:** games open on **Timer & scoring**, with numbered rounds/attempts above the controls. Round selection stays shared across Timer, Scores, Format and Committee tabs. Team choices are rounded colour buttons. A single Play / Pause / Next action stays visible on phones while results scroll. Next names its destination and skips finished work, including missing earlier rounds.
 - **Follow live:** spectators follow the active round or match within the selected game. Choosing a round or team enters Review; **Follow live** resumes following. Spectator desks show timers and results without scoring inputs, timer settings or reset menus. The in-game connection label updates without rebuilding input fields.
 - **Back:** linked panels return to their previous tab, department, round/attempt, focus and scroll position. Updates preserve unfinished input drafts when the underlying saved value is unchanged; genuine shared changes take precedence.
@@ -42,7 +42,7 @@ Open **http://127.0.0.1:4173** to watch shared scores, or **http://127.0.0.1:417
 - **Leading team:** a small crown marks the highest overall points in Team colours and Scores. Tied leaders share the crown; no crown appears before a game has finished.
 - **Scores:** read-only game sheets update automatically. Completed rounds cannot be edited through another tab. Each game automatically adds its championship points after all configured rounds or attempts finish. Tied totals share competition places and points; Tug-of-War semifinal losers share third. Completed home cards and scoring controls are disabled and translucent. Use Scores or the rundown to review a finished game and reach its reset controls. Championship points use placing, not raw counts.
 - **Reset:** the timer desk has separate round/attempt/match and whole-game resets, each with confirmation. **Reset / backup** on Home offers full-event reset and validated JSON backup/import. Public PNGs exclude private notes and leaders.
-- **Share / export:** scan the QR code to open the public live page, copy its link or download the QR as a PNG. The QR is stored locally and available offline after the first visit. Full reference-layout PNG (1536 × 1610) and phone story (1080 × 1920) exports stay below it; regenerate those after team or bracket changes.
+- **Share / export:** scan the QR code to open the public live page, copy its link or download the QR as a PNG. The QR is stored locally and available offline after the first visit. Full poster (1536 × 1610) and phone story (1080 × 1920) exports stay below it. Choose a format, then Share to SNS or Download PNG. Supported phones open the native share sheet with the prepared image; available apps depend on the phone and browser. Other browsers download it to attach manually. Cancelling the share sheet does not trigger a download. Only the public PNG is shared. Regenerate after team or bracket changes.
 
 The scorekeeper’s results queue locally and publish automatically after confirmation from Supabase. Offline results remain marked Pending; viewers keep the last confirmed snapshot. Realtime notifications refresh viewers, with polling as fallback. Writer ownership survives lease expiry; moving to another phone requires an explicit Transfer. Revision checks and operation IDs protect against stale or repeated writes. If shared results conflict with pending device results, editing stops until the scorekeeper downloads a backup and deliberately loads shared scores.
 
@@ -64,7 +64,7 @@ If saved data cannot be read, the original record is protected from ordinary sav
 - `device-store.js`, `before-sync.js`, `view-state.js`, `sw.js`: protected device saving, pre-sync recovery, focus/settings preservation and complete offline releases.
 - `sync.js`, `sync-config.js`, `supabase/schema.sql`: shared score protocol, public connection settings and database setup.
 - `content.js`, `icons.js`: brief-derived notes and local SVG icons.
-- `media.js`: deterministic canvas rendering of public PNG exports.
+- `media.js`, `media-share.js`: deterministic public PNG exports, prepared image sharing and download fallback.
 - `assets/`: locally bundled Poppins fonts, SIL Open Font License, favicon and the pinned MIT-licensed Supabase 2.117.2 browser client.
 - `schedule.json`, `PROJECT_BRIEF.md`, `reference.png`: preserved source materials.
 
@@ -89,6 +89,7 @@ node tests/private-state.test.mjs
 node tests/connection-badge.test.mjs
 node tests/timeline.test.mjs
 node tests/schedule.test.mjs
+node tests/media-share.test.mjs
 ```
 
 Coverage includes bracket advancement and invalidation, seed validation, score conversion, ties, saved deadline clocks, ordered success/failure scoring, duplicate tap protection, Cavalry elimination/points, completion locks, scoped resets and backup compatibility. Regression checks cover partial historical score continuation, malformed backups, protected storage, typed counts at expiry, timer reset indicators, the first Play tap after a limit edit, exact offline asset versions and interrupted updates.

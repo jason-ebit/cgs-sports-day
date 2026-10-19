@@ -1,7 +1,7 @@
 {
-  "name": "CG Sports Day Event Desk",
-  "short_name": "Sports Day",
-  "description": "Offline-ready sports day rundown, timers, brackets and scoring.",
+  "name": "OLYMPICS Event Desk",
+  "short_name": "OLYMPICS",
+  "description": "Offline-ready OLYMPICS rundown, timers, brackets and scoring.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

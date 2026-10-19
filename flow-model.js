@@ -1,6 +1,6 @@
-import { TEAM_IDS, GAME_IDS, gameDone, matchTeams, validSlots } from './model.js?v=36';
-import { MATCH_KEYS, MATCH_NAMES, TIMER_KEY } from './timer-model.js?v=36';
-import { roundDone } from './rounds.js?v=36';
+import { TEAM_IDS, GAME_IDS, gameDone, matchTeams, validSlots } from './model.js?v=37';
+import { MATCH_KEYS, MATCH_NAMES, TIMER_KEY } from './timer-model.js?v=37';
+import { roundDone } from './rounds.js?v=37';
 
 function orderedKeys(state,game) {
   if(game==='borrow')return Array.from({length:state.borrow.rounds},(_,i)=>`borrow:${i}`);

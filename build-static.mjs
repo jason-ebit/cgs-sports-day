@@ -11,6 +11,7 @@ const files = [
   'icons.js',
   'live.js',
   'media.js',
+  'media-share.js',
   'model.js',
   'rounds.js',
   'flow-model.js',

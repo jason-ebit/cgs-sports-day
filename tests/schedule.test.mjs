@@ -32,6 +32,7 @@ test('Moving CG-IN keeps saved event notes, timers and game IDs at their origina
 });
 test('Calendar uses the event date and full Korea-time span with the revised arrival details',()=>{
   const params=new URL(googleCalendarLink(event)).searchParams;
+  assert.equal(params.get('text'),'OLYMPICS');
   assert.equal(params.get('dates'),'20261025T020000Z/20261025T071800Z');
   assert.equal(params.get('stz'),'Asia/Seoul');
   assert.equal(params.get('etz'),'Asia/Seoul');
@@ -44,6 +45,7 @@ test('The date card and no-script calendar fallback match the schedule',()=>{
   assert.equal(fallback,googleCalendarLink(event));
   assert.match(html,/<span id="event-time">11:00 – 16:18<\/span>/);
   assert.match(html,/October 25, 2026, 11:00 to 16:18 Korea time/);
+  assert.match(html,/aria-label="Add OLYMPICS to Google Calendar/);
 });
 test('Calendar and shared range follow changed schedule data rather than fixed display times',()=>{
   const changed=structuredClone(event);
