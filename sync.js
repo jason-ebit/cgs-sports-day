@@ -1,4 +1,4 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=46';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=47';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
@@ -8,6 +8,7 @@ export function publicSnapshot(state, { offsetMs = 0 } = {}) {
     version: 1,
     teams: s.teams.map(({ id, name, seed }) => ({ id, name, seed })),
     committeeMembers: s.committeeMembers,
+    equipmentReady: s.equipmentReady,
     tug: s.tug, borrow: s.borrow, basket: s.basket, relay: s.relay,
     cavalry: {
       division: s.cavalry.division, cap: s.cavalry.cap,
@@ -34,6 +35,7 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
     leader: local.teams[index]?.leader ?? '', participants: local.teams[index]?.participants ?? null,
   }));
   if(snapshot.committeeMembers!==undefined)next.committeeMembers=snapshot.committeeMembers;
+  if(snapshot.equipmentReady!==undefined)next.equipmentReady=snapshot.equipmentReady;
   for (const key of ['tug', 'borrow', 'basket', 'relay', 'finished', 'activeKey']) next[key] = snapshot[key];
   next.cavalry.division = snapshot.cavalry?.division;
   next.cavalry.cap = snapshot.cavalry?.cap;
@@ -62,7 +64,7 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
 
 function samePublic(a, b) {
   if (!b) return false;
-  // Old v1 snapshots lack the roster, and PostgreSQL JSONB reorders keys.
+  // Old v1 snapshots lack the roster or equipment readiness, and JSONB reorders keys.
   // Compare the same canonical public shape without rewriting retry payloads.
   const reference = publicSnapshot(mergePublicState(b));
   const normalized = { ...a, timers: Object.fromEntries(Object.entries(a.timers).map(([id, clock]) => {
@@ -318,16 +320,19 @@ export function createSyncService({
           revision = data.revision; lastAck = data.public_state; lastRenewal = now();
           outbox.shift();
           if (outbox.length) outbox[0].baseRevision = revision;
-          if(item.snapshot.committeeMembers===undefined&&data.public_state!==null){
-            const roster=mergePublicState(data.public_state).committeeMembers;
-            const modernTail=outbox.find(pending=>pending.snapshot.committeeMembers!==undefined);
-            // A modern game edit can have inherited default names while an old
-            // retry was pending. Do not guess whether differing names were an
-            // intentional edit: keep the pending payload and require review.
-            if(modernTail&&JSON.stringify(roster)!==JSON.stringify(defaultState().committeeMembers)
-              &&JSON.stringify(mergePublicState(modernTail.snapshot).committeeMembers)!==JSON.stringify(roster)){
-              block('Shared committee names need review. Pending changes were kept on this phone. Load the shared scores before continuing.');
-              return false;
+          const omittedFields=['committeeMembers','equipmentReady'].filter(key=>item.snapshot[key]===undefined);
+          if(omittedFields.length&&data.public_state!==null){
+            const confirmed=mergePublicState(data.public_state),defaults=defaultState();
+            // A new edit may have inherited defaults while an older retry was
+            // pending. Preserve both payloads and require review rather than
+            // guessing whether it meant to replace shared names or checkmarks.
+            for(const field of omittedFields){
+              const modernTail=outbox.find(pending=>pending.snapshot[field]!==undefined);
+              if(modernTail&&JSON.stringify(confirmed[field])!==JSON.stringify(defaults[field])
+                &&JSON.stringify(mergePublicState(modernTail.snapshot)[field])!==JSON.stringify(confirmed[field])){
+                block(`${field==='committeeMembers'?'Shared committee names':'Shared equipment checks'} need review. Pending changes were kept on this phone. Load the shared scores before continuing.`);
+                return false;
+              }
             }
             if(!outbox.length){
               deliveredOffset=offsetMs;

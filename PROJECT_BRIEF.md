@@ -118,7 +118,7 @@ Five championship categories, normally 5/4/3/2/1 points by placing, highest tota
 - Comm: 2 volunteers, Mario and Cindy, documenting the day with photos and videos. Respect opt-outs and stay clear of play.
 - Warm-up: 1 lead, TBA, leading a five-minute session, mostly light stretching.
 - Support total: 10–11 across First-Aid, Equipment, Food & Water, Comm and Warm-up. Including the main judge / scorer and assistant judge: 12–13 total; five team leaders are separate.
-- Each committee shows numbered editable name slots above short essential bullets. Only the scorekeeper edits names; autosaved roster changes sync to all viewers while free-text reminders stay private on the device. Comm lists Cindy and Mario; remaining slots are TBA, including the optional third Food & Water helper. Duties use plain lists. The equipment checklist saves ticks only on the current device.
+- Each committee shows numbered editable name slots above short essential bullets. Only the scorekeeper edits names; autosaved roster changes sync to all viewers while free-text reminders stay private on the device. Comm lists Cindy and Mario; remaining slots are TBA, including the optional third Food & Water helper. Duties use plain lists. The scorekeeper updates equipment checks, and everyone sees the same checklist across phones.
 - Write committee duties as short, direct instructions in simple English. Keep role ownership, timer steps, game rules, safety and privacy details clear.
 - First-aid notes may include voluntarily disclosed asthma, allergies, diabetes, seizure conditions, fainting, cardiovascular conditions or injuries and access to participants' own emergency medication. Keep identifiable health notes private and out of public/media exports.
 - Existing items: mat, one whistle, icebox, transport cart, umbrellas, pens/markers, phones/timer and equipment bags.
@@ -126,7 +126,7 @@ Five championship categories, normally 5/4/3/2/1 points by placing, highest tota
 
 ## Equipment checklist
 
-- All listed items are purchased or already available. Show all 21 under Equipment as Game kit and Setup & support checklists, without purchase actions. Ticks save on the current device, survive reloads and stay out of shared scores.
+- All listed items are purchased or already available. Show all 21 under Equipment as Game kit and Setup & support checklists, without purchase actions. The scorekeeper changes ticks and everyone sees them live. Checks survive reloads and queue offline; personal committee notes stay private. Old phone-only checks can be added to the shared list by the scorekeeper.
 - Order reference (kept in source only): https://share.temu.com/lmk1A7RfDsA
 - Keep judging decisions, signals, timers and scoring with Judge / scores; the assistant observes and confirms. Support teams own their own kit, food, photos / videos, warm-up and team-readiness duties.
 

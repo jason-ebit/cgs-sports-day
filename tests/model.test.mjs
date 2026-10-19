@@ -64,6 +64,24 @@ test('Committee roster imports reject unknown departments, incomplete slots and 
   for(const members of malformed){const state=m.defaultState();state.committeeMembers=members;const before=clone(state);throws(()=>m.validateState(state));equal(state,before);}
   const sparse=m.defaultState();sparse.committeeMembers.director=Array(1);throws(()=>m.validateState(sparse));
 });
+test('Equipment readiness has 21 stable IDs, fresh false defaults and independent copies',()=>{
+  equal(m.EQUIPMENT_IDS,['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes']);
+  const ready=m.defaultEquipmentReady(),next=m.defaultEquipmentReady();
+  equal(Object.keys(ready),m.EQUIPMENT_IDS);equal(Object.values(ready),Array(21).fill(false));
+  ready.basket=true;equal(next.basket,false);equal(m.defaultState().equipmentReady,next);
+});
+test('Older backups keep private equipment ticks without silently copying them to shared readiness',()=>{
+  const old=m.defaultState();delete old.equipmentReady;old.committeeChecklist['inventory:setup:basket']=true;
+  const restored=m.validateState(old);equal(restored.equipmentReady,m.defaultEquipmentReady());equal(restored.committeeChecklist,old.committeeChecklist);
+  restored.equipmentReady.basket=true;restored.equipmentReady['leg-ties']=true;
+  equal(m.validateState(clone(restored)),restored);
+});
+test('Equipment readiness rejects missing, unknown or non-boolean entries without changing the backup',()=>{
+  const missing=m.defaultEquipmentReady();delete missing.gloves;
+  for(const ready of [null,[],{},missing,{...m.defaultEquipmentReady(),unknown:true},{...m.defaultEquipmentReady(),balls:1},{...m.defaultEquipmentReady(),balls:'true'},{...m.defaultEquipmentReady(),balls:null}]){
+    const state=m.defaultState();state.equipmentReady=ready;const before=clone(state);throws(()=>m.validateState(state));equal(state,before);
+  }
+});
 export const results=tests;
 export const passed=tests.every(t=>t.pass);
 if(typeof process!=='undefined'&&process.argv?.[1]?.endsWith('model.test.mjs')){for(const t of tests)console.log(`${t.pass?'PASS':'FAIL'} ${t.name}${t.error?' — '+t.error:''}`);if(!passed)process.exitCode=1;}

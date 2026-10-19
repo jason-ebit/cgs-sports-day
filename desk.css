@@ -1302,6 +1302,10 @@ input:focus,select:focus,textarea:focus {
 .inventory-check input:checked + .inventory-item strong {
   color: var(--brand);
 }
+.inventory-check:has(input:disabled),
+.inventory-check input:disabled {
+  cursor: default;
+}
 .inventory-check input:focus-visible {
   outline: 2px solid var(--brand);
   outline-offset: 3px;

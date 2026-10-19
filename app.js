@@ -1,22 +1,22 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=46';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=46';
-import { createLiveDesk } from './live.js?v=46';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=46';
-import { icon } from './icons.js?v=46';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=46';
-import { renderMedia, downloadBlob } from './media.js?v=46';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=46';
-import { captureView } from './view-state.js?v=46';
-import { createDeviceStore } from './device-store.js?v=46';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=46';
-import { createBeforeSyncBackup } from './before-sync.js?v=46';
-import { SYNC_CONFIG } from './sync-config.js?v=46';
-import { renderLiveConnection } from './connection-badge.js?v=46';
-import { createGameTimeline } from './game-timeline.js?v=46';
-import { createPanelNavigation } from './panel-navigation.js?v=46';
-import { renderLocationGuide } from './location-guide.js?v=46';
-import { googleCalendarLink } from './calendar-link.js?v=46';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=46';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=47';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=47';
+import { createLiveDesk } from './live.js?v=47';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=47';
+import { icon } from './icons.js?v=47';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=47';
+import { renderMedia, downloadBlob } from './media.js?v=47';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=47';
+import { captureView } from './view-state.js?v=47';
+import { createDeviceStore } from './device-store.js?v=47';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=47';
+import { createBeforeSyncBackup } from './before-sync.js?v=47';
+import { SYNC_CONFIG } from './sync-config.js?v=47';
+import { renderLiveConnection } from './connection-badge.js?v=47';
+import { createGameTimeline } from './game-timeline.js?v=47';
+import { createPanelNavigation } from './panel-navigation.js?v=47';
+import { renderLocationGuide } from './location-guide.js?v=47';
+import { googleCalendarLink } from './calendar-link.js?v=47';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=47';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,7 +36,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=46', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=47', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -74,7 +74,7 @@ function updateSyncLabels(){
   renderLiveConnection($('#sync-tool'),status);
   $('#sync-tool').dataset.syncPhase=status.phase;
   $('#save-state').textContent=status.role==='writer'?(status.pending?'Pending on this phone':status.connected?'Shared event synced':'Offline · cached scores'):status.connected?'Viewing shared scores':'Cached scores · reconnecting';
-  $('#panel-save').textContent=status.role==='writer'?'Changes sync automatically · reminders stay on this phone':'Shared scores & names · reminders stay on this phone';
+  $('#panel-save').textContent=status.role==='writer'?'Changes sync automatically · personal notes stay on this phone':'Shared event · personal notes stay on this phone';
   const error=$('#sync-error');if(error){error.textContent=syncErrorText(status);error.hidden=!status.error;}
 }
 function syncErrorText(status){
@@ -158,11 +158,14 @@ function panelName(key){return key?.startsWith('event:')?schedule[Number(key.spl
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 const inventoryItems=SUPPLIES.groups.flatMap(group=>group.items);
-const inventoryKeys=new Set(inventoryItems.map(item=>`inventory:setup:${item.id}`));
-function inventoryProgress(){return `${inventoryItems.filter(item=>state.committeeChecklist[`inventory:setup:${item.id}`]).length} / ${inventoryItems.length} ready`;}
+const inventoryKeys=new Set(inventoryItems.map(item=>item.id));
+function inventoryProgress(){return `${inventoryItems.filter(item=>state.equipmentReady[item.id]).length} / ${inventoryItems.length} ready`;}
 function inventoryPanel() {
-  const row=item=>{const key=`inventory:setup:${item.id}`;return `<li class="inventory-row"><label class="inventory-check"><input type="checkbox" data-inventory-check="${key}" aria-label="${esc(item.name)} ready" ${state.committeeChecklist[key]?'checked':''}><span class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></label></li>`;};
-  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Equipment checklist</h3><span id="inventory-progress" class="help" role="status">${inventoryProgress()}</span></div><p class="help">Tick items when they are ready. Checks save only on this device.</p><div class="inventory-grid">${SUPPLIES.groups.map(group=>`<section class="inventory-group"><h4>${esc(group.name)} <span>${group.items.length}</span></h4><ul>${group.items.map(row).join('')}</ul></section>`).join('')}</div></section>`;
+  const editable=canEdit();
+  const row=item=>`<li class="inventory-row"><label class="inventory-check"><input type="checkbox" data-inventory-check="${item.id}" aria-label="${esc(item.name)} ready" ${state.equipmentReady[item.id]?'checked':''} ${editable?'':'disabled'}><span class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></label></li>`;
+  const savedCount=inventoryItems.filter(item=>state.committeeChecklist[`inventory:setup:${item.id}`]&&!state.equipmentReady[item.id]).length;
+  const previous=editable&&savedCount?`<div class="button-row"><button class="secondary" data-action="share-equipment-checks">Share ${savedCount} saved ${savedCount===1?'check':'checks'} from this phone</button></div>`:'';
+  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Equipment checklist</h3><span id="inventory-progress" class="help" role="status">${inventoryProgress()}</span></div><p class="help">${editable?'Tick items when they are ready. Changes sync to everyone.':'Everyone sees the same checklist. Only the scorekeeper can change it.'}</p>${previous}<div class="inventory-grid">${SUPPLIES.groups.map(group=>`<section class="inventory-group"><h4>${esc(group.name)} <span>${group.items.length}</span></h4><ul>${group.items.map(row).join('')}</ul></section>`).join('')}</div></section>`;
 }
 function committeeRoster(selected) {
   const members=selected?.members;if(!members?.length)return '';
@@ -257,7 +260,7 @@ function resultsPanel() {
   const c=championship(state),leaders=leadersFor(c);
   return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table score-overview"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><span class="leader-score">${teamLabel(r.id)}${leaders.includes(r.id)?`<span class="score-crown" role="img" aria-label="Leading team">${icon('crown')}</span>`:''}</span></td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Crowns mark the leading total; tied leaders share a crown. A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
 }
-function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync automatically. Keep a JSON copy before resets or switching phones.','This file includes leaders and committee reminders. Keep it private.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download private JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
+function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync automatically. Keep a JSON copy before resets or switching phones.','This file includes leaders and committee reminders. Keep it private.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download private JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, equipment checks, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
 function mediaPanel() {
   return renderViewingShare()+`<div class="section-label">POSTER &amp; PHONE STORY</div><p class="help">Schedule, teams and game formats. Private reminders stay out.</p>
     <div class="field-row export-controls">
@@ -410,6 +413,10 @@ document.addEventListener('click',async event=>{
     switch(el.dataset.action){
       case 'copy-viewing-link':await copyViewingLink();break;
       case 'go-draw':openPanel('event:8','play');break;
+      case 'share-equipment-checks':
+        if(!requireEditor())return;
+        for(const item of inventoryItems){if(state.committeeChecklist[`inventory:setup:${item.id}`])state.equipmentReady[item.id]=true;}
+        changed();toast('Saved checks added to the shared checklist.');break;
       case 'random-draw':if(!state.tug.locked){state.tug.slots=shuffled(TEAM_IDS);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Opponents drawn. Review and lock the draw.');}break;
       case 'seed-draw':if(!state.tug.locked){state.tug.slots=seededSlots(state.teams);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Seeded draw ready. Review and lock it.');}break;
       case 'lock-draw':if(state.tug.locked){if(!await confirmChange('Unlock the draw? All match results and approved tug-of-war placements will be cleared.')||!requireEditor())return;state.tug.locked=false;clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');}else if(validSlots(state.tug.slots))state.tug.locked=true;changed();break;
@@ -418,8 +425,8 @@ document.addEventListener('click',async event=>{
       case 'export-recovery':if(beforeSync.recoveryRaw!==null)downloadBlob(new Blob([beforeSync.recoveryRaw],{type:'application/json'}),'cg-sports-day-original-recovery.json');break;
       case 'recover-sync':if(await confirmChange('Replace the unreadable original-backup record with this phone’s current scores, then load confirmed shared scores? Download the recovery copy first. Any pending results will be discarded.')){beforeSync.recover(state);await sync.acceptRemote();renderPanel();}break;
       case 'export-before-sync':if(beforeSync.raw)downloadBlob(new Blob([beforeSync.raw],{type:'application/json'}),'cg-sports-day-before-sync.json');break;
-      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current committee names and local reminders will stay.')&&requireWriter()){state=mergePublicState({...publicSnapshot(validateState(JSON.parse(beforeSync.raw))),committeeMembers:state.committeeMembers},state);store.replace(state);changed();toast('Original phone scores restored.');}break;
-      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, committee names, scores, timers and draw will be reset. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
+      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current committee names, equipment checks and personal notes will stay.')&&requireWriter()){state=mergePublicState({...publicSnapshot(validateState(JSON.parse(beforeSync.raw))),committeeMembers:state.committeeMembers,equipmentReady:state.equipmentReady},state);store.replace(state);changed();toast('Original phone scores restored.');}break;
+      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, committee names, equipment checks, scores, timers and draw will be reset. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
       case 'share-media':await shareCurrentMedia(el);break;
       case 'copy-poster-link':await copyPosterLink();break;
       case 'download-media':if(mediaExport.asset)downloadBlob(mediaExport.asset.file,mediaExport.asset.file.name);break;
@@ -432,7 +439,8 @@ document.addEventListener('change',async event=>{
     if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
     if(d.inventoryCheck!==undefined){
       if(!inventoryKeys.has(d.inventoryCheck))return;
-      state.committeeChecklist[d.inventoryCheck]=el.checked;save();
+      if(!requireEditor()){renderPanel();return;}
+      state.equipmentReady[d.inventoryCheck]=el.checked;save();
       const progress=$('#inventory-progress');if(progress)progress.textContent=inventoryProgress();
       if(!saveAvailable)toast('Checks could not be saved on this device. Download a backup to keep them.');
     }
@@ -444,7 +452,7 @@ document.addEventListener('change',async event=>{
       if(!requireWriter())return;
       const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
-      if(await confirmChange('Replace shared scores, committee names and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
+      if(await confirmChange('Replace shared scores, committee names, equipment checks and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}

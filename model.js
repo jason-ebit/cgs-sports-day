@@ -1,9 +1,13 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=46';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=47';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
 export const DEPARTMENT_IDS = ['director', 'judges', 'first-aid', 'equipment', 'food-water', 'comms', 'team-leaders', 'warmup'];
 export const COMMITTEE_SLOTS = Object.freeze({director:1,judges:1,'first-aid':2,equipment:3,'food-water':3,comms:2,'team-leaders':5,warmup:1});
+export const EQUIPMENT_IDS = Object.freeze(['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes']);
+export function defaultEquipmentReady() {
+  return Object.fromEntries(EQUIPMENT_IDS.map(id=>[id,false]));
+}
 export function defaultCommitteeMembers() {
   return Object.fromEntries(DEPARTMENT_IDS.map(id=>[id,id==='comms'?['Cindy','Mario']:Array(COMMITTEE_SLOTS[id]).fill('')]));
 }
@@ -18,6 +22,7 @@ export function defaultState() {
     cavalry: { division: 'women', cap: null, rule: '', divisions: Object.fromEntries(['women', 'men'].map(d => [d, { counts: Array(5).fill(null), active: [], eliminated: [], started: false }])) },
     placements: Object.fromEntries(GAME_IDS.map(id => [id, { rule: '', values: Array(5).fill(null) }])),
     committeeMembers: defaultCommitteeMembers(),
+    equipmentReady: defaultEquipmentReady(),
     notes: {}, committeeNotes: {}, committeeChecklist: {},
     preferences: {department:'director',sound:false},
     timers: {}, finished: [], activeKey: null,
@@ -132,6 +137,11 @@ export function validateState(input) {
     const members=object(input.committeeMembers);
     if(Object.keys(members).length!==DEPARTMENT_IDS.length||Object.keys(members).some(id=>!DEPARTMENT_IDS.includes(id)))fail();
     s.committeeMembers=Object.fromEntries(DEPARTMENT_IDS.map(id=>[id,Array.from(list(members[id],COMMITTEE_SLOTS[id]),name=>text(name,60))]));
+  }
+  if(input.equipmentReady!==undefined){
+    const ready=object(input.equipmentReady);
+    if(Object.keys(ready).length!==EQUIPMENT_IDS.length||Object.keys(ready).some(id=>!EQUIPMENT_IDS.includes(id)))fail();
+    s.equipmentReady=Object.fromEntries(EQUIPMENT_IDS.map(id=>[id,bool(ready[id])]));
   }
   s.tug.slots = list(input.tug.slots, 5).map(id => { if (id !== null && !TEAM_IDS.includes(id)) fail(); return id; });
   const assigned = s.tug.slots.filter(Boolean); if (new Set(assigned).size !== assigned.length) fail();

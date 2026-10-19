@@ -86,6 +86,21 @@ test('Checklist identities survive note ordering and stay separate by department
   assert.notEqual(checklistKey('judges:event:4','Watch the finish'),checklistKey('judges:event:9','Watch the finish'));
   assert.notEqual(checklistKey('judges:event:4','Watch the finish'),checklistKey('director:event:4','Watch the finish'));
 });
+test('Shared equipment checks replace viewer checks while legacy private ticks and notes remain private',()=>{
+  const local=defaultState();local.equipmentReady.balls=true;
+  local.committeeChecklist['inventory:setup:basket']=true;local.committeeChecklist['first-aid:general:abc']=true;
+  local.committeeNotes.equipment={general:'Private setup reminder'};local.preferences.department='equipment';
+  const remote=defaultState();remote.equipmentReady.basket=true;remote.equipmentReady.rope=true;
+  const snapshot=publicSnapshot(remote),merged=mergePublicState(snapshot,local);
+  assert.deepEqual(snapshot.equipmentReady,remote.equipmentReady);assert.deepEqual(merged.equipmentReady,remote.equipmentReady);
+  assert.deepEqual(merged.committeeChecklist,local.committeeChecklist);assert.deepEqual(merged.committeeNotes,local.committeeNotes);
+  assert.deepEqual(merged.preferences,local.preferences);assert.equal('committeeChecklist' in snapshot,false);
+  assert.equal('committeeNotes' in snapshot,false);assert.equal(JSON.stringify(publicSnapshot(local)).includes('inventory:'),false);
+  merged.equipmentReady.rope=false;assert.equal(snapshot.equipmentReady.rope,true);
+  const old=structuredClone(snapshot);delete old.equipmentReady;
+  assert.deepEqual(mergePublicState(old,local).equipmentReady,defaultState().equipmentReady);
+  assert.deepEqual(mergePublicState(old,local).committeeChecklist,local.committeeChecklist);
+});
 test('Back unwinds exact panel frames in reverse order without adding tab changes',()=>{
   const nav=createPanelNavigation(),restore=()=>{};
   const committee={key:'committee',tab:'notes',department:'first-aid',restore},event={key:'event:4',tab:'committee',department:'first-aid',restore};
