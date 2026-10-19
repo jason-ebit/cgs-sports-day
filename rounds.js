@@ -1,5 +1,5 @@
-import { TEAM_IDS, defaultState, setWinner, gameDone } from './model.js?v=34';
-export { gameDone } from './model.js?v=34';
+import { TEAM_IDS, defaultState, setWinner, gameDone } from './model.js?v=35';
+export { gameDone } from './model.js?v=35';
 
 // Result journals belong to this browser session, never to the shared snapshot.
 const resultRevisions = new WeakMap(), resultTokens = new WeakMap();
