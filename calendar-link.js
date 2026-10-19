@@ -1,11 +1,12 @@
-import { LOCATION } from './location-guide.js?v=33';
+import { LOCATION } from './location-guide.js?v=34';
+import { orderedSchedule, scheduleBounds } from './content.js?v=34';
 
 export function googleCalendarLink(event) {
-  const times=event.schedule.flatMap(item=>[item.start,item.end]).filter(Boolean).sort();
+  const {start,end}=scheduleBounds(event.schedule);
   // Korea's explicit UTC offset keeps the event time independent of the viewer's device.
   const timestamp=time=>new Date(`${event.date}T${time}:00+09:00`).toISOString().replace(/[-:]|\.\d{3}/g,'');
   const details=[
-    'Committee setup: 11:40. Participant program: 12:00–16:00.',
+    orderedSchedule(event.schedule).slice(0,3).map(item=>`${item.title}: ${item.start}–${item.end}.`).join(' '),
     'Meet at the second, larger court (다목적구장). From the park entrance: right, up the stairs, then right.',
     `Directions: ${LOCATION.venueUrl}`,
     `Toilet: ${LOCATION.toiletUrl}`,
@@ -15,7 +16,7 @@ export function googleCalendarLink(event) {
   url.search=new URLSearchParams({
     action:'TEMPLATE',
     text:event.title,
-    dates:`${timestamp(times[0])}/${timestamp(times.at(-1))}`,
+    dates:`${timestamp(start)}/${timestamp(end)}`,
     stz:event.timezone,
     etz:event.timezone,
     details,

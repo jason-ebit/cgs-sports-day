@@ -15,115 +15,115 @@
   ],
   "schedule": [
     {
-      "start": "11:40",
-      "end": "12:00",
+      "start": "11:00",
+      "end": "11:40",
       "title": "Committee Setup",
-      "durationMinutes": 20,
+      "durationMinutes": 40,
       "highlight": null
     },
     {
-      "start": "12:00",
-      "end": "12:15",
+      "start": "12:20",
+      "end": "12:35",
       "title": "Registration / Team Draw",
       "durationMinutes": 15,
       "highlight": null
     },
     {
-      "start": "12:17",
-      "end": "12:20",
+      "start": "12:35",
+      "end": "12:38",
       "title": "Opening / Safety",
       "durationMinutes": 3,
       "highlight": null
     },
     {
-      "start": "12:20",
-      "end": "12:25",
+      "start": "12:38",
+      "end": "12:43",
       "title": "Group Warm-Up",
       "durationMinutes": 5,
       "highlight": null
     },
     {
-      "start": "12:25",
-      "end": "12:45",
+      "start": "12:43",
+      "end": "13:03",
       "title": "Borrow-a-Thing",
       "durationMinutes": 20,
       "highlight": null
     },
     {
-      "start": "12:45",
-      "end": "13:10",
+      "start": "13:03",
+      "end": "13:28",
       "title": "Ball Basket",
       "durationMinutes": 25,
       "highlight": null
     },
     {
-      "start": "13:10",
-      "end": "13:30",
+      "start": "13:28",
+      "end": "13:48",
       "title": "Break",
       "durationMinutes": 20,
       "highlight": "yellow"
     },
     {
-      "start": "13:30",
-      "end": "14:15",
+      "start": "13:48",
+      "end": "14:33",
       "title": "Cavalry Game",
       "durationMinutes": 45,
       "highlight": null
     },
     {
-      "start": "14:15",
-      "end": "14:50",
+      "start": "14:33",
+      "end": "15:08",
       "title": "Tug-of-War",
       "durationMinutes": 35,
       "highlight": null
     },
     {
-      "start": "14:50",
-      "end": "15:20",
+      "start": "15:08",
+      "end": "15:38",
       "title": "Team Relay",
       "durationMinutes": 30,
       "highlight": null
     },
     {
-      "start": "15:20",
-      "end": "15:30",
+      "start": "15:38",
+      "end": "15:48",
       "title": "Event Buffer",
       "durationMinutes": 10,
       "highlight": null
     },
     {
-      "start": "15:30",
-      "end": "15:40",
+      "start": "15:48",
+      "end": "15:58",
       "title": "Results / Prizes",
       "durationMinutes": 10,
       "highlight": "green"
     },
     {
-      "start": "15:40",
-      "end": "15:50",
+      "start": "15:58",
+      "end": "16:08",
       "title": "Group Photo",
       "durationMinutes": 10,
       "highlight": null
     },
     {
-      "start": "15:50",
-      "end": "16:00",
+      "start": "16:08",
+      "end": "16:18",
       "title": "Cleanup",
       "durationMinutes": 10,
       "highlight": null
     },
     {
-      "start": "16:00",
-      "end": "16:00",
+      "start": "16:18",
+      "end": "16:18",
       "title": "Finish",
       "durationMinutes": 0,
       "highlight": "pink"
     },
     {
-      "start": "12:15",
-      "end": "12:17",
-      "title": "Prayer",
-      "durationMinutes": 2,
+      "start": "11:40",
+      "end": "12:20",
+      "title": "CG-IN",
+      "durationMinutes": 40,
       "highlight": null
     }
   ]

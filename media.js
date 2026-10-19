@@ -1,7 +1,7 @@
-import { TEAM_IDS, COLOURS } from './model.js?v=33';
-import { iconData } from './icons.js?v=33';
-import { EVENT_ICONS, orderedSchedule } from './content.js?v=33';
-import { LOCATION } from './location-guide.js?v=33';
+import { TEAM_IDS, COLOURS } from './model.js?v=34';
+import { iconData } from './icons.js?v=34';
+import { EVENT_ICONS, orderedSchedule, scheduleBounds } from './content.js?v=34';
+import { LOCATION } from './location-guide.js?v=34';
 
 export function downloadBlob(blob, filename) {
   const url=URL.createObjectURL(blob), a=document.createElement('a');
@@ -9,6 +9,7 @@ export function downloadBlob(blob, filename) {
   setTimeout(()=>URL.revokeObjectURL(url),30000);
 }
 export async function renderMedia({state,schedule,size}) {
+  const {start,end}=scheduleBounds(schedule),timeLabel=`${start} – ${end}`;
   await Promise.all([document.fonts.load('400 20px Poppins'),document.fonts.load('700 20px Poppins'),document.fonts.load('900 100px Poppins')]);
   const styles=getComputedStyle(document.documentElement);
   const theme=Object.fromEntries(['canvas','surface','line','ink','muted','brand','brand-strong','surface-soft','warning-soft','brand-soft','danger-soft','schedule-break','schedule-results','schedule-finish'].map(key=>[key,styles.getPropertyValue('--'+key).trim()]));
@@ -25,7 +26,7 @@ export async function renderMedia({state,schedule,size}) {
   const badge=(n,x,y,r=20)=>{c.beginPath();c.arc(x,y,r,0,Math.PI*2);c.fillStyle=theme['brand-strong'];c.fill();text(String(n),x,y+1,r*1.08,400,'#fff','center');};
   const gameHead=(n,name,ic,x,y,w,font=25)=>{badge(n,x+20,y+21);icon(ic,x+64,y-1,44);text(name,x+126,y+22,font,700,theme.ink,'left',w-137);};
   const footer=(y,w)=>{line(30,y,w-30,y,theme.muted,2);text('O C T  2 5 T H  ·  C G  S P O R T S  D A Y',w-34,y+36,15,400,theme.ink,'right');};
-  const dateCard=(x,y,w,h)=>{box(x,y,w,h,'#fff','#c6c9cd',20);icon('calendar',x+28,y+30,44);text('OCT 25',x+105,y+45,38,700);text('11:40 – 16:00',x+105,y+88,25);line(x+25,y+113,x+w-25,y+113,'#404345',2);icon('pin',x+31,y+129,40);text(LOCATION.venue,x+w-30,y+154,23,700,theme.ink,'right',w-100);};
+  const dateCard=(x,y,w,h)=>{box(x,y,w,h,'#fff','#c6c9cd',20);icon('calendar',x+28,y+30,44);text('OCT 25',x+105,y+45,38,700);text(timeLabel,x+105,y+88,25);line(x+25,y+113,x+w-25,y+113,'#404345',2);icon('pin',x+31,y+129,40);text(LOCATION.venue,x+w-30,y+154,23,700,theme.ink,'right',w-100);};
   const rundown=(x,y,w,h,phone=false)=>{
     box(x,y,w,h);icon('clock',x+22,y+25,phone?46:60);text('RUNDOWN',x+(phone?87:106),y+(phone?48:55),phone?43:53,900);
     const top=y+(phone?93:110),gap=Math.min(phone?55:69,(h-(phone?93:110)-24)/schedule.length), timeW=phone?201:182, ix=x+timeW+45, nameX=ix+(phone?74:106);
@@ -59,7 +60,7 @@ export async function renderMedia({state,schedule,size}) {
     c.setLineDash([5,4]);line(1121,1160,1121,1440,'#bfc5ca');c.setLineDash([]);text('Relay Rounds',1155,1205,23,700);['Baton Relay','Three-Legged Relay','Spoon & Ball Relay'].forEach((r,i)=>{badge(i+1,1184,1262+i*62,21);text(r,1235,1262+i*62,20,400,theme.ink,'left',241);});footer(1507,1536);
   } else {
     text('SPORTS DAY',48,133,121,900,theme.ink,'left',974);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',58,226,18);
-    box(48,302,984,96,'#fff','#cbd0d4',15);icon('calendar',73,326,43);text('OCT 25',138,337,28,700);text('11:40 – 16:00',138,369,21);line(494,325,494,377,'#cbd0d4');icon('pin',530,326,43);text(LOCATION.venue,604,351,30,700,theme.ink,'left',391);
+    box(48,302,984,96,'#fff','#cbd0d4',15);icon('calendar',73,326,43);text('OCT 25',138,337,28,700);text(timeLabel,138,369,21);line(494,325,494,377,'#cbd0d4');icon('pin',530,326,43);text(LOCATION.venue,604,351,30,700,theme.ink,'left',391);
     rundown(48,424,984,942,true);
     box(48,1387,984,110);text('TEAM COLOURS',73,1418,19,700);TEAM_IDS.forEach((id,i)=>{const cx=94+i*191;circle(id,cx,1461,14);text(label(id),cx+25,1462,18,400,theme.ink,'left',145);});
     text('GAME FORMATS',59,1538,27,700);
