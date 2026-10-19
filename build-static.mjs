@@ -9,6 +9,8 @@ const files = [
   'app.js',
   'content.js',
   'first-aid-kit.js',
+  'committee-rotation.js',
+  'rota-model.js',
   'icons.js',
   'live.js',
   'media.js',

@@ -106,6 +106,20 @@ test('Shared equipment checks replace viewer checks while legacy private ticks a
   assert.equal(Object.hasOwn(old21.equipmentReady,'cold-packs'),false);
   assert.deepEqual(restored.committeeChecklist,local.committeeChecklist);assert.deepEqual(restored.committeeNotes,local.committeeNotes);
 });
+test('Shared rota uses stable slot IDs while private notes and reminders stay on the viewer device',()=>{
+  const local=defaultState();local.committeeRotation={'borrow:0':{'comms:0':{status:'playing',coverFor:null}}};
+  local.committeeNotes['first-aid']={general:'Private reminder'};local.committeeChecklist['inventory:setup:basket']=true;
+  local.notes[4]='Local note';local.teams[0].leader='Private leader';local.preferences.department='comms';
+  const remote=defaultState();remote.committeeMembers.comms[0]='Renamed member';
+  remote.committeeRotation={'borrow:0':{'comms:0':{status:'duty',coverFor:null},'warmup:0':{status:'cover',coverFor:'first-aid:1'}}};
+  const snapshot=publicSnapshot(remote),merged=mergePublicState(snapshot,local);
+  assert.deepEqual(snapshot.committeeRotation,remote.committeeRotation);assert.deepEqual(merged.committeeRotation,remote.committeeRotation);
+  assert.deepEqual(validateState(JSON.parse(JSON.stringify(merged))),merged);
+  for(const key of ['committeeNotes','committeeChecklist','notes','preferences'])assert.deepEqual(merged[key],local[key]);
+  assert.equal(merged.teams[0].leader,local.teams[0].leader);assert.equal(JSON.stringify(snapshot).includes('Private'),false);
+  merged.committeeRotation['borrow:0']['comms:0'].status='playing';assert.equal(snapshot.committeeRotation['borrow:0']['comms:0'].status,'duty');
+  const legacy=structuredClone(snapshot);delete legacy.committeeRotation;assert.deepEqual(mergePublicState(legacy,local).committeeRotation,{});
+});
 test('Back unwinds exact panel frames in reverse order without adding tab changes',()=>{
   const nav=createPanelNavigation(),restore=()=>{};
   const committee={key:'committee',tab:'notes',department:'first-aid',restore},event={key:'event:4',tab:'committee',department:'first-aid',restore};

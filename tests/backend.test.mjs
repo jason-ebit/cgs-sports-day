@@ -12,6 +12,7 @@ const source = stripComments(sql);
 const rosterMigration = stripComments(readFileSync(new URL('../supabase/committee-roster.sql', import.meta.url), 'utf8'));
 const migration = stripComments(readFileSync(new URL('../supabase/equipment-checklist.sql', import.meta.url), 'utf8'));
 const coldPacksMigration = stripComments(readFileSync(new URL('../supabase/equipment-cold-packs.sql', import.meta.url), 'utf8'));
+const rotationMigration = stripComments(readFileSync(new URL('../supabase/committee-rotation.sql', import.meta.url), 'utf8'));
 const functionBody = (name,input=source) => {
   const match = input.match(new RegExp(`create or replace function ${name.replaceAll('.', '\\.')}\\([\\s\\S]*?as \\$\\$([\\s\\S]*?)\\$\\$;`, 'i'));
   assert.ok(match, `Missing SQL function ${name}`);
@@ -90,12 +91,11 @@ test('Historical equipment migration keeps its original 21-item contract',()=>{
   assert.match(functionBody('public.apply_sports_day_update',migration),/'equipmentReady',coalesce\(p_snapshot->'equipmentReady',e\.public_state->'equipmentReady',sports_day_private\.default_equipment_ready\(\)\)/);
 });
 
-test('Cold-pack migration is rerunnable and matches fresh installation without changing rows or access grants',()=>{
+test('Historical cold-pack migration remains rerunnable without changing rows or access grants',()=>{
   const names=['sports_day_private.default_equipment_ready','sports_day_private.valid_equipment_ready','sports_day_private.valid_snapshot','sports_day_private.reply','public.apply_sports_day_update'];
   assert.equal([...coldPacksMigration.matchAll(/create or replace function /g)].length,names.length);
-  for(const name of names){
-    assert.equal(functionBody(name,coldPacksMigration).trim(),functionBody(name).trim(),name);
-  }
+  for(const name of names.slice(0,2)) assert.equal(functionBody(name,coldPacksMigration).trim(),functionBody(name).trim(),name);
+  assert.doesNotMatch(coldPacksMigration,/committeeRotation/);
   for(const input of [migration,coldPacksMigration]){
     const outsideFunctions=input.replace(/create or replace function [\s\S]*?\$\$[\s\S]*?\$\$;/gi,'');
     assert.match(outsideFunctions,/begin;/i);assert.match(outsideFunctions,/commit;/i);
@@ -103,6 +103,34 @@ test('Cold-pack migration is rerunnable and matches fresh installation without c
     assert.match(outsideFunctions,/revoke all on function sports_day_private\.default_equipment_ready\(\) from public, anon, authenticated;/);
     assert.match(outsideFunctions,/revoke all on function sports_day_private\.valid_equipment_ready\(jsonb\) from public, anon, authenticated;/);
   }
+});
+
+test('Committee rota uses only known round and roster slots with strict status and cover entries',()=>{
+  assert.equal(functionBody('sports_day_private.default_committee_rotation').trim(),"select '{}'::jsonb;");
+  const body=functionBody('sports_day_private.valid_committee_rotation');
+  const ids=JSON.parse('['+body.match(/people text\[\] := array\[([^\]]+)\]/)[1].replaceAll("'",'"')+']');
+  assert.deepEqual(ids,DEPARTMENT_IDS.flatMap(id=>Array.from({length:COMMITTEE_SLOTS[id]},(_,i)=>`${id}:${i}`)));
+  assert.equal(ids.length,18);
+  const pattern=new RegExp(body.match(/round_pattern text := '([^']+)'/)[1]);
+  const rounds=[...Array.from({length:7},(_,i)=>`borrow:${i}`),...['red','blue','yellow','green','white'].flatMap(team=>[0,1].map(attempt=>`basket:${team}:${attempt}`)),'cavalry:women','cavalry:men','tug:prelim','tug:semi1','tug:semi2','tug:final','relay:0','relay:1','relay:2'];
+  assert.equal(rounds.length,26);for(const key of rounds)assert.ok(pattern.test(key),key);
+  for(const key of ['borrow:7','basket:0','basket:1','basket:purple:0','basket:red:2','tug:0','event:0','relay:3','cavalry:open'])assert.equal(pattern.test(key),false,key);
+  assert.match(body,/exact_keys\(entry,array\['status','coverFor'\]\)/);
+  assert.match(body,/entry->>'status' not in \('playing','duty','cover'\)/);
+  assert.match(body,/entry->>'status' <> 'cover'/);assert.match(body,/cover_for = person/);
+  assert.match(functionBody('sports_day_private.valid_snapshot'),/s \? 'committeeRotation' and not sports_day_private\.valid_committee_rotation/);
+  assert.ok(functionBody('public.apply_sports_day_update').includes("'committeeRotation',coalesce(p_snapshot->'committeeRotation',e.public_state->'committeeRotation',sports_day_private.default_committee_rotation())"));
+  assert.match(functionBody('sports_day_private.reply'),/'committeeRotation',sports_day_private\.default_committee_rotation\(\)/);
+});
+
+test('Committee rota migration matches fresh setup and changes no rows or access grants',()=>{
+  const names=['sports_day_private.default_committee_rotation','sports_day_private.valid_committee_rotation','sports_day_private.valid_snapshot','sports_day_private.reply','public.apply_sports_day_update'];
+  assert.equal([...rotationMigration.matchAll(/create or replace function /g)].length,names.length);
+  for(const name of names)assert.equal(functionBody(name,rotationMigration).trim(),functionBody(name).trim(),name);
+  const outsideFunctions=rotationMigration.replace(/create or replace function [\s\S]*?\$\$[\s\S]*?\$\$;/gi,'');
+  assert.match(outsideFunctions,/begin;/i);assert.match(outsideFunctions,/commit;/i);
+  assert.doesNotMatch(outsideFunctions,/\b(?:insert|update|delete|grant|create table|alter table)\b/i);
+  for(const signature of ['default_committee_rotation()','valid_committee_rotation(jsonb)'])assert.ok(outsideFunctions.includes(`revoke all on function sports_day_private.${signature} from public, anon, authenticated;`));
 });
 
 test('JSON containment operands are grouped before PostgreSQL generic operators', () => {

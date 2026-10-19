@@ -90,6 +90,52 @@ test('Equipment readiness rejects missing, unknown or non-boolean entries withou
     const state=m.defaultState();state.equipmentReady=ready;const before=clone(state);throws(()=>m.validateState(state));equal(state,before);
   }
 });
+test('Committee rotation has 26 fixed rounds and 18 people, with independent empty defaults for older backups',()=>{
+  equal(m.ROTATION_ROUND_KEYS,['borrow:0','borrow:1','borrow:2','borrow:3','borrow:4','borrow:5','borrow:6','basket:red:0','basket:red:1','basket:blue:0','basket:blue:1','basket:yellow:0','basket:yellow:1','basket:green:0','basket:green:1','basket:white:0','basket:white:1','cavalry:women','cavalry:men','tug:prelim','tug:semi1','tug:semi2','tug:final','relay:0','relay:1','relay:2']);
+  equal(m.ROTATION_ROUND_KEYS.length,26);equal(new Set(m.ROTATION_ROUND_KEYS).size,26);
+  equal(m.COMMITTEE_PERSON_IDS,Object.entries(m.COMMITTEE_SLOTS).flatMap(([department,count])=>Array.from({length:count},(_,slot)=>`${department}:${slot}`)));
+  equal(m.COMMITTEE_PERSON_IDS.length,18);equal(new Set(m.COMMITTEE_PERSON_IDS).size,18);
+  const old=m.defaultState();delete old.committeeRotation;equal(m.validateState(old).committeeRotation,{});
+  const fresh=m.defaultState(),other=m.defaultState();fresh.committeeRotation['borrow:0']={};equal(other.committeeRotation,{});
+});
+test('Rota assignments round trip through backups, keep fixed slot identities and canonicalize JSONB ordering',()=>{
+  const state=m.defaultState();state.committeeRotation={
+    'relay:2':{'warmup:0':{coverFor:'first-aid:0',status:'cover'},'equipment:0':{coverFor:null,status:'playing'}},
+    'borrow:0':{'comms:1':{coverFor:null,status:'duty'},'comms:0':{coverFor:null,status:'cover'}},
+  };
+  const before=clone(state),restored=m.validateState(state);
+  equal(Object.keys(restored.committeeRotation),['borrow:0','relay:2']);
+  equal(Object.keys(restored.committeeRotation['borrow:0']),['comms:0','comms:1']);
+  equal(restored.committeeRotation['relay:2']['warmup:0'],{status:'cover',coverFor:'first-aid:0'});
+  state.committeeMembers['first-aid'][0]='Renamed';equal(m.validateState(state).committeeRotation,restored.committeeRotation);
+  restored.committeeRotation['relay:2']['warmup:0'].coverFor=null;equal(before.committeeRotation['relay:2']['warmup:0'].coverFor,'first-aid:0');
+  const full=Object.fromEntries(m.ROTATION_ROUND_KEYS.map(round=>[
+    round,Object.fromEntries(m.COMMITTEE_PERSON_IDS.map(person=>[person,{status:'duty',coverFor:null}]))
+  ]));
+  equal(m.validateCommitteeRotation(full),full);
+});
+test('Basket rota keeps separate playing and duty plans for each team and attempt',()=>{
+  const state=m.defaultState();state.committeeRotation={
+    'basket:red:0':{'comms:0':{status:'playing',coverFor:null}},
+    'basket:red:1':{'comms:0':{status:'duty',coverFor:null}},
+    'basket:blue:0':{'comms:0':{status:'cover',coverFor:'equipment:0'}},
+  };
+  equal(m.validateState(clone(state)).committeeRotation,state.committeeRotation);
+  for(const round of ['basket:0','basket:1','basket:purple:0','basket:red:2','basket:red:00'])throws(()=>m.validateCommitteeRotation({[round]:{}}));
+});
+test('Rota imports reject free text, unknown rounds or people, extra fields and invalid cover links without mutation',()=>{
+  const assignment={status:'duty',coverFor:null},malformed=[null,[],42,'anything',
+    {'borrow:7':{}},{'borrow:00':{}},{'cavalry:0':{}},{'basket:red:0':null},{'basket:red:0':[]},
+    {'basket:red:0':{'comms:2':assignment}},{'basket:red:0':{'equipment:00':assignment}},
+    {'basket:red:0':{'comms:0':null}},{'basket:red:0':{'comms:0':[]}},{'basket:red:0':{'comms:0':{status:'rest',coverFor:null}}},
+    {'basket:red:0':{'comms:0':{status:'duty'}}},{'basket:red:0':{'comms:0':{status:'duty',coverFor:null,note:'Private health note'}}},
+    {'basket:red:0':{'comms:0':{status:'duty',coverFor:'comms:1'}}},{'basket:red:0':{'comms:0':{status:'playing',coverFor:'comms:1'}}},
+    {'basket:red:0':{'comms:0':{status:'cover',coverFor:'comms:0'}}},{'basket:red:0':{'comms:0':{status:'cover',coverFor:'unknown:0'}}},
+    {'basket:red:0':{'comms:0':{status:'cover',coverFor:0}}},JSON.parse('{"__proto__":{}}'),
+    JSON.parse('{"basket:red:0":{"__proto__":{"status":"duty","coverFor":null}}}')];
+  for(const rotation of malformed){const state=m.defaultState();state.committeeRotation=rotation;const before=clone(state);throws(()=>m.validateState(state));equal(state,before);}
+  const undefinedCover=m.defaultState();undefinedCover.committeeRotation={'basket:red:0':{'comms:0':{status:'cover',coverFor:undefined}}};throws(()=>m.validateState(undefinedCover));
+});
 export const results=tests;
 export const passed=tests.every(t=>t.pass);
 if(typeof process!=='undefined'&&process.argv?.[1]?.endsWith('model.test.mjs')){for(const t of tests)console.log(`${t.pass?'PASS':'FAIL'} ${t.name}${t.error?' — '+t.error:''}`);if(!passed)process.exitCode=1;}

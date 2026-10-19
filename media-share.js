@@ -1,4 +1,4 @@
-import { VIEWING_URL } from './share-link.js?v=48';
+import { VIEWING_URL } from './share-link.js?v=49';
 
 export function createMediaExport({ render }) {
   let generation = 0, asset = null;

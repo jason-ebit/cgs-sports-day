@@ -1,23 +1,25 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=48';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=48';
-import { createLiveDesk } from './live.js?v=48';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=48';
-import { icon } from './icons.js?v=48';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=48';
-import { renderMedia, downloadBlob } from './media.js?v=48';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=48';
-import { captureView } from './view-state.js?v=48';
-import { createDeviceStore } from './device-store.js?v=48';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=48';
-import { createBeforeSyncBackup } from './before-sync.js?v=48';
-import { SYNC_CONFIG } from './sync-config.js?v=48';
-import { renderLiveConnection } from './connection-badge.js?v=48';
-import { createGameTimeline } from './game-timeline.js?v=48';
-import { createPanelNavigation } from './panel-navigation.js?v=48';
-import { renderLocationGuide } from './location-guide.js?v=48';
-import { googleCalendarLink } from './calendar-link.js?v=48';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=48';
-import { renderFirstAidKit } from './first-aid-kit.js?v=48';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=49';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=49';
+import { createLiveDesk } from './live.js?v=49';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=49';
+import { icon } from './icons.js?v=49';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=49';
+import { renderMedia, downloadBlob } from './media.js?v=49';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=49';
+import { captureView } from './view-state.js?v=49';
+import { createDeviceStore } from './device-store.js?v=49';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=49';
+import { createBeforeSyncBackup } from './before-sync.js?v=49';
+import { SYNC_CONFIG } from './sync-config.js?v=49';
+import { renderLiveConnection } from './connection-badge.js?v=49';
+import { createGameTimeline } from './game-timeline.js?v=49';
+import { createPanelNavigation } from './panel-navigation.js?v=49';
+import { renderLocationGuide } from './location-guide.js?v=49';
+import { googleCalendarLink } from './calendar-link.js?v=49';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=49';
+import { renderFirstAidKit } from './first-aid-kit.js?v=49';
+import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=49';
+import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=49';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -28,6 +30,7 @@ const mediaExport = createMediaExport({render:renderMedia});
 const mediaShare = createMediaShare({});
 let revealLinkedPoster = false;
 let department = state.preferences.department;
+let rotaGame = 'borrow', rotaRound = 'borrow:0', rotaFilter = 'all';
 const navigation=createPanelNavigation();
 let renderedPanel = null, live = null;
 let timeline = null;
@@ -37,7 +40,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=48', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=49', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -129,7 +132,7 @@ function renderPoster() {
 }
 function openPanel(key, initialTab = null) {
   if (!dialog.open) {returnFocus = document.activeElement;navigation.clear();}
-  else navigation.enter({key:current,tab,department,selection:current?.startsWith('event:')?live.captureSelection?.(Number(current.split(':')[1])):null,restore:captureView(dialog,renderedPanel)},key);
+  else navigation.enter({key:current,tab,department,selection:current?.startsWith('event:')?live.captureSelection?.(Number(current.split(':')[1])):null,rotation:current==='rotation'?{game:rotaGame,round:rotaRound,filter:rotaFilter}:null,restore:captureView(dialog,renderedPanel)},key);
   current = key; const gameIndex=key.startsWith('event:')?Number(key.split(':')[1]):null;
   if(EVENT_GAMES[gameIndex])live.resume(gameIndex);
   tab = initialTab || (EVENT_GAMES[gameIndex]?'timer':'notes'); renderPanel();
@@ -143,6 +146,7 @@ function openPanel(key, initialTab = null) {
 function backPanel(){
   const previous=navigation.back();if(!previous)return;
   current=previous.key;tab=previous.tab;department=previous.department;
+  if(current==='rotation'&&previous.rotation){rotaGame=previous.rotation.game;rotaRound=previous.rotation.round;rotaFilter=previous.rotation.filter;}
   if(current.startsWith('event:')&&previous.selection)live.restoreSelection?.(Number(current.split(':')[1]),previous.selection);
   state.preferences.department=department;
   save();renderPanel();previous.restore(renderedPanel);
@@ -155,7 +159,7 @@ function restoreFocus(){
   const target=[...replacements,$('#teams-tool')].find(canFocus);target?.focus();
 }
 function closePanel() { dialog.close(); }
-function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide'})[key]||'Back';}
+function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',rotation:'Committee rotation',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide'})[key]||'Back';}
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 const inventoryItems=SUPPLIES.groups.flatMap(group=>group.items);
@@ -193,7 +197,18 @@ function committeePanel(index = null) {
   const reminder=selected?.id==='director'?'':`<label class="field">${selected?esc(selected.name)+' reminder':'Your reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved only on this device. Not shown on posters.</p>`;
   const extras=kit+gameLinks+reminder;
   const tasks=items.length?`<section class="note-card compact-note"><h3>${selected?.id==='director'&&(general||index===2)?'Opening reminders':selected?'What to do':'Everyone'}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`:'<p class="committee-empty">No extra tasks for this event.</p>';
-  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${selectedDepartment===item.id}" class="${selectedDepartment===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${committeeRoster(selected)}${general&&selected?.id==='first-aid'?renderFirstAidKit():''}${tasks}${extras}`;
+  return `<div class="button-row"><button class="secondary" data-open="rotation" ${EVENT_GAMES[index]?`data-rota-event="${index}"`:''}>Round rota <span aria-hidden="true">→</span></button></div><nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${selectedDepartment===item.id}" class="${selectedDepartment===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${committeeRoster(selected)}${general&&selected?.id==='first-aid'?renderFirstAidKit():''}${tasks}${extras}`;
+}
+function selectEventRotation(index) {
+  const game=EVENT_GAMES[index];if(!game)return;
+  const selection=live.captureSelection(index);
+  const round=game==='basket'?`${selection.team}:${selection.attempt}`:game==='cavalry'?selection.division:game==='tug'?selection.match:selection.round;
+  rotaGame=game;rotaRound=resolveRotationRound(game,`${game}:${round}`,state);rotaFilter='all';
+}
+function updateRotation(edit) {
+  if(!requireEditor())return false;
+  const next=structuredClone(state.committeeRotation);edit(next);
+  state.committeeRotation=validateCommitteeRotation(next);changed();return true;
 }
 function gameSheet(game) {
   if(game!=='tug')return scorePanel(game);
@@ -206,7 +221,7 @@ function renderPanel() {
   const previousLiveKey = body.querySelector('[data-live-key]')?.dataset.liveKey;
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
-  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', sync:'Scorekeeper',location:'Location guide' })[current];
+  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', rotation:'Committee rotation', sync:'Scorekeeper',location:'Location guide' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : `${eventDetails.title} / OCT 25`;
   $('#back-detail').hidden=!navigation.previous;
   $('#back-detail').textContent=navigation.previous?'‹ Back to '+panelName(navigation.previous.key):'';
@@ -226,6 +241,10 @@ function renderPanel() {
     if(game&&tab!=='timer')body.insertAdjacentHTML('afterbegin',live.rounds(eventIndex));
   } else if(current==='teams') body.innerHTML=teamsPanel();
   else if(current==='committee') body.innerHTML=committeePanel();
+  else if(current==='rotation') {
+    rotaRound=resolveRotationRound(rotaGame,rotaRound,state);
+    body.innerHTML=renderCommitteeRotation(state,{editable:canEdit(),game:rotaGame,round:rotaRound,filter:rotaFilter});
+  }
   else if(current==='results') body.innerHTML=resultsPanel();
   else if(current==='data') body.innerHTML=dataPanel();
   else if(current==='sync') body.innerHTML=syncPanel();
@@ -234,7 +253,7 @@ function renderPanel() {
   if(!canEdit())body.querySelectorAll('[data-assign-slot],[data-borrow-rounds],[data-winner],[data-placement],[data-placement-rule],[data-team][data-field="name"],[data-team][data-field="seed"],[data-action="random-draw"],[data-action="seed-draw"],[data-action="lock-draw"],[data-action="clear-matches"]').forEach(el=>el.disabled=true);
   if(!writerAuthority())body.querySelectorAll('[data-action="reset-all"],[data-action="restore-before-sync"],#import-file').forEach(el=>el.disabled=true);
   updateSyncLabels();
-  const nextPanel = `${current}/${tab}${current==='committee'||tab==='committee'?'/'+department:''}`;
+  const nextPanel = `${current}/${tab}${current==='committee'||tab==='committee'?'/'+department:''}${current==='rotation'?'/'+rotaGame+'/'+rotaRound+'/'+rotaFilter:''}`;
   const nextLiveKey = body.querySelector('[data-live-key]')?.dataset.liveKey;
   if(!dialog.open || nextPanel!==renderedPanel || previousLiveKey!==nextLiveKey){
     body.scrollTop=0;
@@ -261,7 +280,7 @@ function resultsPanel() {
   const c=championship(state),leaders=leadersFor(c);
   return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table score-overview"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><span class="leader-score">${teamLabel(r.id)}${leaders.includes(r.id)?`<span class="score-crown" role="img" aria-label="Leading team">${icon('crown')}</span>`:''}</span></td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Crowns mark the leading total; tied leaders share a crown. A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
 }
-function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync automatically. Keep a JSON copy before resets or switching phones.','This file includes leaders and committee reminders. Keep it private.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download private JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, equipment checks, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
+function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync automatically. Keep a JSON copy before resets or switching phones.','This file includes leaders and committee reminders. Keep it private.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download private JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, committee rota, equipment checks, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
 function mediaPanel() {
   return renderViewingShare()+`<div class="section-label">POSTER &amp; PHONE STORY</div><p class="help">Schedule, teams and game formats. Private reminders stay out.</p>
     <div class="field-row export-controls">
@@ -402,7 +421,23 @@ document.addEventListener('click',async event=>{
   const el=event.target.closest('button,[data-open]');if(!el||el.disabled)return;
   try {
     if(el.dataset.syncAction){await syncAction(el.dataset.syncAction);return;}
-    if(el.dataset.open){openPanel(el.dataset.open,el.dataset.initialTab||null);return;}
+    if(el.dataset.open){if(el.dataset.open==='rotation'&&el.dataset.rotaEvent!==undefined)selectEventRotation(Number(el.dataset.rotaEvent));openPanel(el.dataset.open,el.dataset.initialTab||null);return;}
+    if(el.dataset.rotaGame){
+      if(!ROTATION_GAMES.some(game=>game.id===el.dataset.rotaGame))return;
+      rotaGame=el.dataset.rotaGame;rotaRound=resolveRotationRound(rotaGame,null,state);rotaFilter='all';renderPanel();return;
+    }
+    if(el.dataset.rotaBasketTeam){if(!TEAM_IDS.includes(el.dataset.rotaBasketTeam))return;rotaGame='basket';rotaRound=resolveRotationRound('basket',`basket:${el.dataset.rotaBasketTeam}:${rotaRound.split(':')[2]??0}`,state);renderPanel();return;}
+    if(el.dataset.rotaRound){rotaRound=resolveRotationRound(rotaGame,el.dataset.rotaRound,state);renderPanel();return;}
+    if(el.dataset.rotaFilter){if(!['all','playing','duty','cover','unset'].includes(el.dataset.rotaFilter))return;rotaFilter=el.dataset.rotaFilter;renderPanel();return;}
+    if(el.dataset.rotaPerson){
+      const person=el.dataset.rotaPerson,status=el.dataset.rotaStatus;
+      if(!COMMITTEE_PERSON_IDS.includes(person)||!ROTATION_STATUSES.includes(status))return;
+      const [id,index]=person.split(':');if(!state.committeeMembers[id][Number(index)].trim()&&state.committeeRotation[rotaRound]?.[person]?.status!==status)return;
+      updateRotation(next=>{
+        if(next[rotaRound]?.[person]?.status===status){delete next[rotaRound][person];if(!Object.keys(next[rotaRound]).length)delete next[rotaRound];}
+        else{next[rotaRound]??={};next[rotaRound][person]={status,coverFor:null};}
+      });return;
+    }
     if(el.dataset.department){department=el.dataset.department;state.preferences.department=department;save();renderPanel();return;}
     if(el.dataset.tab){tab=el.dataset.tab;renderPanel();return;}
     if(el.dataset.scoreOpen){openPanel('event:'+GAME_EVENTS[el.dataset.scoreOpen],gameDone(state,el.dataset.scoreOpen)?'scores':'timer');return;}
@@ -412,6 +447,16 @@ document.addEventListener('click',async event=>{
     if(['random-draw','seed-draw','lock-draw','clear-matches'].includes(el.dataset.action)&&!requireEditor())return;
     if(['reset-all','restore-before-sync'].includes(el.dataset.action)&&!requireWriter())return;
     switch(el.dataset.action){
+      case 'reset-committee-round':
+        if(requireEditor()&&state.committeeRotation[rotaRound]&&await confirmChange('Clear the committee rota for this round? Other rounds and all scores will stay.'))updateRotation(next=>delete next[rotaRound]);
+        break;
+      case 'copy-committee-round':{
+        if(!requireEditor())return;
+        const rounds=ROTATION_GAMES.find(game=>game.id===rotaGame)?.rounds??[],index=rounds.findIndex(round=>round.key===rotaRound),previous=rotaGame==='basket'?(rotaRound.endsWith(':1')?rotaRound.slice(0,-1)+'0':null):rounds[index-1]?.key;
+        if(!previous||!state.committeeRotation[previous])return;
+        if(state.committeeRotation[rotaRound]&&!await confirmChange('Replace this round’s committee rota with the previous round’s assignments?'))return;
+        if(updateRotation(next=>{next[rotaRound]=structuredClone(next[previous]);}))toast('Previous round copied. Check playing turns and cover.');break;
+      }
       case 'copy-viewing-link':await copyViewingLink();break;
       case 'go-draw':openPanel('event:8','play');break;
       case 'share-equipment-checks':
@@ -426,8 +471,8 @@ document.addEventListener('click',async event=>{
       case 'export-recovery':if(beforeSync.recoveryRaw!==null)downloadBlob(new Blob([beforeSync.recoveryRaw],{type:'application/json'}),'cg-sports-day-original-recovery.json');break;
       case 'recover-sync':if(await confirmChange('Replace the unreadable original-backup record with this phone’s current scores, then load confirmed shared scores? Download the recovery copy first. Any pending results will be discarded.')){beforeSync.recover(state);await sync.acceptRemote();renderPanel();}break;
       case 'export-before-sync':if(beforeSync.raw)downloadBlob(new Blob([beforeSync.raw],{type:'application/json'}),'cg-sports-day-before-sync.json');break;
-      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current committee names, equipment checks and personal notes will stay.')&&requireWriter()){state=mergePublicState({...publicSnapshot(validateState(JSON.parse(beforeSync.raw))),committeeMembers:state.committeeMembers,equipmentReady:state.equipmentReady},state);store.replace(state);changed();toast('Original phone scores restored.');}break;
-      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, committee names, equipment checks, scores, timers and draw will be reset. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
+      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current committee names, rota, equipment checks and personal notes will stay.')&&requireWriter()){state=mergePublicState({...publicSnapshot(validateState(JSON.parse(beforeSync.raw))),committeeMembers:state.committeeMembers,committeeRotation:state.committeeRotation,equipmentReady:publicSnapshot(state).equipmentReady,equipmentColdPacksReady:state.equipmentReady['cold-packs']},state);store.replace(state);changed();toast('Original phone scores restored.');}break;
+      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, committee names, rota, equipment checks, scores, timers and draw will be reset. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
       case 'share-media':await shareCurrentMedia(el);break;
       case 'copy-poster-link':await copyPosterLink();break;
       case 'download-media':if(mediaExport.asset)downloadBlob(mediaExport.asset.file,mediaExport.asset.file.name);break;
@@ -438,7 +483,13 @@ document.addEventListener('change',async event=>{
   const el=event.target,d=el.dataset;if(el.closest('[data-live-event]'))return;let n=el.value===''?null:Number(el.value);
   try {
     if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
-    if(d.inventoryCheck!==undefined){
+    if(d.rotaCover!==undefined){
+      if(!COMMITTEE_PERSON_IDS.includes(d.rotaCover)||state.committeeRotation[rotaRound]?.[d.rotaCover]?.status!=='cover')return;
+      const target=el.value||null;
+      if(target){const [id,index]=target.split(':');if(target===d.rotaCover||!COMMITTEE_PERSON_IDS.includes(target)||!state.committeeMembers[id][Number(index)].trim())return;}
+      updateRotation(next=>{next[rotaRound][d.rotaCover].coverFor=target;});
+    }
+    else if(d.inventoryCheck!==undefined){
       if(!inventoryKeys.has(d.inventoryCheck))return;
       if(!requireEditor()){renderPanel();return;}
       state.equipmentReady[d.inventoryCheck]=el.checked;save();
@@ -453,7 +504,7 @@ document.addEventListener('change',async event=>{
       if(!requireWriter())return;
       const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
-      if(await confirmChange('Replace shared scores, committee names, equipment checks and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
+      if(await confirmChange('Replace shared scores, committee names, rota, equipment checks and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}

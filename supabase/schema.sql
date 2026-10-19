@@ -81,6 +81,37 @@ exception when others then return false;
 end;
 $$;
 
+create or replace function sports_day_private.default_committee_rotation()
+returns jsonb language sql immutable set search_path = pg_catalog as $$
+  select '{}'::jsonb;
+$$;
+
+create or replace function sports_day_private.valid_committee_rotation(m jsonb)
+returns boolean language plpgsql immutable set search_path = pg_catalog as $$
+declare
+  round_pattern text := '^(borrow:[0-6]|basket:(red|blue|yellow|green|white):[01]|cavalry:(women|men)|tug:(prelim|semi1|semi2|final)|relay:[0-2])$';
+  people text[] := array['director:0','judges:0','first-aid:0','first-aid:1','equipment:0','equipment:1','equipment:2','food-water:0','food-water:1','food-water:2','comms:0','comms:1','team-leaders:0','team-leaders:1','team-leaders:2','team-leaders:3','team-leaders:4','warmup:0'];
+  round_key text; person text; assignments jsonb; entry jsonb; cover_for text;
+begin
+  if m is null or jsonb_typeof(m) <> 'object' or (select count(*) from jsonb_object_keys(m)) > 26 then return false; end if;
+  for round_key,assignments in select * from jsonb_each(m) loop
+    if round_key !~ round_pattern or jsonb_typeof(assignments) <> 'object'
+      or (select count(*) from jsonb_object_keys(assignments)) > 18 then return false; end if;
+    for person,entry in select * from jsonb_each(assignments) loop
+      if not (person = any(people)) or not sports_day_private.exact_keys(entry,array['status','coverFor'])
+        or jsonb_typeof(entry->'status') <> 'string' or entry->>'status' not in ('playing','duty','cover') then return false; end if;
+      if entry->'coverFor' <> 'null'::jsonb then
+        cover_for := entry->>'coverFor';
+        if entry->>'status' <> 'cover' or jsonb_typeof(entry->'coverFor') <> 'string'
+          or not (cover_for = any(people)) or cover_for = person then return false; end if;
+      end if;
+    end loop;
+  end loop;
+  return true;
+exception when others then return false;
+end;
+$$;
+
 -- Strictly validate every public leaf. Private notes, leaders, headcounts and
 -- rule text are rejected, including when hidden inside an otherwise valid field.
 create or replace function sports_day_private.valid_snapshot(s jsonb)
@@ -93,12 +124,13 @@ declare
   game text; key text; division text; winner text; first_team text; second_team text;
   i integer; j integer; width integer; ceiling integer; running integer := 0;
 begin
-  if s is null or octet_length(s::text) > 131072 or not sports_day_private.exact_keys(s - 'committeeMembers' - 'equipmentReady' - 'equipmentColdPacksReady',
+  if s is null or octet_length(s::text) > 131072 or not sports_day_private.exact_keys(s - 'committeeMembers' - 'equipmentReady' - 'equipmentColdPacksReady' - 'committeeRotation',
     array['version','teams','tug','borrow','basket','relay','cavalry','placements','timers','finished','activeKey'])
     or s->'version' <> '1'::jsonb then return false; end if;
   if s ? 'committeeMembers' and not sports_day_private.valid_committee_members(s->'committeeMembers') then return false; end if;
   if s ? 'equipmentReady' and not sports_day_private.valid_equipment_ready(s->'equipmentReady') then return false; end if;
   if s ? 'equipmentColdPacksReady' and jsonb_typeof(s->'equipmentColdPacksReady') <> 'boolean' then return false; end if;
+  if s ? 'committeeRotation' and not sports_day_private.valid_committee_rotation(s->'committeeRotation') then return false; end if;
 
   if jsonb_typeof(s->'teams') <> 'array' or jsonb_array_length(s->'teams') <> 5 then return false; end if;
   for i in 0..4 loop
@@ -253,7 +285,8 @@ revoke all on all tables in schema sports_day_private from public, anon, authent
 create or replace function sports_day_private.reply(e public.sports_day_events, status text)
 returns jsonb language sql volatile set search_path = pg_catalog as $$
   select jsonb_build_object('status',status,'public_state',
-    jsonb_build_object('committeeMembers',sports_day_private.default_committee_members()) || e.public_state ||
+    jsonb_build_object('committeeMembers',sports_day_private.default_committee_members(),
+      'committeeRotation',sports_day_private.default_committee_rotation()) || e.public_state ||
     jsonb_build_object('equipmentReady',(sports_day_private.default_equipment_ready() ||
       coalesce(e.public_state->'equipmentReady','{}'::jsonb)) - 'cold-packs',
       'equipmentColdPacksReady',coalesce(e.public_state->'equipmentColdPacksReady',
@@ -339,9 +372,11 @@ begin
   -- Keep the original 21-item wire map so older phones can still read it.
   -- Store cold packs separately; older writes preserve its existing tick.
   -- Accept a transitional 22-item map too, but always store the same wire shape.
-  -- Keep the original request for operation identity and retry comparisons.
+  -- Older clients omit committeeRotation; preserve the rota they cannot see.
+  -- An explicit empty object clears it. Keep the original retry payload.
   next_snapshot := p_snapshot || jsonb_build_object(
     'committeeMembers',coalesce(p_snapshot->'committeeMembers',e.public_state->'committeeMembers',sports_day_private.default_committee_members()),
+    'committeeRotation',coalesce(p_snapshot->'committeeRotation',e.public_state->'committeeRotation',sports_day_private.default_committee_rotation()),
     'equipmentReady',(sports_day_private.default_equipment_ready() ||
       coalesce(e.public_state->'equipmentReady','{}'::jsonb) ||
       coalesce(p_snapshot->'equipmentReady','{}'::jsonb)) - 'cold-packs',
@@ -392,6 +427,7 @@ begin
     "committeeMembers":{"director":[""],"judges":[""],"first-aid":["",""],"equipment":["","",""],"food-water":["","",""],"comms":["Cindy","Mario"],"team-leaders":["","","","",""],"warmup":[""]},
     "equipmentReady":{"gloves":false,"cones":false,"balls":false,"batons":false,"rider-cloth":false,"colour-sticks":false,"borrow-cards":false,"basket":false,"rope":false,"leg-ties":false,"spoons":false,"mat":false,"whistle":false,"icebox":false,"cart":false,"umbrellas":false,"pens-markers":false,"phones-timer":false,"bags":false,"food-water":false,"prizes":false},
     "equipmentColdPacksReady":false,
+    "committeeRotation":{},
     "tug":{"slots":[null,null,null,null,null],"locked":false,"winners":{"prelim":null,"semi1":null,"semi2":null,"final":null}},
     "borrow":{"rounds":6,"scores":[[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null]]},
     "basket":{"scores":[[null,null],[null,null],[null,null],[null,null],[null,null]]},

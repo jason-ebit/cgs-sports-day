@@ -48,7 +48,8 @@ function fixture({ snapshot = publicSnapshot(defaultState()), localOffset = 0 } 
       const incoming=body.p_snapshot.equipmentReady??shared?.equipmentReady??defaultState().equipmentReady;
       const {'cold-packs':nestedColdPacks,...equipment}=incoming;
       const equipmentColdPacksReady=body.p_snapshot.equipmentColdPacksReady??nestedColdPacks??shared?.equipmentColdPacksReady??shared?.equipmentReady?.['cold-packs']??false;
-      revision++; shared = {...body.p_snapshot,committeeMembers:roster,equipmentReady:equipment,equipmentColdPacksReady}; lease = serverNow + 120000;
+      const committeeRotation=body.p_snapshot.committeeRotation??shared?.committeeRotation??{};
+      revision++; shared = {...body.p_snapshot,committeeMembers:roster,equipmentReady:equipment,equipmentColdPacksReady,committeeRotation}; lease = serverNow + 120000;
       operations.set(body.p_operation_id, revision);
       if (loseAck) { loseAck = false; throw Error('Response lost after commit'); }
       return response(data('applied'));
@@ -161,6 +162,59 @@ await test('Only a scorekeeper publishes committee name edits and other phones r
   const changed=defaultState();changed.committeeMembers.director[0]='Viewer edit';
   assert.equal(viewer.sync.queue(changed),false);assert.equal(f.fixture.shared.committeeMembers.director[0],'New director');
   f.sync.stop();viewer.sync.stop();
+});
+
+await test('Only the scorekeeper publishes rota changes; viewers receive assignments and explicit clears',async()=>{
+  const f=await writerFixture(),state=defaultState();
+  state.committeeRotation={'tug:prelim':{'comms:0':{status:'playing',coverFor:null},'comms:1':{status:'cover',coverFor:'comms:0'}}};
+  assert.equal(f.sync.queue(state),true);await f.sync.flush();assert.deepEqual(f.fixture.shared.committeeRotation,state.committeeRotation);
+  const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
+  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeRotation,state.committeeRotation);
+  const denied=defaultState();assert.equal(viewer.sync.queue(denied),false);assert.deepEqual(f.fixture.shared.committeeRotation,state.committeeRotation);
+  state.committeeRotation={};assert.equal(f.sync.queue(state),true);await f.sync.flush();await viewer.sync.refresh();
+  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeRotation,{});
+  f.sync.stop();viewer.sync.stop();
+});
+
+await test('Basket team turns stay separate across offline reloads and shared viewer updates',async()=>{
+  const f=await writerFixture(),state=defaultState();f.fixture.offline(true);
+  state.committeeRotation={
+    'basket:red:0':{'comms:0':{status:'playing',coverFor:null}},
+    'basket:red:1':{'comms:0':{status:'duty',coverFor:null}},
+    'basket:blue:0':{'comms:0':{status:'cover',coverFor:'equipment:0'}},
+  };
+  assert.equal(f.sync.queue(state),true);await f.sync.flush();f.sync.stop();
+  const next=f.fixture.service();await next.sync.start();assert.equal(next.sync.pending,1);
+  f.fixture.offline(false);await next.sync.claimWriter();assert.equal(next.sync.pending,0);
+  const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
+  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeRotation,state.committeeRotation);
+  state.committeeRotation['basket:blue:0']['comms:0']={status:'duty',coverFor:null};next.sync.queue(state);await next.sync.flush();await viewer.sync.refresh();
+  const shared=mergePublicState(viewer.delivered.at(-1).state).committeeRotation;
+  assert.equal(shared['basket:red:0']['comms:0'].status,'playing');assert.equal(shared['basket:red:1']['comms:0'].status,'duty');
+  assert.equal(shared['basket:blue:0']['comms:0'].status,'duty');next.sync.stop();viewer.sync.stop();
+});
+
+await test('Older snapshots default to an empty rota and reordered rota keys do not turn private saves into writes',async()=>{
+  const state=defaultState();state.committeeRotation={'relay:2':{'warmup:0':{status:'cover',coverFor:null}},'borrow:0':{'comms:1':{status:'duty',coverFor:null},'comms:0':{status:'playing',coverFor:null}}};
+  const reverseKeys=value=>Array.isArray(value)?value.map(reverseKeys):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([key,nested])=>[key,reverseKeys(nested)])):value;
+  const reordered=reverseKeys(publicSnapshot(state)),f=await writerFixture({snapshot:reordered});
+  state.notes[4]='Private reminder';assert.equal(f.sync.queue(state),true);await f.sync.flush();
+  assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);f.sync.stop();
+  const old=publicSnapshot(defaultState());delete old.committeeRotation;
+  assert.deepEqual(mergePublicState(old,state).committeeRotation,{});
+  for(const committeeRotation of [null,[],{'borrow:7':{}},{'borrow:0':{'comms:0':{status:'duty',coverFor:'comms:1'}}}])assert.throws(()=>mergePublicState({...old,committeeRotation}));
+});
+
+await test('An old writer can change a score without clearing the shared rota',async()=>{
+  const server=defaultState();server.committeeRotation={'borrow:0':{'comms:0':{status:'duty',coverFor:null}}};
+  const f=await writerFixture({snapshot:publicSnapshot(server)}),oldWriter=publicSnapshot(defaultState());
+  delete oldWriter.committeeRotation;oldWriter.borrow.scores[0][0]=5;
+  const response=await f.fixture.fetch('https://test-project.supabase.co/rest/v1/rpc/apply_sports_day_update',{
+    headers:{apikey:'sb_publishable_test',Authorization:'Bearer editor-access'},
+    body:JSON.stringify({p_writer_id:f.fixture.writer,p_expected_revision:f.fixture.revision,p_operation_id:f.fixture.uuid(),p_snapshot:oldWriter}),
+  });
+  const reply=await response.json();assert.equal(reply.status,'applied');assert.deepEqual(reply.public_state.committeeRotation,server.committeeRotation);
+  assert.equal(reply.public_state.borrow.scores[0][0],5);assert.deepEqual(f.calls.at(-1).body.p_snapshot,oldWriter);f.sync.stop();
 });
 
 await test('Only the scorekeeper publishes equipment readiness and viewers receive checked and unchecked items',async()=>{
@@ -515,6 +569,65 @@ await test('Old clients preserve each omitted field independently while explicit
     assert.equal(next.sync.pending,0);
     assert.equal(f.fixture.shared.committeeMembers.director[0],omitted==='committeeMembers'?'Confirmed director':'Updated director');
     assert.equal(f.fixture.shared.equipmentReady.basket,omitted==='equipmentReady');next.sync.stop();
+  }
+});
+
+async function legacyRotationPendingFixture(rotation={}){
+  const server=defaultState();server.committeeRotation=structuredClone(rotation);
+  const f=await writerFixture({snapshot:publicSnapshot(server)}),local=defaultState();
+  f.fixture.offline(true);local.borrow.scores[0][0]=5;f.sync.queue(local);await f.sync.flush();f.sync.stop();
+  const key=[...f.storage.data.keys()][0],stored=JSON.parse(f.storage.getItem(key));
+  delete stored.outbox[0].snapshot.committeeRotation;f.storage.setItem(key,JSON.stringify(stored));f.fixture.offline(false);
+  return {...f,local,key,payload:structuredClone(stored.outbox[0].snapshot)};
+}
+
+await test('Legacy retries hydrate the server rota without rewriting the immutable payload, even after a lost acknowledgement',async()=>{
+  const rotation={'borrow:0':{'comms:0':{status:'playing',coverFor:null},'comms:1':{status:'cover',coverFor:'comms:0'}}};
+  for(const loseAck of [false,true]){
+    const f=await legacyRotationPendingFixture(rotation);let visible=f.local;if(loseAck)f.fixture.loseAck();
+    const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
+    await next.sync.start();await next.sync.flush();assert.equal(next.sync.pending,0);assert.deepEqual(visible.committeeRotation,rotation);
+    const retries=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')&&call.body.p_snapshot.committeeRotation===undefined);
+    assert.equal(retries.length,loseAck?2:1);for(const retry of retries)assert.deepEqual(retry.body.p_snapshot,f.payload);
+    if(loseAck)assert.equal(retries[0].body.p_operation_id,retries[1].body.p_operation_id);
+    visible.borrow.scores[1][0]=4;assert.equal(next.sync.queue(visible),true);await next.sync.flush();
+    assert.deepEqual(f.fixture.shared.committeeRotation,rotation);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+  }
+});
+
+await test('A modern default or conflicting rota tail cannot erase a nonempty server rota behind an old retry',async()=>{
+  const rotation={'borrow:0':{'comms:0':{status:'duty',coverFor:null}}};
+  for(const proposed of [{},{'borrow:0':{'comms:0':{status:'playing',coverFor:null}}}]){
+    const f=await legacyRotationPendingFixture(rotation);let releaseAck,announceAck;
+    const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
+    const next=f.fixture.service({fetch:async(url,options)=>{
+      const response=await f.fixture.fetch(url,options);
+      if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.committeeRotation===undefined){announceAck();await held;}
+      return response;
+    }});
+    const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.committeeRotation=proposed;newest.borrow.scores[1][0]=4;
+    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
+    assert.equal(next.sync.status.phase,'conflict');assert.match(next.sync.status.error,/committee rotation/);assert.equal(next.sync.pending,1);
+    assert.deepEqual(f.fixture.shared.committeeRotation,rotation);assert.equal(f.fixture.shared.borrow.scores[1][0],null);
+    const stored=JSON.parse(f.storage.getItem(f.key));assert.deepEqual(stored.outbox[0].snapshot.committeeRotation,proposed);assert.equal(stored.outbox[0].attempted,false);
+    assert.deepEqual(f.calls.at(-1).body.p_snapshot,f.payload);next.sync.stop();
+  }
+});
+
+await test('A matching rota tail or first rota on an empty server can follow an old retry',async()=>{
+  const proposed={'borrow:0':{'comms:0':{status:'playing',coverFor:null}}};
+  for(const rotation of [{},proposed]){
+    const f=await legacyRotationPendingFixture(rotation);let releaseAck,announceAck;
+    const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
+    const next=f.fixture.service({fetch:async(url,options)=>{
+      const response=await f.fixture.fetch(url,options);
+      if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.committeeRotation===undefined){announceAck();await held;}
+      return response;
+    }});
+    const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.committeeRotation=proposed;newest.borrow.scores[1][0]=4;
+    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
+    assert.equal(next.sync.pending,0);assert.equal(next.sync.status.phase,'synced');assert.deepEqual(f.fixture.shared.committeeRotation,proposed);
+    assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
   }
 });
 

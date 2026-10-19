@@ -1770,3 +1770,200 @@ input:focus,select:focus,textarea:focus {
     gap: 6px;
   }
 }
+
+/* Round assignments use the existing committee names and the shared desk palette. */
+.committee-rotation {min-width: 0;}
+.rota-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 16px;
+}
+.rota-header > p {flex: 1 1 260px;min-width: 0;}
+.rota-header p,.rota-overview > p,.rota-name-hint {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.6;
+}
+.rota-header .text-button,.rota-actions .text-button {min-height: 44px;}
+.rota-header .text-button {font-size: 11px;text-align: left;}
+.rota-games,.rota-rounds,.rota-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.rota-games {margin-bottom: 12px;}
+.rota-games button,.rota-rounds button,.rota-filters button {
+  min-height: 44px;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.rota-games button {flex: 1 1 125px;}
+.rota-rounds button {flex: 0 1 auto;}
+.rota-basket-teams {
+  display: grid;
+  grid-template-columns: repeat(5,minmax(0,1fr));
+  gap: 6px;
+  margin-bottom: 10px;
+  min-width: 0;
+}
+.rota-basket-teams button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 62px;
+  padding: 8px 4px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.4;
+  text-align: center;
+}
+.rota-basket-teams button > span:last-child {min-width: 0;max-width: 100%;overflow-wrap: anywhere;}
+.rota-basket-teams .dot {flex: 0 0 12px;width: 12px;height: 12px;}
+.rota-basket-teams button.selected {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+  box-shadow: inset 0 0 0 1px var(--brand);
+}
+.rota-games button.selected,.rota-rounds button.selected,.rota-filters button.selected {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  color: var(--brand-strong);
+}
+.rota-overview {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.rota-overview > p {margin: 0 0 8px;}
+.rota-filters button {padding-inline: 10px;}
+.rota-filters b {
+  margin-left: 4px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.rota-coverage-note {
+  margin: 12px 0 0;
+  padding: 9px 11px;
+  border: 1px solid #ded1ad;
+  border-radius: var(--radius-control);
+  color: var(--warning);
+  background: var(--warning-soft);
+  font-size: 11px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+.rota-name-hint {margin-top: 10px;}
+.rota-departments {
+  display: grid;
+  grid-template-columns: repeat(2,minmax(0,1fr));
+  align-items: start;
+  gap: 12px;
+  margin-top: 14px;
+}
+.rota-department {
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-raised);
+  overflow: hidden;
+}
+.rota-department > h3 {
+  margin: 0;
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--line);
+  color: var(--brand-strong);
+  background: var(--surface-soft);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.rota-department > ul {margin: 0;padding: 0;list-style: none;}
+.rota-person {min-width: 0;padding: 12px;}
+.rota-person + .rota-person {border-top: 1px solid var(--line);}
+.rota-person-top {display: flex;align-items: center;flex-wrap: wrap;gap: 9px;min-width: 0;}
+.rota-person-name {flex: 1 1 85px;min-width: 0;}
+.rota-person-name strong,.rota-person-name small {display: block;overflow-wrap: anywhere;}
+.rota-person-name strong {font-size: 13px;font-weight: 600;line-height: 1.5;}
+.rota-person-name small {margin-top: 2px;color: var(--muted);font-size: 10px;line-height: 1.5;}
+.rota-person.unnamed .rota-person-name strong {color: var(--muted);font-weight: 500;}
+.rota-choices {display: grid;grid-template-columns: repeat(3,minmax(0,1fr));flex: 0 1 198px;min-width: 0;max-width: 100%;gap: 3px;}
+.rota-choice {
+  min-width: 0;
+  min-height: 44px;
+  padding: 7px 5px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.3;
+}
+.rota-choice.selected[data-rota-status="playing"],.rota-status.playing {color: var(--blue);background: var(--blue-soft);border-color: var(--blue);}
+.rota-choice.selected[data-rota-status="duty"],.rota-status.duty {color: var(--brand-strong);background: var(--brand-soft);border-color: var(--brand);}
+.rota-choice.selected[data-rota-status="cover"],.rota-status.cover {color: var(--warm);background: var(--warm-soft);border-color: var(--warm);}
+.rota-readonly-status {display: flex;align-items: center;gap: 5px;min-width: 0;max-width: 100%;}
+.rota-readonly-status .text-button {min-height: 44px;font-size: 11px;color: var(--danger);}
+.rota-status {
+  display: inline-block;
+  max-width: 100%;
+  padding: 5px 8px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  color: var(--muted);
+  background: var(--surface-soft);
+  font-size: 10px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.rota-relation {margin: 8px 0 0;color: var(--muted);font-size: 11px;line-height: 1.6;overflow-wrap: anywhere;}
+.rota-attention {color: var(--warning);}
+.rota-cover-field {display: block;margin-top: 10px;min-width: 0;}
+.rota-cover-field > span {display: block;margin-bottom: 4px;color: var(--muted);font-size: 10px;line-height: 1.5;}
+.rota-cover-field select {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+  color: var(--ink);
+  background: var(--surface-raised);
+  font-size: 13px;
+}
+.rota-safety {margin-top: 16px;padding: 12px 14px;border: 1px solid var(--line);border-radius: var(--radius-card);background: var(--surface-soft);}
+.rota-safety h3 {margin: 0 0 6px;font-size: 12px;line-height: 1.5;}
+.rota-safety ul {margin: 0;padding-left: 16px;color: var(--muted);font-size: 11px;line-height: 1.6;}
+.rota-safety li + li {margin-top: 4px;}
+.rota-actions {display: flex;align-items: center;flex-wrap: wrap;gap: 8px 14px;margin-top: 16px;}
+.rota-actions .secondary {min-height: 44px;font-size: 11px;}
+.rota-empty {color: var(--muted);font-size: 12px;line-height: 1.6;}
+@media (max-width:760px) {
+  .rota-departments {grid-template-columns: minmax(0,1fr);}
+  .rota-cover-field select {font-size: 16px;}
+}
+@media (max-width:359px) {
+  .rota-person-top:has(.rota-choices) {display: block;}
+  .rota-choices {width: 100%;max-width: none;margin-top: 9px;}
+}

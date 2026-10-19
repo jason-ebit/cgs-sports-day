@@ -1,4 +1,4 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=48';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=49';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
@@ -11,6 +11,7 @@ export function publicSnapshot(state, { offsetMs = 0 } = {}) {
     version: 1,
     teams: s.teams.map(({ id, name, seed }) => ({ id, name, seed })),
     committeeMembers: s.committeeMembers,
+    committeeRotation: s.committeeRotation,
     equipmentReady, equipmentColdPacksReady,
     tug: s.tug, borrow: s.borrow, basket: s.basket, relay: s.relay,
     cavalry: {
@@ -38,6 +39,7 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
     leader: local.teams[index]?.leader ?? '', participants: local.teams[index]?.participants ?? null,
   }));
   if(snapshot.committeeMembers!==undefined)next.committeeMembers=snapshot.committeeMembers;
+  if(snapshot.committeeRotation!==undefined)next.committeeRotation=snapshot.committeeRotation;
   if(snapshot.equipmentReady!==undefined)next.equipmentReady=snapshot.equipmentReady;
   if(snapshot.equipmentColdPacksReady!==undefined){
     if(typeof snapshot.equipmentColdPacksReady!=='boolean')throw Error('The shared equipment checks are not valid.');
@@ -328,19 +330,20 @@ export function createSyncService({
           revision = data.revision; lastAck = data.public_state; lastRenewal = now();
           outbox.shift();
           if (outbox.length) outbox[0].baseRevision = revision;
-          const omittedPaths=['committeeMembers','equipmentReady'].filter(key=>item.snapshot[key]===undefined).map(key=>[key]);
+          const omittedPaths=['committeeMembers','equipmentReady','committeeRotation'].filter(key=>item.snapshot[key]===undefined).map(key=>[key]);
           if(item.snapshot.equipmentColdPacksReady===undefined&&!Object.hasOwn(item.snapshot.equipmentReady??{},'cold-packs'))omittedPaths.push(['equipmentColdPacksReady']);
           if(omittedPaths.length&&data.public_state!==null){
             const confirmed=publicSnapshot(mergePublicState(data.public_state)),defaults=publicSnapshot(defaultState());
             // A new edit may have inherited defaults while an older retry was
             // pending. Preserve both payloads and require review rather than
-            // guessing whether it meant to replace shared names or checkmarks.
+            // guessing whether it meant to replace shared names, checks or rota.
             for(const path of omittedPaths){
               const atPath=value=>path.reduce((section,key)=>section?.[key],value);
               const modernTail=outbox.find(pending=>atPath(pending.snapshot)!==undefined);
               if(modernTail&&JSON.stringify(atPath(confirmed))!==JSON.stringify(atPath(defaults))
                 &&JSON.stringify(atPath(publicSnapshot(mergePublicState(modernTail.snapshot))))!==JSON.stringify(atPath(confirmed))){
-                block(`${path[0]==='committeeMembers'?'Shared committee names':'Shared equipment checks'} need review. Pending changes were kept on this phone. Load the shared scores before continuing.`);
+                const section=path[0]==='committeeMembers'?'Shared committee names':path[0]==='committeeRotation'?'Shared committee rotation':'Shared equipment checks';
+                block(`${section} need review. Pending changes were kept on this phone. Load the shared scores before continuing.`);
                 return false;
               }
             }
