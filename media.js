@@ -1,7 +1,7 @@
-import { TEAM_IDS, COLOURS } from './model.js?v=35';
-import { iconData } from './icons.js?v=35';
-import { EVENT_ICONS, orderedSchedule, scheduleBounds } from './content.js?v=35';
-import { LOCATION } from './location-guide.js?v=35';
+import { TEAM_IDS, COLOURS } from './model.js?v=36';
+import { iconData } from './icons.js?v=36';
+import { EVENT_ICONS, orderedSchedule, scheduleBounds } from './content.js?v=36';
+import { LOCATION } from './location-guide.js?v=36';
 
 export function downloadBlob(blob, filename) {
   const url=URL.createObjectURL(blob), a=document.createElement('a');
@@ -41,7 +41,7 @@ export async function renderMedia({state,schedule,size}) {
     });
   };
   if(size==='poster') {
-    text('SPORTS DAY',42,110,119,900,theme.ink,'left',1000);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',54,195,19);
+    text('OLYMPICS',42,110,119,900,theme.ink,'left',1000);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',54,195,19);
     dateCard(1159,42,337,184);rundown(28,263,698,1195);
     box(745,263,763,193);text('TEAM COLOURS',777,308,31,700);teamRow(758,374,731,25,TEAM_IDS,20);
     const x=744,w=365,x2=1125,w2=383,y=475,h=314,y2=807;
@@ -59,7 +59,7 @@ export async function renderMedia({state,schedule,size}) {
     TEAM_IDS.forEach((id,i)=>{const yy=1272+i*29;circle(id,x+37,yy,9);text(label(id),x+57,yy,16,400,theme.ink,'left',85);line(x+146,yy,x+331,yy,'#9da4aa');line(x+324,yy-4,x+331,yy,'#9da4aa');line(x+324,yy+4,x+331,yy,'#9da4aa');});bottom(x,1413,365,'3-round points → placing');
     c.setLineDash([5,4]);line(1121,1160,1121,1440,'#bfc5ca');c.setLineDash([]);text('Relay Rounds',1155,1205,23,700);['Baton Relay','Three-Legged Relay','Spoon & Ball Relay'].forEach((r,i)=>{badge(i+1,1184,1262+i*62,21);text(r,1235,1262+i*62,20,400,theme.ink,'left',241);});footer(1507,1536);
   } else {
-    text('SPORTS DAY',48,133,121,900,theme.ink,'left',974);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',58,226,18);
+    text('OLYMPICS',48,133,121,900,theme.ink,'left',974);text('O C T  2 5 T H  ·  R U N D O W N  &  G A M E  F O R M A T S',58,226,18);
     box(48,302,984,96,'#fff','#cbd0d4',15);icon('calendar',73,326,43);text('OCT 25',138,337,28,700);text(timeLabel,138,369,21);line(494,325,494,377,'#cbd0d4');icon('pin',530,326,43);text(LOCATION.venue,604,351,30,700,theme.ink,'left',391);
     rundown(48,424,984,942,true);
     box(48,1387,984,110);text('TEAM COLOURS',73,1418,19,700);TEAM_IDS.forEach((id,i)=>{const cx=94+i*191;circle(id,cx,1461,14);text(label(id),cx+25,1462,18,400,theme.ink,'left',145);});
