@@ -1,4 +1,4 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=41';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=42';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
@@ -7,6 +7,7 @@ export function publicSnapshot(state, { offsetMs = 0 } = {}) {
   return {
     version: 1,
     teams: s.teams.map(({ id, name, seed }) => ({ id, name, seed })),
+    committeeMembers: s.committeeMembers,
     tug: s.tug, borrow: s.borrow, basket: s.basket, relay: s.relay,
     cavalry: {
       division: s.cavalry.division, cap: s.cavalry.cap,
@@ -18,7 +19,7 @@ export function publicSnapshot(state, { offsetMs = 0 } = {}) {
     placements: Object.fromEntries(GAME_IDS.map(id => [id, {
       values: s.placements[id].values, approved: Boolean(s.placements[id].rule.trim()),
     }])),
-    timers: Object.fromEntries(Object.entries(s.timers).map(([id, clock]) => [id, {
+    timers: Object.fromEntries(Object.entries(s.timers).sort(([a],[b])=>a<b?-1:a>b?1:0).map(([id, clock]) => [id, {
       ...clock, deadline: clock.deadline === null ? null : clock.deadline + offset,
     }])),
     finished: s.finished, activeKey: s.activeKey,
@@ -32,6 +33,7 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
     id: team.id, name: team.name, seed: team.seed,
     leader: local.teams[index]?.leader ?? '', participants: local.teams[index]?.participants ?? null,
   }));
+  if(snapshot.committeeMembers!==undefined)next.committeeMembers=snapshot.committeeMembers;
   for (const key of ['tug', 'borrow', 'basket', 'relay', 'finished', 'activeKey']) next[key] = snapshot[key];
   next.cavalry.division = snapshot.cavalry?.division;
   next.cavalry.cap = snapshot.cavalry?.cap;
@@ -60,15 +62,18 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
 
 function samePublic(a, b) {
   if (!b) return false;
+  // Old v1 snapshots lack the roster, and PostgreSQL JSONB reorders keys.
+  // Compare the same canonical public shape without rewriting retry payloads.
+  const reference = publicSnapshot(mergePublicState(b));
   const normalized = { ...a, timers: Object.fromEntries(Object.entries(a.timers).map(([id, clock]) => {
-    const known = b.timers?.[id];
+    const known = reference.timers?.[id];
     // Network latency can move the estimated server offset by a few milliseconds.
     // A private-note save must not become a timer write because of that estimate.
     const deadline = clock.deadline !== null && known?.deadline !== null && Math.abs(clock.deadline - known?.deadline) <= 1000
       ? known.deadline : clock.deadline;
     return [id, { ...clock, deadline }];
   })) };
-  return JSON.stringify(normalized) === JSON.stringify(b);
+  return JSON.stringify(normalized) === JSON.stringify(reference);
 }
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -313,6 +318,22 @@ export function createSyncService({
           revision = data.revision; lastAck = data.public_state; lastRenewal = now();
           outbox.shift();
           if (outbox.length) outbox[0].baseRevision = revision;
+          if(item.snapshot.committeeMembers===undefined&&data.public_state!==null){
+            const roster=mergePublicState(data.public_state).committeeMembers;
+            const modernTail=outbox.find(pending=>pending.snapshot.committeeMembers!==undefined);
+            // A modern game edit can have inherited default names while an old
+            // retry was pending. Do not guess whether differing names were an
+            // intentional edit: keep the pending payload and require review.
+            if(modernTail&&JSON.stringify(roster)!==JSON.stringify(defaultState().committeeMembers)
+              &&JSON.stringify(mergePublicState(modernTail.snapshot).committeeMembers)!==JSON.stringify(roster)){
+              block('Shared committee names need review. Pending changes were kept on this phone. Load the shared scores before continuing.');
+              return false;
+            }
+            if(!outbox.length){
+              deliveredOffset=offsetMs;
+              onRemote(data.public_state,{revision,offsetMs});
+            }
+          }
           persist(); emit(role === 'writer' ? outbox.length ? 'pending' : 'synced' : outbox.length ? 'conflict' : 'watching');
         } catch (cause) { failure(cause); return false; }
       }

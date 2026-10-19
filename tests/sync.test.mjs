@@ -44,7 +44,8 @@ function fixture({ snapshot = publicSnapshot(defaultState()), localOffset = 0 } 
       if (writer !== body.p_writer_id || lease <= serverNow) return response(data('lease_lost'));
       if (body.p_expected_revision !== revision) return response(data('conflict'));
       mergePublicState(body.p_snapshot);
-      revision++; shared = body.p_snapshot; lease = serverNow + 120000;
+      const roster=body.p_snapshot.committeeMembers??shared?.committeeMembers??defaultState().committeeMembers;
+      revision++; shared = {...body.p_snapshot,committeeMembers:roster}; lease = serverNow + 120000;
       operations.set(body.p_operation_id, revision);
       if (loseAck) { loseAck = false; throw Error('Response lost after commit'); }
       return response(data('applied'));
@@ -73,15 +74,20 @@ async function writerFixture(options) {
   await instance.sync.claimWriter(); return { ...f, ...instance, fixture: f };
 }
 
-await test('Shared snapshots exclude all committee, leader, participant and free-text rule information', () => {
+await test('Shared snapshots include committee names but exclude private reminders, leaders, headcounts and rule text', () => {
   const s = defaultState();
+  s.committeeMembers.director[0] = 'Shared director';
   s.teams[0].leader = 'Private leader'; s.teams[0].participants = 20;
   s.notes[4] = 'Private event note'; s.committeeNotes['first-aid'] = { general: 'Medical detail' };
   s.cavalry.rule = 'Private arena note'; s.cavalry.divisions.women.counts[0] = 3;
   s.placements.borrow.rule = 'Private placement explanation';
   const snapshot = publicSnapshot(s), text = JSON.stringify(snapshot);
-  for (const forbidden of ['Private', 'Medical', 'leader', 'participants', 'counts', 'committeeNotes', 'notes', 'rule']) assert.equal(text.includes(forbidden), false, forbidden);
+  for(const forbidden of ['Private','Medical'])assert.equal(text.includes(forbidden),false,forbidden);
+  const privateKeys=new Set(['leader','participants','counts','committeeNotes','notes','rule']);
+  const inspect=value=>{if(!value||typeof value!=='object')return;for(const [key,nested] of Object.entries(value)){assert.equal(privateKeys.has(key),false,key);inspect(nested);}};
+  inspect(snapshot);
   assert.equal(snapshot.placements.borrow.approved, true);
+  assert.equal(snapshot.committeeMembers.director[0], 'Shared director');
 });
 
 await test('Applying shared results keeps this phone’s private notes and headcounts', () => {
@@ -123,11 +129,35 @@ await test('Malformed shared scores, timers and approval flags are rejected befo
   }
 });
 
+await test('Legacy shared snapshots normalize roster defaults and cannot retain a viewer-only roster', () => {
+  const legacy=publicSnapshot(defaultState());delete legacy.committeeMembers;
+  const local=defaultState();local.committeeMembers.director[0]='Old local name';local.committeeNotes.director={general:'Private reminder'};
+  const merged=mergePublicState(legacy,local);
+  assert.deepEqual(merged.committeeMembers,defaultState().committeeMembers);
+  assert.deepEqual(merged.committeeNotes,local.committeeNotes);
+  for(const members of [null,{}, {...defaultState().committeeMembers,director:['One','Two']}, {...defaultState().committeeMembers,unknown:['Name']}]){
+    assert.throws(()=>mergePublicState({...legacy,committeeMembers:members}));
+  }
+});
+
 await test('A viewer fetches shared scores and can never queue an update', async () => {
   const f = fixture(), { sync, delivered } = f.service(); await sync.start();
   assert.equal(sync.role, 'viewer'); assert.equal(sync.status.phase, 'watching'); assert.equal(delivered.length, 1);
   assert.equal(sync.queue(defaultState()), false); assert.equal(f.calls.some(c => c.path.endsWith('/apply_sports_day_update')), false);
   assert.equal(f.calls[0].headers.Authorization, undefined, 'The publishable key is not a bearer token.'); sync.stop();
+});
+
+await test('Only a scorekeeper publishes committee name edits and other phones receive the shared roster', async () => {
+  const f=await writerFixture(),state=defaultState();state.committeeMembers.director[0]='New director';state.committeeMembers.warmup[0]='Warm-up lead';
+  state.committeeNotes.director={general:'Private reminder'};
+  assert.equal(f.sync.queue(state),true);await f.sync.flush();
+  assert.deepEqual(f.fixture.shared.committeeMembers,state.committeeMembers);
+  assert.equal('committeeNotes' in f.fixture.shared,false);
+  const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
+  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeMembers,state.committeeMembers);
+  const changed=defaultState();changed.committeeMembers.director[0]='Viewer edit';
+  assert.equal(viewer.sync.queue(changed),false);assert.equal(f.fixture.shared.committeeMembers.director[0],'New director');
+  f.sync.stop();viewer.sync.stop();
 });
 
 await test('The first scorekeeper can publish existing local results into an empty event', async () => {
@@ -142,6 +172,16 @@ await test('Changes to private notes produce no shared update', async () => {
   const f = await writerFixture(), s = defaultState(); s.notes[4] = 'Private'; s.teams[0].leader = 'Private';
   assert.equal(f.sync.queue(s), true); await f.sync.flush();
   assert.equal(f.calls.some(c => c.path.endsWith('/apply_sports_day_update')), false); f.sync.stop();
+});
+
+await test('Legacy snapshots and reordered JSON keys do not turn private-note saves into roster writes', async () => {
+  const state=defaultState();state.timers['relay:2']=makeClock(60);state.timers['borrow:0']=makeClock(90);
+  const legacy=publicSnapshot(state);delete legacy.committeeMembers;
+  const reverseKeys=value=>Array.isArray(value)?value.map(reverseKeys):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([key,nested])=>[key,reverseKeys(nested)])):value;
+  const f=await writerFixture({snapshot:reverseKeys(legacy)});state.notes[4]='Private reminder';
+  assert.equal(f.sync.queue(state),true);await f.sync.flush();
+  assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);
+  f.sync.stop();
 });
 
 await test('Small server-offset corrections cannot turn a private note into a running-timer update', async () => {
@@ -203,6 +243,61 @@ await test('An offline reload restores pending edits before reading a stale serv
   f.fixture.offline(false); await next.sync.claimWriter(); assert.equal(next.sync.pending, 0); assert.equal(f.fixture.shared.borrow.scores[1][0], 4); next.sync.stop();
 });
 
+async function legacyPendingFixture(serverNames=defaultState().committeeMembers){
+  const server=defaultState();server.committeeMembers=structuredClone(serverNames);
+  const f=await writerFixture({snapshot:publicSnapshot(server)}),local=defaultState();
+  f.fixture.offline(true);local.borrow.scores[0][0]=5;f.sync.queue(local);await f.sync.flush();f.sync.stop();
+  const key=[...f.storage.data.keys()][0],stored=JSON.parse(f.storage.getItem(key));
+  delete stored.outbox[0].snapshot.committeeMembers;f.storage.setItem(key,JSON.stringify(stored));f.fixture.offline(false);
+  return {...f,local,key};
+}
+
+await test('The final legacy retry hydrates confirmed names before later modern game edits can publish defaults',async()=>{
+  const names=defaultState().committeeMembers;names.director[0]='Confirmed director';
+  const f=await legacyPendingFixture(names);let visible=f.local;
+  const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
+  await next.sync.start();assert.equal(next.sync.pending,0);assert.deepEqual(visible.committeeMembers,names);
+  assert.equal(visible.borrow.scores[0][0],5);
+  visible.borrow.scores[1][0]=4;assert.equal(next.sync.queue(visible),true);await next.sync.flush();
+  assert.deepEqual(f.fixture.shared.committeeMembers,names);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+});
+
+await test('Modern tails queued during a legacy retry retain default or explicit names for review instead of erasing a named server roster',async()=>{
+  for(const proposed of ['', 'Explicit new director']){
+    const names=defaultState().committeeMembers;names.director[0]='Confirmed director';const f=await legacyPendingFixture(names);
+    let releaseAck,announceAck;const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
+    const next=f.fixture.service({fetch:async(url,options)=>{
+      const response=await f.fixture.fetch(url,options);
+      if(url.endsWith('/apply_sports_day_update')&&!JSON.parse(options.body).p_snapshot.committeeMembers){announceAck();await held;}
+      return response;
+    }});
+    const boot=next.sync.start();await started;
+    const newest=structuredClone(f.local);newest.borrow.scores[1][0]=4;newest.committeeMembers.director[0]=proposed;
+    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
+    assert.equal(next.sync.status.phase,'conflict');assert.equal(next.sync.pending,1);
+    assert.deepEqual(f.fixture.shared.committeeMembers,names);assert.equal(f.fixture.shared.borrow.scores[1][0],null);
+    const stored=JSON.parse(f.storage.getItem(f.key));assert.equal(stored.outbox[0].snapshot.committeeMembers.director[0],proposed);
+    assert.equal(stored.outbox[0].snapshot.borrow.scores[1][0],4);assert.equal(stored.outbox[0].attempted,false);
+    assert.equal(f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')&&call.body.p_snapshot.committeeMembers).length,1,'Only the original offline call had a modern payload; the queued tail was not sent.');
+    next.sync.stop();
+  }
+});
+
+await test('Explicit modern roster edits queued behind a legacy retry can proceed when the server still has defaults',async()=>{
+  const f=await legacyPendingFixture();let releaseAck,announceAck;
+  const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
+  const next=f.fixture.service({fetch:async(url,options)=>{
+    const response=await f.fixture.fetch(url,options);
+    if(url.endsWith('/apply_sports_day_update')&&!JSON.parse(options.body).p_snapshot.committeeMembers){announceAck();await held;}
+    return response;
+  }});
+  const boot=next.sync.start();await started;
+  const newest=structuredClone(f.local);newest.committeeMembers.director[0]='New director';newest.borrow.scores[1][0]=4;
+  assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
+  assert.equal(next.sync.pending,0);assert.equal(next.sync.status.phase,'synced');
+  assert.equal(f.fixture.shared.committeeMembers.director[0],'New director');assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+});
+
 await test('A previously synced scorekeeper can reload offline and keep new results durably pending', async () => {
   const f = await writerFixture(); assert.equal(f.sync.pending, 0); f.sync.stop(); f.fixture.offline(true);
   const reloaded = f.fixture.service(); await reloaded.sync.start(); assert.equal(reloaded.sync.role, 'writer');
@@ -219,6 +314,15 @@ await test('A stale offline update stops at a conflict and never overwrites newe
   f.fixture.externalUpdate(newer); f.fixture.offline(false); await f.sync.flush();
   assert.equal(f.sync.status.phase, 'conflict'); assert.equal(f.sync.pending, 1); assert.equal(f.fixture.shared.borrow.scores[0][0], null);
   assert.equal(f.sync.queue(s), false); await f.sync.acceptRemote(); assert.equal(f.sync.pending, 0); assert.equal(f.delivered.at(-1).state.borrow.scores[1][0], 5); f.sync.stop();
+});
+
+await test('Conflicting offline roster edits cannot overwrite newer shared names', async () => {
+  const f=await writerFixture(),pending=defaultState();f.fixture.offline(true);pending.committeeMembers.director[0]='Offline edit';
+  f.sync.queue(pending);await f.sync.flush();
+  const newer=defaultState();newer.committeeMembers.director[0]='Confirmed shared name';f.fixture.externalUpdate(newer);f.fixture.offline(false);
+  await f.sync.flush();assert.equal(f.sync.status.phase,'conflict');assert.equal(f.sync.pending,1);
+  assert.equal(f.fixture.shared.committeeMembers.director[0],'Confirmed shared name');assert.equal(f.sync.queue(pending),false);
+  await f.sync.acceptRemote();assert.equal(f.delivered.at(-1).state.committeeMembers.director[0],'Confirmed shared name');f.sync.stop();
 });
 
 await test('Conflict stays blocked through renewal, reconnect, sign-in and reload until shared scores are explicitly loaded', async () => {

@@ -118,16 +118,16 @@ Five championship categories, normally 5/4/3/2/1 points by placing, highest tota
 - Comm: 2 volunteers, Mario and Cindy; one runs the schedule and calls teams, one handles the mic or photos and supports announcements of confirmed results.
 - Warm-up: 1 lead, TBA, for the five-minute group warm-up and handover to the first game.
 - Support total: 10–11 across First-Aid, Equipment, Food & Water, Comm and Warm-up. Including the main judge / scorer and assistant judge: 12–13 total; five team leaders are separate.
-- Each committee shows numbered name slots above short essential bullets. Comm lists Cindy and Mario; remaining slots are TBA, including the optional third Food & Water helper. Duties and inventory use plain lists without checkboxes.
+- Each committee shows numbered editable name slots above short essential bullets. Only the scorekeeper edits names; autosaved roster changes sync to all viewers while free-text reminders stay private on the device. Comm lists Cindy and Mario; remaining slots are TBA, including the optional third Food & Water helper. Duties and inventory use plain lists without checkboxes.
 - First-aid notes may include voluntarily disclosed asthma, allergies, diabetes, seizure conditions, fainting, cardiovascular conditions or injuries and access to participants' own emergency medication. Keep identifiable health notes private and out of public/media exports.
 - Existing items: mat, one whistle, icebox, transport cart, umbrellas, pens/markers, phones/timer and equipment bags.
 - No handball, extra medium balls, long basket pole, canopy, medals or certificates. Winner coupons/gift vouchers planned.
 
-## Shopping cart
+## Equipment reminders
 
-- Shared Temu cart: https://share.temu.com/lmk1A7RfDsA
-- Use this one cart link for the shopping list; it replaces the individual store links.
-- The cart's contents, quantities and prices have not been verified. Keep the existing kit list until confirmed item details are supplied.
+- All listed items are purchased or already available. Show all 21 under Equipment as Game kit and Setup & support reminder lists, without purchase actions.
+- Order reference (kept in source only): https://share.temu.com/lmk1A7RfDsA
+- Keep judging decisions, signals, timers and scoring with Judge / scores; the assistant observes and confirms. Support teams own their own kit, food, announcements, warm-up and team-readiness duties.
 
 ## First implementation pass
 

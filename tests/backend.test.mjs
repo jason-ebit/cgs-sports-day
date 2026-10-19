@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { defaultState } from '../model.js';
+import { defaultState, defaultCommitteeMembers, DEPARTMENT_IDS, COMMITTEE_SLOTS } from '../model.js';
 import { publicSnapshot, mergePublicState } from '../sync.js';
 
 // Schema contract checks, not a substitute for running against PostgreSQL.
@@ -9,8 +9,9 @@ import { publicSnapshot, mergePublicState } from '../sync.js';
 const sql = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
 const stripComments = source => source.replace(/--[^\n]*/g, '');
 const source = stripComments(sql);
-const functionBody = name => {
-  const match = source.match(new RegExp(`create or replace function ${name.replaceAll('.', '\\.')}\\([\\s\\S]*?as \\$\\$([\\s\\S]*?)\\$\\$;`, 'i'));
+const migration = stripComments(readFileSync(new URL('../supabase/committee-roster.sql', import.meta.url), 'utf8'));
+const functionBody = (name,input=source) => {
+  const match = input.match(new RegExp(`create or replace function ${name.replaceAll('.', '\\.')}\\([\\s\\S]*?as \\$\\$([\\s\\S]*?)\\$\\$;`, 'i'));
   assert.ok(match, `Missing SQL function ${name}`);
   return match[1];
 };
@@ -21,6 +22,42 @@ function test(name, run) { run(); passed++; console.log(`✓ ${name}`); }
 test('SQL initial state matches the application public snapshot and validates', () => {
   assert.deepEqual(initial, publicSnapshot(defaultState()));
   assert.deepEqual(mergePublicState(initial), defaultState());
+});
+
+test('SQL roster defaults, department slots and string limits agree with the application',()=>{
+  const defaults=JSON.parse(functionBody('sports_day_private.default_committee_members').match(/select '([^']+)'::jsonb/)[1]);
+  assert.deepEqual(defaults,defaultCommitteeMembers());
+  const body=functionBody('sports_day_private.valid_committee_members');
+  const ids=JSON.parse('['+body.match(/departments text\[\] := array\[([^\]]+)\]/)[1].replaceAll("'",'"')+']');
+  const slots=JSON.parse('['+body.match(/slots integer\[\] := array\[([^\]]+)\]/)[1]+']');
+  assert.deepEqual(ids,DEPARTMENT_IDS);assert.deepEqual(Object.fromEntries(ids.map((id,index)=>[id,slots[index]])),COMMITTEE_SLOTS);
+  assert.match(body,/exact_keys\(m,departments\)/);assert.match(body,/jsonb_array_length\(names\) <> slots\[i\]/);
+  assert.match(body,/jsonb_typeof\(name\) <> 'string' or length\(name #>> '\{\}'\) > 60/);
+  const validator=functionBody('sports_day_private.valid_snapshot');
+  assert.match(validator,/exact_keys\(s - 'committeeMembers'/);
+  assert.match(validator,/s \? 'committeeMembers' and not sports_day_private\.valid_committee_members/);
+});
+
+test('Legacy writes preserve the locked server roster while retry records retain their original payload',()=>{
+  const body=functionBody('public.apply_sports_day_update');
+  assert.match(body,/public_state = case when p_snapshot \? 'committeeMembers' then p_snapshot/);
+  assert.match(body,/jsonb_set\(p_snapshot,'\{committeeMembers\}',coalesce\(e\.public_state->'committeeMembers',sports_day_private\.default_committee_members\(\)\)\)/);
+  assert.match(body,/values\(p_event_id,p_operation_id,p_writer_id,p_snapshot,e\.revision\)/);
+  assert.match(body,/previous\.snapshot is distinct from p_snapshot/);
+  const reply=functionBody('sports_day_private.reply');
+  assert.match(reply,/case when e\.public_state \? 'committeeMembers' then e\.public_state/);
+  assert.match(reply,/jsonb_set\(e\.public_state,'\{committeeMembers\}',sports_day_private\.default_committee_members\(\)\)/);
+});
+
+test('Roster migration is rerunnable and matches fresh installation without changing rows or access grants',()=>{
+  for(const name of ['sports_day_private.default_committee_members','sports_day_private.valid_committee_members','sports_day_private.valid_snapshot','sports_day_private.reply','public.apply_sports_day_update']){
+    assert.equal(functionBody(name,migration).trim(),functionBody(name).trim(),name);
+  }
+  const outsideFunctions=migration.replace(/create or replace function [\s\S]*?\$\$[\s\S]*?\$\$;/gi,'');
+  assert.match(outsideFunctions,/begin;/i);assert.match(outsideFunctions,/commit;/i);
+  assert.doesNotMatch(outsideFunctions,/\b(?:insert|update|delete|grant|create table|alter table)\b/i);
+  assert.match(outsideFunctions,/revoke all on function sports_day_private\.default_committee_members\(\) from public, anon, authenticated;/);
+  assert.match(outsideFunctions,/revoke all on function sports_day_private\.valid_committee_members\(jsonb\) from public, anon, authenticated;/);
 });
 
 test('JSON containment operands are grouped before PostgreSQL generic operators', () => {

@@ -68,6 +68,19 @@ test('Warm-up selection and reminders survive backups and remote updates while s
   assert.deepEqual(merged.committeeChecklist,local.committeeChecklist);
   assert.equal(merged.borrow.scores[0][0],5);
 });
+test('Shared committee names replace the local roster without exposing or changing private notes',()=>{
+  const local=defaultState();local.committeeMembers.director[0]='Local old name';
+  local.committeeNotes.warmup={general:'Private warm-up reminder'};local.preferences.department='warmup';
+  local.committeeChecklist['equipment:general:legacy']=true;local.teams[0].leader='Private team leader';
+  const remote=defaultState();remote.committeeMembers.director[0]='Shared director';remote.committeeMembers.comms=['Cindy','New announcer'];
+  const snapshot=publicSnapshot(remote),merged=mergePublicState(snapshot,local);
+  assert.deepEqual(snapshot.committeeMembers,remote.committeeMembers);
+  assert.deepEqual(merged.committeeMembers,remote.committeeMembers);
+  assert.deepEqual(merged.committeeNotes,local.committeeNotes);assert.deepEqual(merged.committeeChecklist,local.committeeChecklist);
+  assert.deepEqual(merged.preferences,local.preferences);assert.equal(merged.teams[0].leader,local.teams[0].leader);
+  assert.equal(JSON.stringify(publicSnapshot(local)).includes('Private'),false);
+  merged.committeeMembers.director[0]='Changed viewer copy';assert.equal(snapshot.committeeMembers.director[0],'Shared director');
+});
 test('Checklist identities survive note ordering and stay separate by department and event',()=>{
   assert.equal(checklistKey('judges:event:4','Watch the finish'),checklistKey('judges:event:4','Watch the finish'));
   assert.notEqual(checklistKey('judges:event:4','Watch the finish'),checklistKey('judges:event:9','Watch the finish'));

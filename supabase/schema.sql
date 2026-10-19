@@ -42,6 +42,31 @@ exception when others then return false;
 end;
 $$;
 
+create or replace function sports_day_private.default_committee_members()
+returns jsonb language sql immutable set search_path = pg_catalog as $$
+  select '{"director":[""],"judges":[""],"first-aid":["",""],"equipment":["","",""],"food-water":["","",""],"comms":["Cindy","Mario"],"team-leaders":["","","","",""],"warmup":[""]}'::jsonb;
+$$;
+
+create or replace function sports_day_private.valid_committee_members(m jsonb)
+returns boolean language plpgsql immutable set search_path = pg_catalog as $$
+declare
+  departments text[] := array['director','judges','first-aid','equipment','food-water','comms','team-leaders','warmup'];
+  slots integer[] := array[1,1,2,3,3,2,5,1];
+  names jsonb; name jsonb; i integer;
+begin
+  if not sports_day_private.exact_keys(m,departments) then return false; end if;
+  for i in 1..array_length(departments,1) loop
+    names := m->departments[i];
+    if jsonb_typeof(names) <> 'array' or jsonb_array_length(names) <> slots[i] then return false; end if;
+    for name in select value from jsonb_array_elements(names) loop
+      if jsonb_typeof(name) <> 'string' or length(name #>> '{}') > 60 then return false; end if;
+    end loop;
+  end loop;
+  return true;
+exception when others then return false;
+end;
+$$;
+
 -- Strictly validate every public leaf. Private notes, leaders, headcounts and
 -- rule text are rejected, including when hidden inside an otherwise valid field.
 create or replace function sports_day_private.valid_snapshot(s jsonb)
@@ -54,9 +79,10 @@ declare
   game text; key text; division text; winner text; first_team text; second_team text;
   i integer; j integer; width integer; ceiling integer; running integer := 0;
 begin
-  if s is null or octet_length(s::text) > 131072 or not sports_day_private.exact_keys(s,
+  if s is null or octet_length(s::text) > 131072 or not sports_day_private.exact_keys(s - 'committeeMembers',
     array['version','teams','tug','borrow','basket','relay','cavalry','placements','timers','finished','activeKey'])
     or s->'version' <> '1'::jsonb then return false; end if;
+  if s ? 'committeeMembers' and not sports_day_private.valid_committee_members(s->'committeeMembers') then return false; end if;
 
   if jsonb_typeof(s->'teams') <> 'array' or jsonb_array_length(s->'teams') <> 5 then return false; end if;
   for i in 0..4 loop
@@ -210,7 +236,8 @@ revoke all on all tables in schema sports_day_private from public, anon, authent
 
 create or replace function sports_day_private.reply(e public.sports_day_events, status text)
 returns jsonb language sql volatile set search_path = pg_catalog as $$
-  select jsonb_build_object('status',status,'public_state',e.public_state,'revision',e.revision,
+  select jsonb_build_object('status',status,'public_state',case when e.public_state ? 'committeeMembers' then e.public_state
+      else jsonb_set(e.public_state,'{committeeMembers}',sports_day_private.default_committee_members()) end,'revision',e.revision,
     'server_ms',floor(extract(epoch from clock_timestamp())*1000)::bigint,
     'writer_id',e.writer_id,'lease_until',e.lease_until,'lease_revision',e.lease_revision);
 $$;
@@ -289,7 +316,11 @@ begin
     return sports_day_private.reply(e,'lease_lost');
   end if;
   if e.revision <> p_expected_revision then return sports_day_private.reply(e,'conflict'); end if;
-  update public.sports_day_events set public_state = p_snapshot, revision = revision+1,
+  -- Older scorekeeper tabs may still send the original eleven-key snapshot.
+  -- Keep their score update, but never let an omitted roster erase new names.
+  update public.sports_day_events set public_state = case when p_snapshot ? 'committeeMembers' then p_snapshot
+      else jsonb_set(p_snapshot,'{committeeMembers}',coalesce(e.public_state->'committeeMembers',sports_day_private.default_committee_members())) end,
+    revision = revision+1,
     updated_at = clock_timestamp(), lease_until = clock_timestamp()+interval '120 seconds'
     where id = p_event_id returning * into e;
   insert into sports_day_private.operations(event_id,operation_id,writer_id,snapshot,revision)
@@ -329,6 +360,7 @@ begin
   initial := '{
     "version":1,
     "teams":[{"id":"red","name":"Red","seed":1},{"id":"blue","name":"Blue","seed":2},{"id":"yellow","name":"Yellow","seed":3},{"id":"green","name":"Green","seed":4},{"id":"white","name":"White","seed":5}],
+    "committeeMembers":{"director":[""],"judges":[""],"first-aid":["",""],"equipment":["","",""],"food-water":["","",""],"comms":["Cindy","Mario"],"team-leaders":["","","","",""],"warmup":[""]},
     "tug":{"slots":[null,null,null,null,null],"locked":false,"winners":{"prelim":null,"semi1":null,"semi2":null,"final":null}},
     "borrow":{"rounds":6,"scores":[[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null]]},
     "basket":{"scores":[[null,null],[null,null],[null,null],[null,null],[null,null]]},

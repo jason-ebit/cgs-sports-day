@@ -1,22 +1,22 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=41';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=41';
-import { createLiveDesk } from './live.js?v=41';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=41';
-import { icon } from './icons.js?v=41';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=41';
-import { renderMedia, downloadBlob } from './media.js?v=41';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=41';
-import { captureView } from './view-state.js?v=41';
-import { createDeviceStore } from './device-store.js?v=41';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=41';
-import { createBeforeSyncBackup } from './before-sync.js?v=41';
-import { SYNC_CONFIG } from './sync-config.js?v=41';
-import { renderLiveConnection } from './connection-badge.js?v=41';
-import { createGameTimeline } from './game-timeline.js?v=41';
-import { createPanelNavigation } from './panel-navigation.js?v=41';
-import { renderLocationGuide } from './location-guide.js?v=41';
-import { googleCalendarLink } from './calendar-link.js?v=41';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=41';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=42';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=42';
+import { createLiveDesk } from './live.js?v=42';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=42';
+import { icon } from './icons.js?v=42';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=42';
+import { renderMedia, downloadBlob } from './media.js?v=42';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=42';
+import { captureView } from './view-state.js?v=42';
+import { createDeviceStore } from './device-store.js?v=42';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=42';
+import { createBeforeSyncBackup } from './before-sync.js?v=42';
+import { SYNC_CONFIG } from './sync-config.js?v=42';
+import { renderLiveConnection } from './connection-badge.js?v=42';
+import { createGameTimeline } from './game-timeline.js?v=42';
+import { createPanelNavigation } from './panel-navigation.js?v=42';
+import { renderLocationGuide } from './location-guide.js?v=42';
+import { googleCalendarLink } from './calendar-link.js?v=42';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=42';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,7 +36,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=41', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=42', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -73,8 +73,8 @@ function updateSyncLabels(){
   const status=sync.status;
   renderLiveConnection($('#sync-tool'),status);
   $('#sync-tool').dataset.syncPhase=status.phase;
-  $('#save-state').textContent=status.role==='writer'?(status.pending?'Pending on this phone':status.connected?'Shared scores synced':'Offline · cached scores'):status.connected?'Viewing shared scores':'Cached scores · reconnecting';
-  $('#panel-save').textContent=status.role==='writer'?'Scores sync automatically · reminders stay on this phone':'Live scores · reminders stay on this phone';
+  $('#save-state').textContent=status.role==='writer'?(status.pending?'Pending on this phone':status.connected?'Shared event synced':'Offline · cached scores'):status.connected?'Viewing shared scores':'Cached scores · reconnecting';
+  $('#panel-save').textContent=status.role==='writer'?'Changes sync automatically · reminders stay on this phone':'Shared scores & names · reminders stay on this phone';
   const error=$('#sync-error');if(error){error.textContent=syncErrorText(status);error.hidden=!status.error;}
 }
 function syncErrorText(status){
@@ -158,14 +158,19 @@ function panelName(key){return key?.startsWith('event:')?schedule[Number(key.spl
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 function inventoryPanel() {
-  const row=item=>`<li class="inventory-row"><div class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</div>${item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;
-  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Items &amp; shopping cart</h3><span class="inventory-links"><a href="${esc(SUPPLIES.cart.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(SUPPLIES.cart.label+' · opens in a new tab')}">${esc(SUPPLIES.cart.label)} <span aria-hidden="true">↗</span></a></span></div><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(row).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(row).join('')}</ul></section></div></section>`;
+  const row=item=>`<li class="inventory-row"><div class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</div></li>`;
+  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Equipment reminders</h3></div><div class="inventory-grid">${SUPPLIES.groups.map(group=>`<section class="inventory-group"><h4>${esc(group.name)} <span>${group.items.length}</span></h4><ul>${group.items.map(row).join('')}</ul></section>`).join('')}</div></section>`;
 }
 function committeeRoster(selected) {
   const members=selected?.members;if(!members?.length)return '';
+  const editable=canEdit(),names=state.committeeMembers[selected.id];
   const required=members.filter(member=>!member.optional).length;
   const count=required===members.length?`${required} ${required===1?'person':'people'}`:`${required} + ${members.length-required} optional`;
-  return `<section class="note-card committee-roster" aria-labelledby="committee-roster-title"><header class="committee-roster-heading"><h3 id="committee-roster-title">${esc(selected.name)}</h3><span>${count}</span></header><ol class="committee-members ${members.length===1?'single':''}">${members.map((member,i)=>`<li class="committee-member"><span class="committee-member-number" aria-hidden="true">${i+1}</span><div><strong class="${member.name==='TBA'?'unassigned':''}">${esc(member.name)}</strong><small>${esc(member.role)}${member.optional?' · optional':''}</small></div></li>`).join('')}</ol></section>`;
+  const person=(member,i)=>{
+    const name=names[i],role=esc(member.role)+(member.optional?' · optional':'');
+    return editable?`<label class="committee-member-info"><input class="committee-member-name" type="text" data-committee-member="${selected.id}" data-member-index="${i}" data-committed-value="${esc(name)}" value="${esc(name)}" placeholder="TBA" maxlength="60" autocomplete="off" autocapitalize="words" spellcheck="false" aria-label="${esc(selected.name+' · person '+(i+1)+' name')}"><small>${role}</small></label>`:`<div class="committee-member-info"><strong class="${name?'':'unassigned'}">${esc(name||'TBA')}</strong><small>${role}</small></div>`;
+  };
+  return `<section class="note-card committee-roster" aria-labelledby="committee-roster-title"><header class="committee-roster-heading"><h3 id="committee-roster-title">${esc(selected.name)}</h3><span>${count}</span></header><ol class="committee-members ${members.length===1?'single':''} ${editable?'editing':''}">${members.map((member,i)=>`<li class="committee-member"><span class="committee-member-number" aria-hidden="true">${i+1}</span>${person(member,i)}</li>`).join('')}</ol><p class="committee-roster-hint">${editable?'Names save automatically and sync across phones.':'Shared roster · scorekeeper edits names.'}</p></section>`;
 }
 
 function committeePanel(index = null) {
@@ -177,8 +182,9 @@ function committeePanel(index = null) {
   const key=general?'general':String(index);
   const value=selected?state.committeeNotes[selected.id]?.[key]:state.notes[index];
   const gameLinks=general?(selected?.id==='warmup'?'<nav class="committee-event-links" aria-label="Warm-up session"><button class="secondary" data-open="event:3" data-initial-tab="timer">Open warm-up timer <span aria-hidden="true">↗</span></button></nav>':`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`):'';
-  const reminder=selected?.id==='director'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Items &amp; shopping cart →</button>'):`<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
-  const extras=selected?.id==='director'?reminder+gameLinks:gameLinks+reminder;
+  const kit=selected?.id==='equipment'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Equipment reminders →</button>'):'';
+  const reminder=selected?.id==='director'?'':`<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
+  const extras=kit+gameLinks+reminder;
   const tasks=items.length?`<section class="note-card compact-note"><h3>${selected?'Essentials':'Everyone'}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`:'<p class="committee-empty">No extra task for this event.</p>';
   return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${selectedDepartment===item.id}" class="${selectedDepartment===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${committeeRoster(selected)}${tasks}${extras}`;
 }
@@ -409,8 +415,8 @@ document.addEventListener('click',async event=>{
       case 'export-recovery':if(beforeSync.recoveryRaw!==null)downloadBlob(new Blob([beforeSync.recoveryRaw],{type:'application/json'}),'cg-sports-day-original-recovery.json');break;
       case 'recover-sync':if(await confirmChange('Replace the unreadable original-backup record with this phone’s current scores, then load confirmed shared scores? Download the recovery copy first. Any pending results will be discarded.')){beforeSync.recover(state);await sync.acceptRemote();renderPanel();}break;
       case 'export-before-sync':if(beforeSync.raw)downloadBlob(new Blob([beforeSync.raw],{type:'application/json'}),'cg-sports-day-before-sync.json');break;
-      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current local reminders will stay.')&&requireWriter()){state=mergePublicState(publicSnapshot(validateState(JSON.parse(beforeSync.raw))),state);store.replace(state);changed();toast('Original phone scores restored.');}break;
-      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, scores, timers and draw will be cleared. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
+      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current committee names and local reminders will stay.')&&requireWriter()){state=mergePublicState({...publicSnapshot(validateState(JSON.parse(beforeSync.raw))),committeeMembers:state.committeeMembers},state);store.replace(state);changed();toast('Original phone scores restored.');}break;
+      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, committee names, scores, timers and draw will be reset. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
       case 'share-media':await shareCurrentMedia(el);break;
       case 'copy-poster-link':await copyPosterLink();break;
       case 'download-media':if(mediaExport.asset)downloadBlob(mediaExport.asset.file,mediaExport.asset.file.name);break;
@@ -429,7 +435,7 @@ document.addEventListener('change',async event=>{
       if(!requireWriter())return;
       const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
-      if(await confirmChange('Replace shared scores for everyone and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
+      if(await confirmChange('Replace shared scores, committee names and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}
@@ -440,6 +446,12 @@ document.addEventListener('input',event=>{
     if(d.field==='name'&&!canEdit())return;
     const value=event.target.value.trim();
     if(d.field==='leader'||value){state.teams[Number(d.team)][d.field]=value;event.target.dataset.committedValue=value;save();renderPoster();}
+  }
+  if(d.committeeMember!==undefined){
+    const index=Number(d.memberIndex),names=state.committeeMembers[d.committeeMember];
+    if(!canEdit()||!Array.isArray(names)||!Number.isInteger(index)||index<0||index>=names.length)return;
+    const value=event.target.value.trim().slice(0,60);
+    names[index]=value;event.target.dataset.committedValue=value;save();
   }
   if(d.eventNote!==undefined){state.notes[d.eventNote]=event.target.value;event.target.dataset.committedValue=event.target.value;save();}
   if(d.committeeNote){state.committeeNotes[d.committeeNote]||={};state.committeeNotes[d.committeeNote][d.noteKey]=event.target.value;event.target.dataset.committedValue=event.target.value;save();}

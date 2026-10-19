@@ -42,6 +42,28 @@ test('Department reminders stay separate through backup and restore',()=>{const 
 test('Older backups without department reminders remain readable',()=>{const s=m.defaultState();delete s.committeeNotes;equal(m.validateState(s).committeeNotes,{});});
 test('Prayer reminders restore without moving existing game or saved note indices',()=>{equal(EVENT_GAMES,{4:'borrow',5:'basket',7:'cavalry',8:'tug',9:'relay'});equal(GAME_EVENTS,{borrow:4,basket:5,cavalry:7,tug:8,relay:9});const s=m.defaultState();s.notes=Object.fromEntries(Array.from({length:15},(_,i)=>[i,'Saved event '+i]));s.notes[15]='Prayer leader ready';s.committeeNotes={comms:{2:'Safety announcement',4:'Call the next runner',15:'Gather teams for prayer'}};const restored=m.validateState(clone(s));equal(restored.notes,s.notes);equal(restored.committeeNotes,s.committeeNotes);});
 test('Department backups reject unknown teams and oversized or invalid notes',()=>{const s=m.defaultState();s.committeeNotes={unknown:{4:'Test'}};throws(()=>m.validateState(s));s.committeeNotes={director:{16:'Invalid event'}};throws(()=>m.validateState(s));s.committeeNotes={director:{general:'x'.repeat(2001)}};throws(()=>m.validateState(s));s.committeeNotes={};s.notes={16:'Invalid event'};throws(()=>m.validateState(s));});
+test('Committee rosters have stable slots, named communications defaults and independent copies',()=>{
+  equal(m.COMMITTEE_SLOTS,{director:1,judges:1,'first-aid':2,equipment:3,'food-water':3,comms:2,'team-leaders':5,warmup:1});
+  const members=m.defaultCommitteeMembers(),next=m.defaultCommitteeMembers();
+  equal(Object.keys(members),m.DEPARTMENT_IDS);equal(members.comms,['Cindy','Mario']);
+  for(const [id,count] of Object.entries(m.COMMITTEE_SLOTS))equal(members[id].length,count);
+  members.comms[0]='Changed';equal(next.comms,['Cindy','Mario']);equal(m.defaultState().committeeMembers,next);
+});
+test('Old v1 backups gain roster defaults while edited names and blank optional slots round trip',()=>{
+  const old=m.defaultState();delete old.committeeMembers;old.notes[4]='Private note';
+  equal(m.validateState(old).committeeMembers,m.defaultCommitteeMembers());equal(m.validateState(old).notes,old.notes);
+  const current=m.defaultState();current.committeeMembers.director[0]='A'.repeat(60);current.committeeMembers['first-aid']=['지수','Min'];
+  current.committeeMembers['food-water']=['','',''];current.committeeMembers.comms=['','Mario'];
+  equal(m.validateState(clone(current)),current);
+});
+test('Committee roster imports reject unknown departments, incomplete slots and invalid names without mutation',()=>{
+  const malformed=[null,[],{}, {...m.defaultCommitteeMembers(),unknown:['Name']}, {...m.defaultCommitteeMembers(),director:[]},
+    {...m.defaultCommitteeMembers(),'food-water':['One','Two']}, {...m.defaultCommitteeMembers(),comms:'Cindy'},
+    {...m.defaultCommitteeMembers(),director:[null]}, {...m.defaultCommitteeMembers(),director:[42]},
+    {...m.defaultCommitteeMembers(),director:['x'.repeat(61)]}];
+  for(const members of malformed){const state=m.defaultState();state.committeeMembers=members;const before=clone(state);throws(()=>m.validateState(state));equal(state,before);}
+  const sparse=m.defaultState();sparse.committeeMembers.director=Array(1);throws(()=>m.validateState(sparse));
+});
 export const results=tests;
 export const passed=tests.every(t=>t.pass);
 if(typeof process!=='undefined'&&process.argv?.[1]?.endsWith('model.test.mjs')){for(const t of tests)console.log(`${t.pass?'PASS':'FAIL'} ${t.name}${t.error?' — '+t.error:''}`);if(!passed)process.exitCode=1;}
