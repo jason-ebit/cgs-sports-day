@@ -1,22 +1,22 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=40';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=40';
-import { createLiveDesk } from './live.js?v=40';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=40';
-import { icon } from './icons.js?v=40';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=40';
-import { renderMedia, downloadBlob } from './media.js?v=40';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=40';
-import { captureView } from './view-state.js?v=40';
-import { createDeviceStore } from './device-store.js?v=40';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=40';
-import { createBeforeSyncBackup } from './before-sync.js?v=40';
-import { SYNC_CONFIG } from './sync-config.js?v=40';
-import { renderLiveConnection } from './connection-badge.js?v=40';
-import { createGameTimeline } from './game-timeline.js?v=40';
-import { createPanelNavigation, checklistKey } from './panel-navigation.js?v=40';
-import { renderLocationGuide } from './location-guide.js?v=40';
-import { googleCalendarLink } from './calendar-link.js?v=40';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=40';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=41';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=41';
+import { createLiveDesk } from './live.js?v=41';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=41';
+import { icon } from './icons.js?v=41';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=41';
+import { renderMedia, downloadBlob } from './media.js?v=41';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=41';
+import { captureView } from './view-state.js?v=41';
+import { createDeviceStore } from './device-store.js?v=41';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=41';
+import { createBeforeSyncBackup } from './before-sync.js?v=41';
+import { SYNC_CONFIG } from './sync-config.js?v=41';
+import { renderLiveConnection } from './connection-badge.js?v=41';
+import { createGameTimeline } from './game-timeline.js?v=41';
+import { createPanelNavigation } from './panel-navigation.js?v=41';
+import { renderLocationGuide } from './location-guide.js?v=41';
+import { googleCalendarLink } from './calendar-link.js?v=41';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=41';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,7 +36,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=40', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=41', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -158,9 +158,16 @@ function panelName(key){return key?.startsWith('event:')?schedule[Number(key.spl
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 function inventoryPanel() {
-  const row=(item,group)=>{const key=checklistKey('inventory:'+group,item.name),checked=state.committeeChecklist[key];return `<li class="inventory-row ${checked?'checked':''}"><label class="inventory-item"><input type="checkbox" data-checklist="${key}" ${checked?'checked':''} aria-label="${esc(item.name+' ready')}"><span><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</span></label>${item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;};
-  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Items &amp; shopping cart</h3><span class="inventory-links"><a href="${esc(SUPPLIES.cart.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(SUPPLIES.cart.label+' · opens in a new tab')}">${esc(SUPPLIES.cart.label)} <span aria-hidden="true">↗</span></a></span></div><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(item=>row(item,'have')).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(item=>row(item,'prepare')).join('')}</ul></section></div><p class="help">Tick when packed or ready. Checks stay on this phone.</p></section>`;
+  const row=item=>`<li class="inventory-row"><div class="inventory-item"><strong>${esc(item.name)}</strong>${item.detail?`<small>${esc(item.detail)}</small>`:''}</div>${item.action?`<span class="inventory-action">${esc(item.action)}</span>`:''}</li>`;
+  return `<section class="committee-inventory" aria-labelledby="inventory-title"><div class="inventory-heading"><h3 id="inventory-title">Items &amp; shopping cart</h3><span class="inventory-links"><a href="${esc(SUPPLIES.cart.url)}" target="_blank" rel="noopener noreferrer" aria-label="${esc(SUPPLIES.cart.label+' · opens in a new tab')}">${esc(SUPPLIES.cart.label)} <span aria-hidden="true">↗</span></a></span></div><div class="inventory-grid"><section class="inventory-group inventory-have"><h4>Already have <span>${SUPPLIES.have.length}</span></h4><ul>${SUPPLIES.have.map(row).join('')}</ul></section><section class="inventory-group inventory-get"><h4>Must buy / prepare <span>${SUPPLIES.get.length}</span></h4><ul>${SUPPLIES.get.map(row).join('')}</ul></section></div></section>`;
 }
+function committeeRoster(selected) {
+  const members=selected?.members;if(!members?.length)return '';
+  const required=members.filter(member=>!member.optional).length;
+  const count=required===members.length?`${required} ${required===1?'person':'people'}`:`${required} + ${members.length-required} optional`;
+  return `<section class="note-card committee-roster" aria-labelledby="committee-roster-title"><header class="committee-roster-heading"><h3 id="committee-roster-title">${esc(selected.name)}</h3><span>${count}</span></header><ol class="committee-members ${members.length===1?'single':''}">${members.map((member,i)=>`<li class="committee-member"><span class="committee-member-number" aria-hidden="true">${i+1}</span><div><strong class="${member.name==='TBA'?'unassigned':''}">${esc(member.name)}</strong><small>${esc(member.role)}${member.optional?' · optional':''}</small></div></li>`).join('')}</ol></section>`;
+}
+
 function committeePanel(index = null) {
   const general=index===null;
   const selectedDepartment=general&&department==='all'?'director':department;
@@ -169,12 +176,11 @@ function committeePanel(index = null) {
   const items=selected?(general?selected.general:selected.notes[index]):COMMITTEE[index];
   const key=general?'general':String(index);
   const value=selected?state.committeeNotes[selected.id]?.[key]:state.notes[index];
-  const gameLinks=general?`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`:'';
+  const gameLinks=general?(selected?.id==='warmup'?'<nav class="committee-event-links" aria-label="Warm-up session"><button class="secondary" data-open="event:3" data-initial-tab="timer">Open warm-up timer <span aria-hidden="true">↗</span></button></nav>':`<nav class="committee-event-links" aria-label="Committee notes by game"><span class="section-label">Game notes</span>${Object.entries(GAME_EVENTS).map(([game,eventIndex])=>`<button class="secondary" data-open="event:${eventIndex}" data-initial-tab="committee">${esc(GAME_NAMES[game])} <span aria-hidden="true">↗</span></button>`).join('')}</nav>`):'';
   const reminder=selected?.id==='director'?(general?inventoryPanel():'<button class="secondary" data-open="committee">Items &amp; shopping cart →</button>'):`<label class="field">${selected?esc(selected.name)+' reminder':'Shared reminder'}<textarea class="compact-textarea" ${selected?`data-committee-note="${selected.id}" data-note-key="${key}"`:`data-event-note="${index}"`} maxlength="2000" placeholder="Anything else to remember?">${esc(value||'')}</textarea></label><p class="help">Saved on this device. Reminders stay out of poster exports.</p>`;
   const extras=selected?.id==='director'?reminder+gameLinks:gameLinks+reminder;
-  const scope=`${selectedDepartment}:${general?'general':'event:'+index}`;
-  const tasks=items.length?`<section class="note-card compact-note"><h3>${esc(selected?.name||'Everyone')}</h3><ul class="committee-checklist">${items.map(item=>{const key=checklistKey(scope,item);return `<li><label class="committee-check"><input type="checkbox" data-checklist="${key}" ${state.committeeChecklist[key]?'checked':''}><span>${esc(item)}</span></label></li>`;}).join('')}</ul></section>`:'<p class="committee-empty">No extra task for this event.</p>';
-  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${selectedDepartment===item.id}" class="${selectedDepartment===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${tasks}${extras}`;
+  const tasks=items.length?`<section class="note-card compact-note"><h3>${selected?'Essentials':'Everyone'}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`:'<p class="committee-empty">No extra task for this event.</p>';
+  return `<nav class="committee-tabs" aria-label="Committee departments">${tabs.map(item=>`<button data-department="${item.id}" aria-pressed="${selectedDepartment===item.id}" class="${selectedDepartment===item.id?'selected':''}">${esc(item.name)}</button>`).join('')}</nav>${committeeRoster(selected)}${tasks}${extras}`;
 }
 function gameSheet(game) {
   if(game!=='tug')return scorePanel(game);
@@ -414,7 +420,6 @@ document.addEventListener('click',async event=>{
 document.addEventListener('change',async event=>{
   const el=event.target,d=el.dataset;if(el.closest('[data-live-event]'))return;let n=el.value===''?null:Number(el.value);
   try {
-    if(d.checklist){state.committeeChecklist[d.checklist]=el.checked;el.closest('.inventory-row')?.classList.toggle('checked',el.checked);save();return;}
     if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
     if(d.team!==undefined){if(['name','seed'].includes(d.field)&&!requireEditor()){renderPanel();return;}const t=state.teams[Number(d.team)];if(d.field==='name'&&!el.value.trim()){el.value=t.name;toast('Team names cannot be blank.');return;}t[d.field]=['seed','participants'].includes(d.field)?n:el.value.trim();changed(false);}
     else if(d.placement){if(!requireEditor())return;const p=state.placements[d.placement];if(n!==null&&p.values.some((v,i)=>i!==Number(d.row)&&v===n)){toast('Each team needs a unique final place.');renderPanel();return;}p.values[Number(d.row)]=n;changed();}

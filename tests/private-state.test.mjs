@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { defaultState, validateState } from '../model.js';
 import { publicSnapshot, mergePublicState } from '../sync.js';
 import { createPanelNavigation, checklistKey } from '../panel-navigation.js';
-import { DEPARTMENTS, COMMITTEE, SUPPLIES } from '../content.js';
 
 let count=0;
 const test=(name,fn)=>{fn();count++;console.log('PASS '+name);};
@@ -12,17 +11,21 @@ test('Older event backups gain private preference and checklist defaults',()=>{
   assert.deepEqual(next.preferences,{department:'director',sound:false});
   assert.deepEqual(next.committeeChecklist,{});
 });
-test('Every available checklist item can coexist in a validated phone backup',()=>{
+test('Legacy checklist backups survive without depending on current committee copy',()=>{
   const state=defaultState();
-  for(const dept of DEPARTMENTS){
-    for(const item of dept.general)state.committeeChecklist[checklistKey(dept.id+':general',item)]=true;
-    for(const [event,items] of Object.entries(dept.notes))for(const item of items)state.committeeChecklist[checklistKey(dept.id+':event:'+event,item)]=true;
-  }
-  for(const [event,items] of Object.entries(COMMITTEE))for(const item of items)state.committeeChecklist[checklistKey('all:event:'+event,item)]=true;
-  for(const [group,items] of [['have',SUPPLIES.have],['prepare',SUPPLIES.get]])for(const item of items)state.committeeChecklist[checklistKey('inventory:'+group,item.name)]=true;
+  // Saved keys are opaque task hashes. A large old backup remains readable even
+  // after its task text and checkbox controls have been removed from the UI.
+  const scopes=['director:general','judges:event:4','first-aid:general','equipment:event:8','food-water:general','comms:event:15','team-leaders:event:9','all:event:3','inventory:have','inventory:prepare'];
+  state.committeeChecklist=Object.fromEntries(Array.from({length:300},(_,index)=>[
+    `${scopes[index%scopes.length]}:${(100000+index).toString(36)}`,index%3!==0
+  ]));
   state.preferences={department:'first-aid',sound:true};
   assert.deepEqual(validateState(JSON.parse(JSON.stringify(state))),state);
-  assert.ok(Object.keys(state.committeeChecklist).length>250);
+  const remote=defaultState();remote.borrow.scores[0][0]=5;
+  const merged=mergePublicState(publicSnapshot(remote),state);
+  assert.deepEqual(merged.committeeChecklist,state.committeeChecklist);
+  assert.equal(Object.keys(merged.committeeChecklist).length,300);
+  assert.equal(merged.borrow.scores[0][0],5);
 });
 test('Invalid readiness values and preference choices reject the whole backup',()=>{
   for(const mutate of [s=>s.committeeChecklist={'unknown:abc':true},s=>s.committeeChecklist={'judges:general:abc':'yes'},s=>s.preferences.sound=1,s=>s.preferences.department='unknown',s=>s.committeeChecklist=Array(3)]){
@@ -42,6 +45,28 @@ test('Remote results preserve the viewer’s own readiness and preferences',()=>
   const next=mergePublicState(publicSnapshot(remote),local);
   assert.deepEqual(next.committeeChecklist,local.committeeChecklist);assert.deepEqual(next.preferences,local.preferences);
   assert.equal(next.borrow.scores[0][0],5);
+});
+test('Warm-up selection and reminders survive backups and remote updates while staying private',()=>{
+  const local=defaultState();
+  local.preferences={department:'warmup',sound:true};
+  local.committeeNotes.warmup={general:'Lead the warm-up and check the space.',3:'Keep this reminder on my phone.'};
+  local.committeeChecklist['warmup:general:abc123']=true;
+  const restored=validateState(JSON.parse(JSON.stringify(local)));
+  assert.deepEqual(restored,local);
+
+  const snapshot=publicSnapshot(restored);
+  for(const key of ['committeeNotes','committeeChecklist','preferences'])assert.equal(key in snapshot,false);
+  const freshViewer=mergePublicState(snapshot);
+  assert.deepEqual(freshViewer.committeeNotes,{});
+  assert.deepEqual(freshViewer.committeeChecklist,{});
+  assert.deepEqual(freshViewer.preferences,defaultState().preferences);
+
+  const remote=defaultState();remote.borrow.scores[0][0]=5;
+  const merged=mergePublicState(publicSnapshot(remote),restored);
+  assert.deepEqual(merged.preferences,local.preferences);
+  assert.deepEqual(merged.committeeNotes,local.committeeNotes);
+  assert.deepEqual(merged.committeeChecklist,local.committeeChecklist);
+  assert.equal(merged.borrow.scores[0][0],5);
 });
 test('Checklist identities survive note ordering and stay separate by department and event',()=>{
   assert.equal(checklistKey('judges:event:4','Watch the finish'),checklistKey('judges:event:4','Watch the finish'));

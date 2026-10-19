@@ -1,8 +1,8 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=40';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=41';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
-export const DEPARTMENT_IDS = ['director', 'judges', 'first-aid', 'equipment', 'food-water', 'comms', 'team-leaders'];
+export const DEPARTMENT_IDS = ['director', 'judges', 'first-aid', 'equipment', 'food-water', 'comms', 'team-leaders', 'warmup'];
 export function defaultState() {
   return {
     version: 1,
@@ -157,7 +157,7 @@ export function validateState(input) {
     const checklist=object(input.committeeChecklist);
     if(Object.keys(checklist).length>500)fail();
     for(const [key,value] of Object.entries(checklist)){
-      if(!/^(director|judges|first-aid|equipment|food-water|comms|team-leaders|all|inventory):[a-z0-9:_-]{1,64}$/.test(key))fail();
+      if(!/^(director|judges|first-aid|equipment|food-water|comms|team-leaders|warmup|all|inventory):[a-z0-9:_-]{1,64}$/.test(key))fail();
       s.committeeChecklist[key]=bool(value);
     }
   }
