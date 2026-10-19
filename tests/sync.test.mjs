@@ -45,8 +45,10 @@ function fixture({ snapshot = publicSnapshot(defaultState()), localOffset = 0 } 
       if (body.p_expected_revision !== revision) return response(data('conflict'));
       mergePublicState(body.p_snapshot);
       const roster=body.p_snapshot.committeeMembers??shared?.committeeMembers??defaultState().committeeMembers;
-      const equipment=body.p_snapshot.equipmentReady??shared?.equipmentReady??defaultState().equipmentReady;
-      revision++; shared = {...body.p_snapshot,committeeMembers:roster,equipmentReady:equipment}; lease = serverNow + 120000;
+      const incoming=body.p_snapshot.equipmentReady??shared?.equipmentReady??defaultState().equipmentReady;
+      const {'cold-packs':nestedColdPacks,...equipment}=incoming;
+      const equipmentColdPacksReady=body.p_snapshot.equipmentColdPacksReady??nestedColdPacks??shared?.equipmentColdPacksReady??shared?.equipmentReady?.['cold-packs']??false;
+      revision++; shared = {...body.p_snapshot,committeeMembers:roster,equipmentReady:equipment,equipmentColdPacksReady}; lease = serverNow + 120000;
       operations.set(body.p_operation_id, revision);
       if (loseAck) { loseAck = false; throw Error('Response lost after commit'); }
       return response(data('applied'));
@@ -163,8 +165,9 @@ await test('Only a scorekeeper publishes committee name edits and other phones r
 
 await test('Only the scorekeeper publishes equipment readiness and viewers receive checked and unchecked items',async()=>{
   const f=await writerFixture(),state=defaultState();state.equipmentReady.basket=true;state.equipmentReady.balls=true;
+  state.equipmentReady['cold-packs']=true;
   state.committeeChecklist['inventory:setup:rope']=true;state.committeeNotes.equipment={general:'Private reminder'};
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();assert.deepEqual(f.fixture.shared.equipmentReady,state.equipmentReady);
+  assert.equal(f.sync.queue(state),true);await f.sync.flush();assert.deepEqual(mergePublicState(f.fixture.shared).equipmentReady,state.equipmentReady);
   assert.equal('committeeChecklist' in f.fixture.shared,false);assert.equal('committeeNotes' in f.fixture.shared,false);
   const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
   assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).equipmentReady,state.equipmentReady);
@@ -173,7 +176,48 @@ await test('Only the scorekeeper publishes equipment readiness and viewers recei
   state.equipmentReady.basket=false;assert.equal(f.sync.queue(state),true);await f.sync.flush();await viewer.sync.refresh();
   assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady.basket,false);
   assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady.balls,true);
+  assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady['cold-packs'],true);
+  state.equipmentReady['cold-packs']=false;assert.equal(f.sync.queue(state),true);await f.sync.flush();await viewer.sync.refresh();
+  assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady['cold-packs'],false);
   f.sync.stop();viewer.sync.stop();
+});
+
+await test('New wire snapshots keep the exact 21-item map accepted by v47 phones and carry cold packs separately',()=>{
+  const oldIds=['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes'];
+  const state=defaultState();state.equipmentReady['cold-packs']=true;state.equipmentReady.basket=true;
+  const snapshot=publicSnapshot(state);
+  // The prior release rebuilds known fields and requires this exact nested map.
+  const readV47Equipment=value=>{
+    assert.equal(Object.keys(value.equipmentReady).length,oldIds.length);
+    assert.equal(Object.keys(value.equipmentReady).some(id=>!oldIds.includes(id)),false);
+    for(const id of oldIds)assert.equal(typeof value.equipmentReady[id],'boolean');
+    return Object.fromEntries(oldIds.map(id=>[id,value.equipmentReady[id]]));
+  };
+  assert.equal(readV47Equipment(snapshot).basket,true);assert.equal(snapshot.equipmentColdPacksReady,true);
+  assert.equal(Object.hasOwn(snapshot.equipmentReady,'cold-packs'),false);
+  assert.deepEqual(mergePublicState(snapshot).equipmentReady,state.equipmentReady);
+  const legacy=structuredClone(snapshot);delete legacy.equipmentColdPacksReady;
+  assert.equal(mergePublicState(legacy).equipmentReady['cold-packs'],false);
+  const transitional=structuredClone(legacy);transitional.equipmentReady['cold-packs']=true;
+  assert.deepEqual(mergePublicState(transitional).equipmentReady,state.equipmentReady);
+  assert.equal(publicSnapshot(mergePublicState(transitional)).equipmentColdPacksReady,true);
+  for(const invalid of [null,1,'true',[],{}]){
+    assert.throws(()=>mergePublicState({...snapshot,equipmentColdPacksReady:invalid}));
+    assert.throws(()=>mergePublicState({...snapshot,equipmentReady:{...snapshot.equipmentReady,'cold-packs':invalid}}));
+  }
+});
+
+await test('An unchanged v47 writer can update its 21 equipment items without clearing separately stored cold packs',async()=>{
+  const state=defaultState();state.equipmentReady['cold-packs']=true;
+  const f=await writerFixture({snapshot:publicSnapshot(state)}),oldWriter=publicSnapshot(defaultState());
+  delete oldWriter.equipmentColdPacksReady;oldWriter.equipmentReady.basket=true;
+  const response=await f.fixture.fetch('https://test-project.supabase.co/rest/v1/rpc/apply_sports_day_update',{
+    headers:{apikey:'sb_publishable_test',Authorization:'Bearer editor-access'},
+    body:JSON.stringify({p_writer_id:f.fixture.writer,p_expected_revision:f.fixture.revision,p_operation_id:f.fixture.uuid(),p_snapshot:oldWriter}),
+  });
+  const reply=await response.json();assert.equal(reply.status,'applied');assert.equal(reply.public_state.equipmentColdPacksReady,true);
+  assert.equal(reply.public_state.equipmentReady.basket,true);assert.equal(Object.keys(reply.public_state.equipmentReady).length,21);
+  assert.deepEqual(f.calls.at(-1).body.p_snapshot,oldWriter);f.sync.stop();
 });
 
 await test('Missing legacy equipment readiness defaults without importing a viewer’s private setup ticks',()=>{
@@ -215,6 +259,14 @@ await test('Private setup ticks do not write when server readiness is missing or
   const reversed=Object.fromEntries(Object.entries(publicSnapshot(state)).reverse());
   reversed.equipmentReady=Object.fromEntries(Object.entries(reversed.equipmentReady).reverse());
   const f=await writerFixture({snapshot:reversed});state.committeeChecklist['inventory:setup:rope']=true;
+  assert.equal(f.sync.queue(state),true);await f.sync.flush();
+  assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);f.sync.stop();
+});
+
+await test('Exact old 21-item maps do not turn private-note saves into new checklist writes',async()=>{
+  const state=defaultState();state.equipmentReady.basket=true;
+  const old=publicSnapshot(state);delete old.equipmentColdPacksReady;
+  const f=await writerFixture({snapshot:old});state.committeeNotes.equipment={general:'Private reminder'};
   assert.equal(f.sync.queue(state),true);await f.sync.flush();
   assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);f.sync.stop();
 });
@@ -339,9 +391,66 @@ async function legacyEquipmentPendingFixture({serverReady=defaultState().equipme
   f.fixture.offline(true);local.borrow.scores[0][0]=5;f.sync.queue(local);await f.sync.flush();f.sync.stop();
   const key=[...f.storage.data.keys()][0],stored=JSON.parse(f.storage.getItem(key));
   for(const field of omitted)delete stored.outbox[0].snapshot[field];
+  if(omitted.includes('equipmentReady'))delete stored.outbox[0].snapshot.equipmentColdPacksReady;
   f.storage.setItem(key,JSON.stringify(stored));f.fixture.offline(false);
   return {...f,local,key,payload:structuredClone(stored.outbox[0].snapshot)};
 }
+
+async function legacy21PendingFixture(coldPacks=true){
+  const serverReady=defaultState().equipmentReady;serverReady['cold-packs']=coldPacks;
+  const f=await legacyEquipmentPendingFixture({serverReady,omitted:[]});
+  const stored=JSON.parse(f.storage.getItem(f.key));delete stored.outbox[0].snapshot.equipmentColdPacksReady;
+  f.storage.setItem(f.key,JSON.stringify(stored));return {...f,payload:structuredClone(stored.outbox[0].snapshot)};
+}
+
+await test('Exact 21-item retries and lost acknowledgements preserve server cold packs and hydrate before later edits',async()=>{
+  for(const loseAck of [false,true]){
+    const f=await legacy21PendingFixture();let visible=f.local;
+    if(loseAck)f.fixture.loseAck();
+    const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
+    await next.sync.start();await next.sync.flush();
+    assert.equal(next.sync.pending,0);assert.equal(visible.equipmentReady['cold-packs'],true);
+    const retries=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')&&call.body.p_snapshot.equipmentColdPacksReady===undefined);
+    assert.equal(retries.length,loseAck?2:1);
+    for(const retry of retries){assert.deepEqual(retry.body.p_snapshot,f.payload);assert.equal(Object.keys(retry.body.p_snapshot.equipmentReady).length,21);}
+    assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[0][0],5);
+    visible.borrow.scores[1][0]=4;assert.equal(next.sync.queue(visible),true);await next.sync.flush();
+    assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+  }
+});
+
+await test('A modern default-false tail behind a 21-item retry cannot erase confirmed cold packs',async()=>{
+  const f=await legacy21PendingFixture();let releaseAck,announceAck;
+  const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
+  const next=f.fixture.service({fetch:async(url,options)=>{
+    const response=await f.fixture.fetch(url,options);
+    if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.equipmentColdPacksReady===undefined){announceAck();await held;}
+    return response;
+  }});
+  const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.borrow.scores[1][0]=4;
+  assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
+  assert.equal(next.sync.status.phase,'conflict');assert.equal(next.sync.pending,1);
+  assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[1][0],null);
+  const stored=JSON.parse(f.storage.getItem(f.key));assert.equal(stored.outbox[0].snapshot.equipmentColdPacksReady,false);
+  assert.equal(stored.outbox[0].attempted,false);assert.deepEqual(f.calls.at(-1).body.p_snapshot,f.payload);next.sync.stop();
+});
+
+await test('Modern checked cold packs behind a 21-item retry can proceed for either server value',async()=>{
+  for(const serverColdPacks of [false,true]){
+    const f=await legacy21PendingFixture(serverColdPacks);let releaseAck,announceAck;
+    const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
+    const next=f.fixture.service({fetch:async(url,options)=>{
+      const response=await f.fixture.fetch(url,options);
+      if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.equipmentColdPacksReady===undefined){announceAck();await held;}
+      return response;
+    }});
+    const boot=next.sync.start();await started;const newest=structuredClone(f.local);
+    newest.borrow.scores[1][0]=4;newest.equipmentReady['cold-packs']=true;
+    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
+    assert.equal(next.sync.pending,0);assert.equal(next.sync.status.phase,'synced');
+    assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+  }
+});
 
 await test('A final legacy retry hydrates server equipment checks without rewriting its immutable payload',async()=>{
   const ready=defaultState().equipmentReady;ready.basket=true;ready.rope=true;
@@ -351,7 +460,7 @@ await test('A final legacy retry hydrates server equipment checks without rewrit
   const retry=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')).at(-1);
   assert.deepEqual(retry.body.p_snapshot,f.payload);assert.equal('equipmentReady' in retry.body.p_snapshot,false);
   visible.borrow.scores[1][0]=4;next.sync.queue(visible);await next.sync.flush();
-  assert.deepEqual(f.fixture.shared.equipmentReady,ready);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+  assert.deepEqual(mergePublicState(f.fixture.shared).equipmentReady,ready);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
 });
 
 await test('Legacy retries missing both new fields hydrate the confirmed roster and equipment together',async()=>{
@@ -374,9 +483,9 @@ await test('Modern tails cannot clear checked server items while a retry from an
     const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.borrow.scores[1][0]=4;
     for(const id of proposed)newest.equipmentReady[id]=true;
     assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-    assert.equal(next.sync.status.phase,'conflict');assert.equal(next.sync.pending,1);assert.deepEqual(f.fixture.shared.equipmentReady,ready);
+    assert.equal(next.sync.status.phase,'conflict');assert.equal(next.sync.pending,1);assert.deepEqual(mergePublicState(f.fixture.shared).equipmentReady,ready);
     assert.equal(f.fixture.shared.borrow.scores[1][0],null);const stored=JSON.parse(f.storage.getItem(f.key));
-    assert.deepEqual(stored.outbox[0].snapshot.equipmentReady,newest.equipmentReady);assert.equal(stored.outbox[0].attempted,false);
+    assert.deepEqual(stored.outbox[0].snapshot.equipmentReady,publicSnapshot(newest).equipmentReady);assert.equal(stored.outbox[0].attempted,false);
     const updates=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update'));
     assert.deepEqual(updates.at(-1).body.p_snapshot,f.payload);next.sync.stop();
   }
@@ -452,7 +561,7 @@ await test('Stale offline equipment checks cannot replace newer shared readiness
   assert.equal(f.sync.status.phase,'conflict');assert.equal(f.sync.pending,1);
   assert.equal(f.fixture.shared.equipmentReady.rope,true);assert.equal(f.fixture.shared.equipmentReady.basket,false);
   assert.equal(f.sync.queue(pending),false);await f.sync.acceptRemote();
-  assert.deepEqual(f.delivered.at(-1).state.equipmentReady,newer.equipmentReady);f.sync.stop();
+  assert.deepEqual(mergePublicState(f.delivered.at(-1).state).equipmentReady,newer.equipmentReady);f.sync.stop();
 });
 
 await test('Conflict stays blocked through renewal, reconnect, sign-in and reload until shared scores are explicitly loaded', async () => {

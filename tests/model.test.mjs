@@ -64,11 +64,19 @@ test('Committee roster imports reject unknown departments, incomplete slots and 
   for(const members of malformed){const state=m.defaultState();state.committeeMembers=members;const before=clone(state);throws(()=>m.validateState(state));equal(state,before);}
   const sparse=m.defaultState();sparse.committeeMembers.director=Array(1);throws(()=>m.validateState(sparse));
 });
-test('Equipment readiness has 21 stable IDs, fresh false defaults and independent copies',()=>{
-  equal(m.EQUIPMENT_IDS,['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes']);
+test('Equipment readiness has 22 stable IDs, fresh false defaults and independent copies',()=>{
+  equal(m.EQUIPMENT_IDS,['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes','cold-packs']);
   const ready=m.defaultEquipmentReady(),next=m.defaultEquipmentReady();
-  equal(Object.keys(ready),m.EQUIPMENT_IDS);equal(Object.values(ready),Array(21).fill(false));
+  equal(Object.keys(ready),m.EQUIPMENT_IDS);equal(Object.values(ready),Array(22).fill(false));
   ready.basket=true;equal(next.basket,false);equal(m.defaultState().equipmentReady,next);
+});
+test('Exact older 21-item equipment maps gain only an unchecked cold-packs item without changing the source',()=>{
+  const old=m.defaultState();delete old.equipmentReady['cold-packs'];old.equipmentReady.basket=true;
+  const before=clone(old),restored=m.validateState(old);
+  equal(Object.keys(restored.equipmentReady),m.EQUIPMENT_IDS);equal(restored.equipmentReady['cold-packs'],false);
+  equal(restored.equipmentReady.basket,true);equal(old,before);
+  restored.equipmentReady['cold-packs']=true;equal(m.validateState(clone(restored)),restored);
+  delete old.equipmentReady.rope;throws(()=>m.validateState(old));
 });
 test('Older backups keep private equipment ticks without silently copying them to shared readiness',()=>{
   const old=m.defaultState();delete old.equipmentReady;old.committeeChecklist['inventory:setup:basket']=true;

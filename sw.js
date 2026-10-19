@@ -1,4 +1,4 @@
-const VERSION = '47';
+const VERSION = '48';
 const CACHE = `cg-sports-day-v${VERSION}`;
 const scopeURL = new URL('./', self.location.href);
 const homeURL = new URL('./index.html', scopeURL).href;
@@ -8,7 +8,7 @@ const APP_SHELL = [
   './index.html',
   ...[
     './palette.css', './styles.css', './landing.css', './desk.css', './app.js', './content.js',
-    './icons.js', './live.js', './media.js', './media-share.js', './model.js', './rounds.js', './flow-model.js', './panel-navigation.js',
+    './icons.js', './live.js', './media.js', './media-share.js', './model.js', './rounds.js', './flow-model.js', './panel-navigation.js', './first-aid-kit.js',
     './timer-model.js', './timer-popup.js', './view-state.js', './device-store.js', './schedule.json',
     './sync.js', './sync-config.js', './before-sync.js', './connection-badge.js', './game-timeline.js', './location-guide.js', './calendar-link.js', './share-link.js'
   ].map(path => `${path}?v=${VERSION}`),
@@ -19,6 +19,7 @@ const APP_SHELL = [
   './assets/icon-512.png',
   './assets/location/entrance-guide.jpg',
   './assets/location/park-map-guide.jpg',
+  './assets/first-aid/kit-reference.png',
   './assets/share/live-qr.svg',
   './assets/share/live-qr.png',
   './assets/Poppins-Black.ttf',

@@ -69,13 +69,13 @@ $$;
 
 create or replace function sports_day_private.default_equipment_ready()
 returns jsonb language sql immutable set search_path = pg_catalog as $$
-  select '{"gloves":false,"cones":false,"balls":false,"batons":false,"rider-cloth":false,"colour-sticks":false,"borrow-cards":false,"basket":false,"rope":false,"leg-ties":false,"spoons":false,"mat":false,"whistle":false,"icebox":false,"cart":false,"umbrellas":false,"pens-markers":false,"phones-timer":false,"bags":false,"food-water":false,"prizes":false}'::jsonb;
+  select '{"gloves":false,"cones":false,"balls":false,"batons":false,"rider-cloth":false,"colour-sticks":false,"borrow-cards":false,"basket":false,"rope":false,"leg-ties":false,"spoons":false,"mat":false,"whistle":false,"icebox":false,"cart":false,"umbrellas":false,"pens-markers":false,"phones-timer":false,"bags":false,"food-water":false,"prizes":false,"cold-packs":false}'::jsonb;
 $$;
 
 create or replace function sports_day_private.valid_equipment_ready(m jsonb)
 returns boolean language plpgsql immutable set search_path = pg_catalog as $$
 begin
-  if not sports_day_private.exact_keys(m,array['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes']) then return false; end if;
+  if not sports_day_private.exact_keys(m - 'cold-packs',array['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes']) then return false; end if;
   return not exists (select 1 from jsonb_each(m) item where jsonb_typeof(item.value) <> 'boolean');
 exception when others then return false;
 end;
@@ -93,11 +93,12 @@ declare
   game text; key text; division text; winner text; first_team text; second_team text;
   i integer; j integer; width integer; ceiling integer; running integer := 0;
 begin
-  if s is null or octet_length(s::text) > 131072 or not sports_day_private.exact_keys(s - 'committeeMembers' - 'equipmentReady',
+  if s is null or octet_length(s::text) > 131072 or not sports_day_private.exact_keys(s - 'committeeMembers' - 'equipmentReady' - 'equipmentColdPacksReady',
     array['version','teams','tug','borrow','basket','relay','cavalry','placements','timers','finished','activeKey'])
     or s->'version' <> '1'::jsonb then return false; end if;
   if s ? 'committeeMembers' and not sports_day_private.valid_committee_members(s->'committeeMembers') then return false; end if;
   if s ? 'equipmentReady' and not sports_day_private.valid_equipment_ready(s->'equipmentReady') then return false; end if;
+  if s ? 'equipmentColdPacksReady' and jsonb_typeof(s->'equipmentColdPacksReady') <> 'boolean' then return false; end if;
 
   if jsonb_typeof(s->'teams') <> 'array' or jsonb_array_length(s->'teams') <> 5 then return false; end if;
   for i in 0..4 loop
@@ -251,9 +252,12 @@ revoke all on all tables in schema sports_day_private from public, anon, authent
 
 create or replace function sports_day_private.reply(e public.sports_day_events, status text)
 returns jsonb language sql volatile set search_path = pg_catalog as $$
-  select jsonb_build_object('status',status,'public_state',jsonb_build_object(
-      'committeeMembers',sports_day_private.default_committee_members(),
-      'equipmentReady',sports_day_private.default_equipment_ready()) || e.public_state,'revision',e.revision,
+  select jsonb_build_object('status',status,'public_state',
+    jsonb_build_object('committeeMembers',sports_day_private.default_committee_members()) || e.public_state ||
+    jsonb_build_object('equipmentReady',(sports_day_private.default_equipment_ready() ||
+      coalesce(e.public_state->'equipmentReady','{}'::jsonb)) - 'cold-packs',
+      'equipmentColdPacksReady',coalesce(e.public_state->'equipmentColdPacksReady',
+        e.public_state->'equipmentReady'->'cold-packs','false'::jsonb)),'revision',e.revision,
     'server_ms',floor(extract(epoch from clock_timestamp())*1000)::bigint,
     'writer_id',e.writer_id,'lease_until',e.lease_until,'lease_revision',e.lease_revision);
 $$;
@@ -332,11 +336,18 @@ begin
     return sports_day_private.reply(e,'lease_lost');
   end if;
   if e.revision <> p_expected_revision then return sports_day_private.reply(e,'conflict'); end if;
-  -- Preserve each omitted field independently for older scorekeeper tabs.
+  -- Keep the original 21-item wire map so older phones can still read it.
+  -- Store cold packs separately; older writes preserve its existing tick.
+  -- Accept a transitional 22-item map too, but always store the same wire shape.
   -- Keep the original request for operation identity and retry comparisons.
   next_snapshot := p_snapshot || jsonb_build_object(
     'committeeMembers',coalesce(p_snapshot->'committeeMembers',e.public_state->'committeeMembers',sports_day_private.default_committee_members()),
-    'equipmentReady',coalesce(p_snapshot->'equipmentReady',e.public_state->'equipmentReady',sports_day_private.default_equipment_ready()));
+    'equipmentReady',(sports_day_private.default_equipment_ready() ||
+      coalesce(e.public_state->'equipmentReady','{}'::jsonb) ||
+      coalesce(p_snapshot->'equipmentReady','{}'::jsonb)) - 'cold-packs',
+    'equipmentColdPacksReady',coalesce(p_snapshot->'equipmentColdPacksReady',
+      p_snapshot->'equipmentReady'->'cold-packs',e.public_state->'equipmentColdPacksReady',
+      e.public_state->'equipmentReady'->'cold-packs','false'::jsonb));
   update public.sports_day_events set public_state = next_snapshot,
     revision = revision+1,
     updated_at = clock_timestamp(), lease_until = clock_timestamp()+interval '120 seconds'
@@ -380,6 +391,7 @@ begin
     "teams":[{"id":"red","name":"Red","seed":1},{"id":"blue","name":"Blue","seed":2},{"id":"yellow","name":"Yellow","seed":3},{"id":"green","name":"Green","seed":4},{"id":"white","name":"White","seed":5}],
     "committeeMembers":{"director":[""],"judges":[""],"first-aid":["",""],"equipment":["","",""],"food-water":["","",""],"comms":["Cindy","Mario"],"team-leaders":["","","","",""],"warmup":[""]},
     "equipmentReady":{"gloves":false,"cones":false,"balls":false,"batons":false,"rider-cloth":false,"colour-sticks":false,"borrow-cards":false,"basket":false,"rope":false,"leg-ties":false,"spoons":false,"mat":false,"whistle":false,"icebox":false,"cart":false,"umbrellas":false,"pens-markers":false,"phones-timer":false,"bags":false,"food-water":false,"prizes":false},
+    "equipmentColdPacksReady":false,
     "tug":{"slots":[null,null,null,null,null],"locked":false,"winners":{"prelim":null,"semi1":null,"semi2":null,"final":null}},
     "borrow":{"rounds":6,"scores":[[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null],[null,null,null,null,null,null,null]]},
     "basket":{"scores":[[null,null],[null,null],[null,null],[null,null],[null,null]]},

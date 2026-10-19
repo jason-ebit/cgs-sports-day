@@ -8,6 +8,7 @@ const files = [
   'desk.css',
   'app.js',
   'content.js',
+  'first-aid-kit.js',
   'icons.js',
   'live.js',
   'media.js',

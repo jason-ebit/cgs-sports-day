@@ -1,10 +1,10 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=47';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=48';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
 export const DEPARTMENT_IDS = ['director', 'judges', 'first-aid', 'equipment', 'food-water', 'comms', 'team-leaders', 'warmup'];
 export const COMMITTEE_SLOTS = Object.freeze({director:1,judges:1,'first-aid':2,equipment:3,'food-water':3,comms:2,'team-leaders':5,warmup:1});
-export const EQUIPMENT_IDS = Object.freeze(['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes']);
+export const EQUIPMENT_IDS = Object.freeze(['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes','cold-packs']);
 export function defaultEquipmentReady() {
   return Object.fromEntries(EQUIPMENT_IDS.map(id=>[id,false]));
 }
@@ -140,8 +140,9 @@ export function validateState(input) {
   }
   if(input.equipmentReady!==undefined){
     const ready=object(input.equipmentReady);
-    if(Object.keys(ready).length!==EQUIPMENT_IDS.length||Object.keys(ready).some(id=>!EQUIPMENT_IDS.includes(id)))fail();
-    s.equipmentReady=Object.fromEntries(EQUIPMENT_IDS.map(id=>[id,bool(ready[id])]));
+    const legacy=Object.keys(ready).length===EQUIPMENT_IDS.length-1&&!Object.hasOwn(ready,'cold-packs');
+    if((!legacy&&Object.keys(ready).length!==EQUIPMENT_IDS.length)||Object.keys(ready).some(id=>!EQUIPMENT_IDS.includes(id)))fail();
+    s.equipmentReady=Object.fromEntries(EQUIPMENT_IDS.map(id=>[id,id==='cold-packs'&&legacy?false:bool(ready[id])]));
   }
   s.tug.slots = list(input.tug.slots, 5).map(id => { if (id !== null && !TEAM_IDS.includes(id)) fail(); return id; });
   const assigned = s.tug.slots.filter(Boolean); if (new Set(assigned).size !== assigned.length) fail();

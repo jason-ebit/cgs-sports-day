@@ -1,14 +1,17 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=47';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=48';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
 export function publicSnapshot(state, { offsetMs = 0 } = {}) {
   const s = validateState(state), offset = Math.round(offsetMs);
+  // Keep the original nested map readable by phones running the prior release.
+  // New shared items use optional top-level fields that those clients ignore.
+  const {'cold-packs':equipmentColdPacksReady,...equipmentReady}=s.equipmentReady;
   return {
     version: 1,
     teams: s.teams.map(({ id, name, seed }) => ({ id, name, seed })),
     committeeMembers: s.committeeMembers,
-    equipmentReady: s.equipmentReady,
+    equipmentReady, equipmentColdPacksReady,
     tug: s.tug, borrow: s.borrow, basket: s.basket, relay: s.relay,
     cavalry: {
       division: s.cavalry.division, cap: s.cavalry.cap,
@@ -36,6 +39,11 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
   }));
   if(snapshot.committeeMembers!==undefined)next.committeeMembers=snapshot.committeeMembers;
   if(snapshot.equipmentReady!==undefined)next.equipmentReady=snapshot.equipmentReady;
+  if(snapshot.equipmentColdPacksReady!==undefined){
+    if(typeof snapshot.equipmentColdPacksReady!=='boolean')throw Error('The shared equipment checks are not valid.');
+    if(Object.hasOwn(snapshot.equipmentReady??{},'cold-packs')&&typeof snapshot.equipmentReady['cold-packs']!=='boolean')throw Error('The shared equipment checks are not valid.');
+    next.equipmentReady={...next.equipmentReady,'cold-packs':snapshot.equipmentColdPacksReady};
+  }
   for (const key of ['tug', 'borrow', 'basket', 'relay', 'finished', 'activeKey']) next[key] = snapshot[key];
   next.cavalry.division = snapshot.cavalry?.division;
   next.cavalry.cap = snapshot.cavalry?.cap;
@@ -64,7 +72,7 @@ export function mergePublicState(snapshot, localState = defaultState(), { offset
 
 function samePublic(a, b) {
   if (!b) return false;
-  // Old v1 snapshots lack the roster or equipment readiness, and JSONB reorders keys.
+  // Old v1 snapshots lack shared fields or newer equipment items, and JSONB reorders keys.
   // Compare the same canonical public shape without rewriting retry payloads.
   const reference = publicSnapshot(mergePublicState(b));
   const normalized = { ...a, timers: Object.fromEntries(Object.entries(a.timers).map(([id, clock]) => {
@@ -320,17 +328,19 @@ export function createSyncService({
           revision = data.revision; lastAck = data.public_state; lastRenewal = now();
           outbox.shift();
           if (outbox.length) outbox[0].baseRevision = revision;
-          const omittedFields=['committeeMembers','equipmentReady'].filter(key=>item.snapshot[key]===undefined);
-          if(omittedFields.length&&data.public_state!==null){
-            const confirmed=mergePublicState(data.public_state),defaults=defaultState();
+          const omittedPaths=['committeeMembers','equipmentReady'].filter(key=>item.snapshot[key]===undefined).map(key=>[key]);
+          if(item.snapshot.equipmentColdPacksReady===undefined&&!Object.hasOwn(item.snapshot.equipmentReady??{},'cold-packs'))omittedPaths.push(['equipmentColdPacksReady']);
+          if(omittedPaths.length&&data.public_state!==null){
+            const confirmed=publicSnapshot(mergePublicState(data.public_state)),defaults=publicSnapshot(defaultState());
             // A new edit may have inherited defaults while an older retry was
             // pending. Preserve both payloads and require review rather than
             // guessing whether it meant to replace shared names or checkmarks.
-            for(const field of omittedFields){
-              const modernTail=outbox.find(pending=>pending.snapshot[field]!==undefined);
-              if(modernTail&&JSON.stringify(confirmed[field])!==JSON.stringify(defaults[field])
-                &&JSON.stringify(mergePublicState(modernTail.snapshot)[field])!==JSON.stringify(confirmed[field])){
-                block(`${field==='committeeMembers'?'Shared committee names':'Shared equipment checks'} need review. Pending changes were kept on this phone. Load the shared scores before continuing.`);
+            for(const path of omittedPaths){
+              const atPath=value=>path.reduce((section,key)=>section?.[key],value);
+              const modernTail=outbox.find(pending=>atPath(pending.snapshot)!==undefined);
+              if(modernTail&&JSON.stringify(atPath(confirmed))!==JSON.stringify(atPath(defaults))
+                &&JSON.stringify(atPath(publicSnapshot(mergePublicState(modernTail.snapshot))))!==JSON.stringify(atPath(confirmed))){
+                block(`${path[0]==='committeeMembers'?'Shared committee names':'Shared equipment checks'} need review. Pending changes were kept on this phone. Load the shared scores before continuing.`);
                 return false;
               }
             }

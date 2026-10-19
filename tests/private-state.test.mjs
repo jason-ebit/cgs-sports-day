@@ -90,16 +90,21 @@ test('Shared equipment checks replace viewer checks while legacy private ticks a
   const local=defaultState();local.equipmentReady.balls=true;
   local.committeeChecklist['inventory:setup:basket']=true;local.committeeChecklist['first-aid:general:abc']=true;
   local.committeeNotes.equipment={general:'Private setup reminder'};local.preferences.department='equipment';
-  const remote=defaultState();remote.equipmentReady.basket=true;remote.equipmentReady.rope=true;
+  const remote=defaultState();remote.equipmentReady.basket=true;remote.equipmentReady.rope=true;remote.equipmentReady['cold-packs']=true;
   const snapshot=publicSnapshot(remote),merged=mergePublicState(snapshot,local);
-  assert.deepEqual(snapshot.equipmentReady,remote.equipmentReady);assert.deepEqual(merged.equipmentReady,remote.equipmentReady);
+  assert.equal(snapshot.equipmentColdPacksReady,true);assert.equal(Object.keys(snapshot.equipmentReady).length,21);assert.deepEqual(merged.equipmentReady,remote.equipmentReady);
   assert.deepEqual(merged.committeeChecklist,local.committeeChecklist);assert.deepEqual(merged.committeeNotes,local.committeeNotes);
   assert.deepEqual(merged.preferences,local.preferences);assert.equal('committeeChecklist' in snapshot,false);
   assert.equal('committeeNotes' in snapshot,false);assert.equal(JSON.stringify(publicSnapshot(local)).includes('inventory:'),false);
   merged.equipmentReady.rope=false;assert.equal(snapshot.equipmentReady.rope,true);
-  const old=structuredClone(snapshot);delete old.equipmentReady;
+  const old=structuredClone(snapshot);delete old.equipmentReady;delete old.equipmentColdPacksReady;
   assert.deepEqual(mergePublicState(old,local).equipmentReady,defaultState().equipmentReady);
   assert.deepEqual(mergePublicState(old,local).committeeChecklist,local.committeeChecklist);
+  const old21=structuredClone(snapshot);delete old21.equipmentColdPacksReady;
+  const restored=mergePublicState(old21,local);
+  assert.equal(restored.equipmentReady['cold-packs'],false);assert.equal(restored.equipmentReady.rope,true);
+  assert.equal(Object.hasOwn(old21.equipmentReady,'cold-packs'),false);
+  assert.deepEqual(restored.committeeChecklist,local.committeeChecklist);assert.deepEqual(restored.committeeNotes,local.committeeNotes);
 });
 test('Back unwinds exact panel frames in reverse order without adding tab changes',()=>{
   const nav=createPanelNavigation(),restore=()=>{};

@@ -34,6 +34,7 @@ export const SUPPLIES={
    {id:'bags',name:'Equipment bags'},
    {id:'food-water',name:'Food & water'},
    {id:'prizes',name:'Winner coupons / gift vouchers'},
+   {id:'cold-packs',name:'Cold packs',detail:'First aid'},
   ]},
  ],
 };
@@ -74,18 +75,20 @@ export const COMMITTEE=[
  ['Check who will lead CG-IN before everyone gathers.','Gather everyone for CG-IN. Registration and the team draw come next.'],
 ];
 
+const JUDGE_OPENING_NOTES=[
+ "Ask players with allergies, asthma, heart conditions, diabetes, seizures, fainting or injuries to speak to First aid in private. Sharing is optional.",
+ "Explain the team draw: use separate men’s and women’s colour sticks.",
+ "Spread men as evenly as possible across the five teams. Keep team sizes balanced.",
+ "Confirm each team’s leader and count all players.",
+ "Point out the playing area and First aid. Show the stop signal. Anyone can sit out or ask to stop.",
+];
+
 // Department notes use the same 16 stable event indices as the rundown.
 export const DEPARTMENTS=[
- {id:'director',name:'Judge / scores',members:[{name:'TBA',role:'Main judge / scorer'}],general:[
-  "Make the final call on results, disagreements and ties.",
-  "Give start and stop signals. Run the timers.",
-  "Start the timer before entering any result.",
-  "Check results with the assistant. Save them during a safe pause.",
-  "Check each game’s points and the total score.",
- ],notes:[
+ {id:'director',name:'Judge / scores',members:[{name:'TBA',role:'Main judge / scorer'}],general:JUDGE_OPENING_NOTES,notes:[
   ["Agree where each judge will stand, which signals to use and how to check results together."],
   [],
-  ["Show the start and stop signals. Explain how results are decided."],
+  JUDGE_OPENING_NOTES,
   ["Start the five-minute timer when the Warm-up lead is ready."],
   ["Rounds 1–2: 90 seconds. Rounds 3–6: 120 seconds. Optional round 7: 90 seconds.","Check each finish with the assistant. Tap Success in finish order. Fail gives 0 points."],
   ["Time two 30-second tries per team. Check each count with the assistant before saving.","Use the better count. Teams with equal best counts share places and points."],
@@ -125,13 +128,14 @@ export const DEPARTMENTS=[
   [],
  ]},
  {id:'first-aid',name:'First aid',members:[{name:'TBA',role:'At the first-aid kit'},{name:'TBA',role:'Beside the field'}],general:[
+  "At least one first-aid team member must know how to do CPR.",
   "One stays at the kit; one watches the field. Stay until cleanup ends.",
   "Ask someone to take over before a break or taking a person for help.",
   "Ask in private about heart disease, asthma, allergies, diabetes, seizures, fainting or current injuries. Answering is optional.",
   "Check that players can reach their own emergency medicine. Keep names and health details private.",
   "Check that trained first-aid help and emergency contacts are ready. Agree the help signal and keep the emergency route clear.",
  ],notes:[
-  ["Choose who stays at the kit and who watches the field. Check trained first-aid help and emergency contacts.","Agree the help signal with the judges. Check the park entrance and emergency route."],
+  ["Confirm at least one first-aid team member knows CPR.","Choose who stays at the kit and who watches the field. Check trained first-aid help and emergency contacts.","Agree the help signal with the judges. Check the park entrance and emergency route."],
   ["Ask in private about heart disease, asthma, allergies, diabetes, seizures, fainting or current injuries.","People can choose not to answer. Share names and health details only with first aid.","Check that players can reach their own emergency medicine before play."],
   ["Point out first aid and the help signal."],
   [],
