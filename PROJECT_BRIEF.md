@@ -119,6 +119,7 @@ Five championship categories, normally 5/4/3/2/1 points by placing, highest tota
 - Warm-up: 1 lead, TBA, leading a five-minute session, mostly light stretching.
 - Support total: 10–11 across First-Aid, Equipment, Food & Water, Comm and Warm-up. Including the main judge / scorer and assistant judge: 12–13 total; five team leaders are separate.
 - Each committee shows numbered editable name slots above short essential bullets. Only the scorekeeper edits names; autosaved roster changes sync to all viewers while free-text reminders stay private on the device. Comm lists Cindy and Mario; remaining slots are TBA, including the optional third Food & Water helper. Duties and inventory use plain lists without checkboxes.
+- Write committee duties as short, direct instructions in simple English. Keep role ownership, timer steps, game rules, safety and privacy details clear.
 - First-aid notes may include voluntarily disclosed asthma, allergies, diabetes, seizure conditions, fainting, cardiovascular conditions or injuries and access to participants' own emergency medication. Keep identifiable health notes private and out of public/media exports.
 - Existing items: mat, one whistle, icebox, transport cart, umbrellas, pens/markers, phones/timer and equipment bags.
 - No handball, extra medium balls, long basket pole, canopy, medals or certificates. Winner coupons/gift vouchers planned.
