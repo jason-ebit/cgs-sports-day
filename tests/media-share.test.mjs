@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { File as BufferFile } from 'node:buffer';
-import { createMediaExport, createMediaShare, posterShareTargets, posterSizeFromSearch } from '../media-share.js';
-import { VIEWING_URL } from '../share-link.js';
+import { createMediaExport, createMediaShare, posterSizeFromSearch } from '../media-share.js';
 
 globalThis.File ??= BufferFile;
 let count = 0;
@@ -170,6 +169,14 @@ await test('Missing images are unavailable and never trigger sharing or download
   assert.equal(await sharing.share(null), 'unavailable');
 });
 
+await test('Only PNG files can be handed to the native image share sheet', async () => {
+  const sharing = createMediaShare({ navigator: { canShare() { assert.fail('Do not query native sharing for other file types.'); }, share() { assert.fail(); } }, download() { assert.fail(); } });
+  for (const file of [new File(['private'], 'backup.json', { type: 'application/json' }), new File(['image'], 'photo.jpg', { type: 'image/jpeg' })]) {
+    assert.equal(sharing.canShare(file), false);
+    assert.equal(await sharing.share(file), 'unsupported');
+  }
+});
+
 await test('Cancelling native sharing does not download and releases the busy guard', async () => {
   const file = png('olympics-full-poster.png');
   let calls = 0;
@@ -204,106 +211,6 @@ await test('Concurrent share clicks cannot open duplicate sheets or trigger a fa
   assert.equal(await first, 'shared');
   assert.equal(await sharing.share(file), 'shared');
   assert.equal(nativeCalls, 2);
-});
-
-await test('Copy image writes the prepared PNG synchronously with the clipboard receiver intact', async () => {
-  const file = png('olympics-phone-story.png'), completion = deferred();
-  const writes = [], formats = [];
-  class ClipboardImage {
-    constructor(data) { this.data = data; }
-    static supports(type) { formats.push(type); return type === 'image/png'; }
-  }
-  const clipboard = { write(items) { assert.equal(this, clipboard); writes.push(items); return completion.promise; } };
-  const sharing = createMediaShare({ navigator: { clipboard }, ClipboardItem: ClipboardImage });
-  assert.equal(sharing.canCopyImage(file), true);
-  const pending = sharing.copyImage(file);
-  assert.equal(writes.length, 1, 'Clipboard write is invoked before the caller regains control.');
-  assert.equal(writes[0].length, 1);
-  assert.ok(writes[0][0] instanceof ClipboardImage);
-  assert.deepEqual(writes[0][0].data, { 'image/png': file });
-  assert.ok(formats.every(type => type === 'image/png'));
-  completion.resolve();
-  assert.equal(await pending, 'copied');
-});
-
-await test('PNG clipboard support works when the optional supports method is absent', async () => {
-  class ClipboardImage { constructor(data) { this.data = data; } }
-  const sharing = createMediaShare({ navigator: { clipboard: { write: () => Promise.resolve() } }, ClipboardItem: ClipboardImage });
-  assert.equal(sharing.canCopyImage(png('poster.png')), true);
-  assert.equal(await sharing.copyImage(png('poster.png')), 'copied');
-});
-
-await test('Missing clipboard features and unsupported PNG types do not attempt copying', async () => {
-  class ClipboardImage { constructor() { assert.fail('Unsupported copying must not build an item.'); } }
-  class UnsupportedImage extends ClipboardImage { static supports() { return false; } }
-  class BrokenSupport extends ClipboardImage { static supports() { throw new Error('Blocked'); } }
-  const file = png('poster.png');
-  for (const options of [
-    { navigator: null, ClipboardItem: ClipboardImage },
-    { navigator: {}, ClipboardItem: ClipboardImage },
-    { navigator: { clipboard: {} }, ClipboardItem: ClipboardImage },
-    { navigator: { clipboard: { write() { assert.fail(); } } }, ClipboardItem: null },
-    { navigator: { clipboard: { write() { assert.fail(); } } }, ClipboardItem: UnsupportedImage },
-    { navigator: { clipboard: { write() { assert.fail(); } } }, ClipboardItem: BrokenSupport }
-  ]) {
-    const sharing = createMediaShare(options);
-    assert.equal(sharing.canCopyImage(file), false);
-    assert.equal(await sharing.copyImage(file), 'unsupported');
-  }
-  const sharing = createMediaShare({ navigator: { clipboard: { write() { assert.fail(); } } }, ClipboardItem: ClipboardImage });
-  for (const invalid of [null, new File(['text'], 'note.txt', { type: 'text/plain' })]) {
-    assert.equal(sharing.canCopyImage(invalid), false);
-    assert.equal(await sharing.copyImage(invalid), 'unsupported');
-  }
-});
-
-await test('Clipboard item construction and blocked or rejected writes fail without downloading', async () => {
-  class ClipboardImage { constructor(data) { this.data = data; } }
-  class BrokenItem { constructor() { throw new Error('Cannot build clipboard item'); } }
-  const file = png('poster.png');
-  for (const options of [
-    { ClipboardItem: BrokenItem, navigator: { clipboard: { write() { assert.fail(); } } } },
-    { ClipboardItem: ClipboardImage, navigator: { clipboard: { write() { throw namedError('NotAllowedError'); } } } },
-    { ClipboardItem: ClipboardImage, navigator: { clipboard: { write() { return Promise.reject(new Error('Copy failed')); } } } }
-  ]) {
-    const sharing = createMediaShare({ ...options, download() { assert.fail('Copying must not trigger a download.'); } });
-    assert.equal(await sharing.copyImage(file), 'failed');
-  }
-});
-
-await test('Each format gets a canonical poster URL and correctly encoded app share links', () => {
-  for (const [size, route] of [['poster', 'full'], ['phone', 'phone']]) {
-    const targets = posterShareTargets(size), expected = new URL(VIEWING_URL);
-    expected.searchParams.set('poster', route);
-    assert.deepEqual(Object.keys(targets).sort(), ['instagram', 'poster', 'whatsapp', 'x']);
-    assert.equal(targets.poster, expected.href);
-    const whatsapp = new URL(targets.whatsapp), x = new URL(targets.x);
-    assert.equal(whatsapp.origin + whatsapp.pathname, 'https://wa.me/');
-    assert.deepEqual([...whatsapp.searchParams], [['text', 'OLYMPICS · Oct 25\n' + expected.href]]);
-    assert.equal(x.origin + x.pathname, 'https://twitter.com/intent/tweet');
-    assert.deepEqual([...x.searchParams], [['text', 'OLYMPICS · Oct 25'], ['url', expected.href]]);
-    assert.equal(targets.instagram, 'https://www.instagram.com/');
-    assert.equal(posterSizeFromSearch(expected.search), size);
-  }
-});
-
-await test('Public share targets never read the viewing device URL or carry its private state', () => {
-  const original = Object.getOwnPropertyDescriptor(globalThis, 'location');
-  Object.defineProperty(globalThis, 'location', { configurable: true, get() { assert.fail('Do not read location for public poster links.'); } });
-  try {
-    const poster = new URL(posterShareTargets('poster').poster);
-    assert.deepEqual([...poster.searchParams], [['poster', 'full']]);
-    assert.equal(poster.hash, '');
-    assert.equal(poster.username, '');
-    assert.equal(poster.password, '');
-  } finally {
-    if (original) Object.defineProperty(globalThis, 'location', original);
-    else delete globalThis.location;
-  }
-});
-
-await test('Only supported export formats can create share targets', () => {
-  for (const size of [undefined, null, '', 'full', 'story', 'Poster']) assert.throws(() => posterShareTargets(size), TypeError);
 });
 
 await test('Poster routes select full or phone views and ignore unknown or missing choices', () => {

@@ -1,7 +1,4 @@
 const paths = {
- whatsapp: '<path d="M40 23a17 17 0 0 1-25 15L6 41l3-9a17 17 0 1 1 31-9Z" stroke-width="3"/><path d="m18 14-4 3c1 9 7 15 16 17l4-5-6-4-3 3-6-6 3-3Z" stroke-width="2"/>',
- instagram: '<rect x="7" y="7" width="34" height="34" rx="10" stroke-width="3"/><circle cx="24" cy="24" r="8" stroke-width="3"/><circle cx="34" cy="14" r="2" fill="currentColor" stroke="none"/>',
- 'x-social': '<path d="m10 8 27 32h-7L4 8h6Zm25 0L9 40" stroke-width="3"/>',
  'arrow-up-right': '<path d="M6 42 42 6M12 6h30v30" stroke-width="4"/>',
  clock: '<circle cx="24" cy="24" r="22" fill="currentColor" stroke="none"/><circle cx="24" cy="24" r="14" fill="white" stroke="none"/><path d="M24 15v10h8" stroke-width="3.5"/>',
  calendar: '<rect x="8" y="10" width="33" height="33" rx="3" stroke-width="4"/><path d="M8 20h33M16 5v10M33 5v10" stroke-width="4"/><path d="M16 26h3m6 0h3m6 0h1M16 34h3m6 0h3m6 0h1" stroke-width="4"/>',
