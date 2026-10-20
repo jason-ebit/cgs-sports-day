@@ -509,6 +509,9 @@
   margin: 0;
   min-width: 0;
 }
+.location-figure-field {
+  grid-column: 1 / -1;
+}
 .location-figure figcaption {
   display: flex;
   flex-direction: column;

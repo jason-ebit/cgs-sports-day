@@ -18,7 +18,7 @@ The user then asked to move the work to Codex. No completed interactive app sour
 - The date card opens a pre-filled Google Calendar event for 11:40–16:00 in Asia/Seoul, matching the card. Its description distinguishes committee setup at 11:40 from the participant program at 12:00.
 - Venue: 응봉공원 · 다목적구장. Meet at the second, larger rectangular court on the supplied park map.
 - Venue map: https://naver.me/59lqYcXJ. Toilet map: https://naver.me/G6RwJ9lQ.
-- Walking guide: from the entrance turn right, go up the stairs, then right to the larger court. Both supplied HEIC attachments were the same entrance photo; the distinct staircase photo is still needed.
+- Walking guide: from the entrance turn right, go up the stairs, then right to the larger court. The guide includes the actual field photo after the entrance photo and route map. Both supplied HEIC attachments were the same entrance photo; the distinct staircase photo is still needed.
 - Committee arrival: 11:40; participant program: 12:00–16:00; field clear by 16:00.
 - Five mixed teams, roughly 6–8 members each; around 15 men (unconfirmed) and 15–20+ women.
 - Default team identifiers: Red, Blue, Yellow, Green, White. Team names and leaders are editable, not already known.

@@ -3,7 +3,8 @@ export const LOCATION = Object.freeze({
   venueUrl: 'https://naver.me/59lqYcXJ',
   toiletUrl: 'https://naver.me/G6RwJ9lQ',
   entranceImage: 'assets/location/entrance-guide.jpg',
-  mapImage: 'assets/location/park-map-guide.jpg'
+  mapImage: 'assets/location/park-map-guide.jpg',
+  fieldImage: 'assets/location/actual-field.jpg'
 });
 
 const escapeHTML = value => String(value).replace(/[&<>"']/g, character => ({
@@ -25,6 +26,7 @@ export function renderLocationGuide() {
     <div class="location-visuals">
       <figure class="location-figure"><figcaption><span class="location-figure-label">1 · Entrance</span><span>Turn right along the path.</span></figcaption><a class="location-image-link" href="${escapeHTML(LOCATION.entranceImage)}" target="_blank" rel="noopener noreferrer" aria-label="Open entrance photo at full size · opens in a new tab"><img src="${escapeHTML(LOCATION.entranceImage)}" alt="Park entrance with an arrow pointing right along the path." decoding="async"><span class="location-image-expand" aria-hidden="true">View larger ↗</span></a></figure>
       <figure class="location-figure location-figure-map"><figcaption><span class="location-figure-label">2 · Park map</span><span>Right → up the stairs → right to the larger court.</span></figcaption><a class="location-image-link" href="${escapeHTML(LOCATION.mapImage)}" target="_blank" rel="noopener noreferrer" aria-label="Open park route map at full size · opens in a new tab"><img src="${escapeHTML(LOCATION.mapImage)}" alt="Eunbong Park guide map showing the route from the entrance to the second, larger rectangular multipurpose court." decoding="async"><span class="location-image-expand" aria-hidden="true">View larger ↗</span></a></figure>
+      <figure class="location-figure location-figure-field"><figcaption><span class="location-figure-label">3 · Actual field</span><span>This is where we’ll play.</span></figcaption><a class="location-image-link" href="${escapeHTML(LOCATION.fieldImage)}" target="_blank" rel="noopener noreferrer" aria-label="Open actual field photo at full size · opens in a new tab"><img src="${escapeHTML(LOCATION.fieldImage)}" alt="Fenced green court at Eunbong Park, viewed from the path." decoding="async"><span class="location-image-expand" aria-hidden="true">View larger ↗</span></a></figure>
     </div>
   </div>`;
 }
