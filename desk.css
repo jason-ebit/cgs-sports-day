@@ -1967,3 +1967,67 @@ input:focus,select:focus,textarea:focus {
   .rota-person-top:has(.rota-choices) {display: block;}
   .rota-choices {width: 100%;max-width: none;margin-top: 9px;}
 }
+
+/* Auto-fill is a separate draft screen; applying it returns to the editable rota. */
+.rota-planner {min-width: 0;}
+.rota-plan-header {min-width: 0;margin-bottom: 16px;}
+.rota-plan-preview h3 {margin: 0;color: var(--ink);font-size: 15px;font-weight: 600;line-height: 1.5;}
+.rota-plan-header p,.rota-plan-help,.rota-plan-scope p {margin: 6px 0 0;color: var(--muted);font-size: 11px;line-height: 1.65;overflow-wrap: anywhere;}
+.rota-plan-header > p {margin: 0;}
+.rota-plan-relief-settings {min-width: 0;border: 1px solid var(--line);border-radius: var(--radius-card);background: var(--surface-soft);}
+.rota-plan-relief-settings > summary {min-height: 44px;padding: 12px;color: var(--brand-strong);font-size: 12px;line-height: 1.6;cursor: pointer;overflow-wrap: anywhere;}
+.rota-plan-relief-settings[open] {padding-bottom: 12px;}
+.rota-plan-relief-settings > .rota-plan-settings {padding-inline: 12px;}
+.rota-header-actions {display: flex;align-items: center;flex-wrap: wrap;gap: 8px 14px;min-width: 0;}
+.rota-header-actions .secondary {min-height: 44px;font-size: 11px;}
+.rota-plan-protected {margin-top: 9px;}
+.rota-plan-settings {display: grid;grid-template-columns: repeat(2,minmax(0,1fr));gap: 12px;min-width: 0;}
+.rota-plan-relief {min-width: 0;margin: 0;padding: 12px;border: 1px solid var(--line);border-radius: var(--radius-card);background: var(--surface-raised);}
+.rota-plan-relief legend {max-width: 100%;padding: 0 5px;color: var(--brand-strong);font-size: 12px;font-weight: 600;line-height: 1.5;}
+.rota-plan-field {display: block;min-width: 0;}
+.rota-plan-field > span {display: block;margin-bottom: 6px;color: var(--muted);font-size: 10px;line-height: 1.5;}
+.rota-plan-field select {display: block;width: 100%;max-width: 100%;min-width: 0;min-height: 44px;padding: 8px;border: 1px solid var(--line);border-radius: var(--radius-control);background: var(--surface-raised);color: var(--ink);font-size: 13px;}
+.rota-plan-check {display: flex;align-items: flex-start;gap: 9px;min-height: 44px;margin-top: 8px;padding: 8px 0;color: var(--ink);font-size: 11px;line-height: 1.6;cursor: pointer;}
+.rota-plan-check > input {flex: 0 0 18px;width: 18px;height: 18px;margin: 0;accent-color: var(--brand);}
+.rota-plan-check > span {min-width: 0;overflow-wrap: anywhere;}
+.rota-plan-check.inactive {color: var(--muted);cursor: default;}
+.rota-plan-relief .rota-plan-help {margin-top: 0;}
+.rota-plan-replace {margin-top: 14px;padding-bottom: 0;}
+.rota-plan-preview-action {display: flex;align-items: center;flex-wrap: wrap;gap: 8px 14px;margin-top: 16px;}
+.rota-plan-preview-action > button,.rota-plan-apply {min-height: 44px;min-width: 140px;font-size: 11px;}
+.rota-plan-preview-action > span {min-width: 0;color: var(--muted);font-size: 10px;line-height: 1.6;}
+.rota-plan-scope {margin-top: 16px;padding: 11px 13px;border: 1px solid var(--line);border-radius: var(--radius-control);background: var(--surface-soft);}
+.rota-plan-scope p {margin-top: 0;}
+.rota-plan-scope p + p {margin-top: 3px;}
+.rota-plan-preview {margin-top: 20px;padding-top: 18px;border-top: 1px solid var(--line);}
+.rota-plan-preview-heading {display: flex;align-items: center;justify-content: space-between;flex-wrap: wrap;gap: 5px 12px;margin-bottom: 12px;}
+.rota-plan-preview-heading > span {color: var(--warm);font-size: 10px;line-height: 1.5;}
+.rota-plan-totals {display: grid;grid-template-columns: repeat(3,minmax(0,1fr));gap: 6px;margin: 0 0 12px;}
+.rota-plan-totals > div {display: flex;flex-direction: column-reverse;min-width: 0;padding: 10px 7px;border: 1px solid var(--line);border-radius: var(--radius-control);background: var(--surface-soft);text-align: center;}
+.rota-plan-totals dt {color: var(--muted);font-size: 10px;line-height: 1.5;overflow-wrap: anywhere;}
+.rota-plan-totals dd {margin: 0 0 2px;color: var(--brand-strong);font-size: 21px;font-weight: 600;line-height: 1.3;font-variant-numeric: tabular-nums;}
+.rota-plan-counts {width: 100%;margin-top: 12px;border-collapse: collapse;table-layout: fixed;font-size: 11px;line-height: 1.5;}
+.rota-plan-counts > caption {position: absolute;width: 1px;height: 1px;padding: 0;margin: -1px;overflow: hidden;clip: rect(0,0,0,0);white-space: nowrap;border: 0;}
+.rota-plan-counts th,.rota-plan-counts td {padding: 10px 6px;border-bottom: 1px solid var(--line);vertical-align: middle;overflow-wrap: anywhere;}
+.rota-plan-counts thead th {color: var(--muted);font-size: 10px;font-weight: 500;text-align: center;}
+.rota-plan-counts th:first-child {width: 52%;text-align: left;}
+.rota-plan-counts tbody th {font-weight: 400;}
+.rota-plan-counts strong,.rota-plan-counts small {display: block;}
+.rota-plan-counts strong {color: var(--ink);font-size: 12px;font-weight: 500;}
+.rota-plan-counts small {margin-top: 2px;color: var(--muted);font-size: 10px;}
+.rota-plan-counts td {color: var(--ink);text-align: center;font-variant-numeric: tabular-nums;}
+.rota-plan-counts td:nth-child(2) {color: var(--blue);font-weight: 600;}
+.rota-plan-counts .rota-plan-empty {color: var(--muted);text-align: left;}
+.rota-plan-warnings {margin: 14px 0 0;padding: 11px 13px 11px 28px;border: 1px solid #ded1ad;border-radius: var(--radius-control);background: var(--warning-soft);color: var(--warning);font-size: 11px;line-height: 1.65;}
+.rota-plan-warnings li {overflow-wrap: anywhere;}
+.rota-plan-warnings li + li {margin-top: 5px;}
+.rota-plan-apply {margin-top: 16px;}
+.rota-planner :is(button,input,select,summary):focus-visible {outline: 2px solid var(--brand);outline-offset: 3px;}
+@media (max-width:760px) {
+  .rota-plan-settings {grid-template-columns: minmax(0,1fr);}
+  .rota-plan-field select {font-size: 16px;}
+}
+@media (max-width:359px) {
+  .rota-plan-counts th,.rota-plan-counts td {padding-inline: 3px;}
+  .rota-plan-counts th:first-child {width: 48%;}
+}

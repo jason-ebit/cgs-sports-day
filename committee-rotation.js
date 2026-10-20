@@ -1,5 +1,5 @@
-import { DEPARTMENTS, GAME_NAMES } from './content.js?v=49';
-import { TEAM_IDS, COLOURS } from './model.js?v=49';
+import { DEPARTMENTS, GAME_NAMES } from './content.js?v=50';
+import { TEAM_IDS, COLOURS } from './model.js?v=50';
 
 const escapeHTML=value=>String(value).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const e=escapeHTML;
@@ -49,7 +49,7 @@ export function renderCommitteeRotation(state,{editable=false,game='borrow',roun
   const counts=Object.fromEntries(Object.keys(STATUS_LABELS).map(status=>[status,named.filter(person=>(assignments[person.id]?.status||'unset')===status).length]));
   const status=person=>assignments[person.id]?.status||'unset';
   const linkNames=(members)=>members.map(person=>person.name).join(', ');
-  const uncovered=named.filter(person=>status(person)==='playing'&&!coversFor(person.id).length);
+  const uncovered=named.filter(person=>!['warmup','team-leaders'].includes(person.department)&&status(person)==='playing'&&!coversFor(person.id).length);
   const unnamedAssigned=people.filter(person=>!person.name&&assignments[person.id]);
   const hasAssignments=Object.keys(assignments).length>0;
   const hint=editable?'Changes save for everyone. Tap a selected status again to clear it.':'Everyone sees the same rota. Only the scorekeeper can change it.';
@@ -59,7 +59,7 @@ export function renderCommitteeRotation(state,{editable=false,game='borrow',roun
     const target=assignment?.coverFor?byId.get(assignment.coverFor):null;
     const duplicate=target?.name&&coversFor(target.id).length>1;
     let detail='';
-    if(current==='playing')detail=covering.length?`<p class="rota-relation">${person.department==='first-aid'?`Cover planned: ${e(linkNames(covering))} — confirm trained relief before play.`:person.department==='director'?`Cover planned: ${e(linkNames(covering))} — confirm an appointed neutral replacement before play.`:`Covered by ${e(linkNames(covering))}`}</p>`:`<p class="rota-relation rota-attention">No cover set${['first-aid','director'].includes(person.department)?' — arrange relief before playing':''}.</p>`;
+    if(current==='playing')detail=covering.length?`<p class="rota-relation">${person.department==='first-aid'?`Cover planned: ${e(linkNames(covering))} — confirm trained relief before play.`:person.department==='director'?`Cover planned: ${e(linkNames(covering))} — confirm an appointed neutral replacement before play.`:`Covered by ${e(linkNames(covering))}`}</p>`:['warmup','team-leaders'].includes(person.department)?'':`<p class="rota-relation rota-attention">No cover set${['first-aid','director'].includes(person.department)?' — arrange relief before playing':''}.</p>`;
     if(current==='cover'){
       if(editable&&person.name){
         const options=named.filter(other=>other.id!==person.id);
@@ -78,7 +78,7 @@ export function renderCommitteeRotation(state,{editable=false,game='borrow',roun
   }).join('');
 
   return `<section class="committee-rotation" aria-label="Round assignments">
-    <header class="rota-header"><p>${hint}</p><button class="text-button" data-open="committee">${editable?'Edit committee names':'Committee names'} <span aria-hidden="true">↗</span></button></header>
+    <header class="rota-header"><p>${hint}</p><div class="rota-header-actions">${editable?'<button class="secondary" data-open="rotation-plan">Auto-fill rota</button>':''}<button class="text-button" data-open="committee">${editable?'Edit committee names':'Committee names'} <span aria-hidden="true">↗</span></button></div></header>
     <nav class="rota-games" aria-label="Rotation game">${ROTATION_GAMES.map(item=>`<button type="button" data-rota-game="${item.id}" class="${game===item.id?'selected':''}" aria-pressed="${game===item.id}">${e(item.label)}</button>`).join('')}</nav>
     ${basketTeams}
     <nav class="rota-rounds" aria-label="Rotation round">${rounds.map(item=>`<button type="button" data-rota-round="${item.key}" class="${roundKey===item.key?'selected':''}" aria-pressed="${roundKey===item.key}">${e(item.label)}</button>`).join('')}</nav>

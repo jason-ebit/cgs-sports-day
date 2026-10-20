@@ -11,6 +11,8 @@ const files = [
   'first-aid-kit.js',
   'committee-rotation.js',
   'rota-model.js',
+  'rota-planner.js',
+  'rota-planner-ui.js',
   'icons.js',
   'live.js',
   'media.js',

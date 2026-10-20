@@ -1,25 +1,27 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=49';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=49';
-import { createLiveDesk } from './live.js?v=49';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=49';
-import { icon } from './icons.js?v=49';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=49';
-import { renderMedia, downloadBlob } from './media.js?v=49';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=49';
-import { captureView } from './view-state.js?v=49';
-import { createDeviceStore } from './device-store.js?v=49';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=49';
-import { createBeforeSyncBackup } from './before-sync.js?v=49';
-import { SYNC_CONFIG } from './sync-config.js?v=49';
-import { renderLiveConnection } from './connection-badge.js?v=49';
-import { createGameTimeline } from './game-timeline.js?v=49';
-import { createPanelNavigation } from './panel-navigation.js?v=49';
-import { renderLocationGuide } from './location-guide.js?v=49';
-import { googleCalendarLink } from './calendar-link.js?v=49';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=49';
-import { renderFirstAidKit } from './first-aid-kit.js?v=49';
-import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=49';
-import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=49';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=50';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=50';
+import { createLiveDesk } from './live.js?v=50';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=50';
+import { icon } from './icons.js?v=50';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=50';
+import { renderMedia, downloadBlob } from './media.js?v=50';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=50';
+import { captureView } from './view-state.js?v=50';
+import { createDeviceStore } from './device-store.js?v=50';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=50';
+import { createBeforeSyncBackup } from './before-sync.js?v=50';
+import { SYNC_CONFIG } from './sync-config.js?v=50';
+import { renderLiveConnection } from './connection-badge.js?v=50';
+import { createGameTimeline } from './game-timeline.js?v=50';
+import { createPanelNavigation } from './panel-navigation.js?v=50';
+import { renderLocationGuide } from './location-guide.js?v=50';
+import { googleCalendarLink } from './calendar-link.js?v=50';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=50';
+import { renderFirstAidKit } from './first-aid-kit.js?v=50';
+import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=50';
+import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=50';
+import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=50';
+import { renderRotationPlanner } from './rota-planner-ui.js?v=50';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -31,6 +33,9 @@ const mediaShare = createMediaShare({});
 let revealLinkedPoster = false;
 let department = state.preferences.department;
 let rotaGame = 'borrow', rotaRound = 'borrow:0', rotaFilter = 'all';
+const rotaPlanSettings={firstAidRelief:null,judgeRelief:null,firstAidReliefConfirmed:false,judgeReliefConfirmed:false,replace:false};
+let rotaPlanDraft=null,rotaPlanBaseline=null;
+let rotaPlanRosterBaseline=JSON.stringify(state.committeeMembers);
 const navigation=createPanelNavigation();
 let renderedPanel = null, live = null;
 let timeline = null;
@@ -40,7 +45,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=49', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=50', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -159,7 +164,7 @@ function restoreFocus(){
   const target=[...replacements,$('#teams-tool')].find(canFocus);target?.focus();
 }
 function closePanel() { dialog.close(); }
-function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',rotation:'Committee rotation',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide'})[key]||'Back';}
+function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',rotation:'Committee rotation','rotation-plan':'Auto-fill rotation',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide'})[key]||'Back';}
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 const inventoryItems=SUPPLIES.groups.flatMap(group=>group.items);
@@ -210,6 +215,23 @@ function updateRotation(edit) {
   const next=structuredClone(state.committeeRotation);edit(next);
   state.committeeRotation=validateCommitteeRotation(next);changed();return true;
 }
+function currentPlanBaseline(){return JSON.stringify(publicSnapshot(state));}
+function syncPlannerRoster(){
+  const roster=JSON.stringify(state.committeeMembers);
+  if(roster!==rotaPlanRosterBaseline){
+    rotaPlanSettings.firstAidReliefConfirmed=false;rotaPlanSettings.judgeReliefConfirmed=false;
+    rotaPlanDraft=null;rotaPlanBaseline=null;rotaPlanRosterBaseline=roster;
+  }
+}
+function previewRotationPlan(){
+  if(!requireEditor())return;
+  syncPlannerRoster();
+  for(const key of ['firstAidRelief','judgeRelief']){
+    if(rotaPlanSettings[key]&&!rotaPlanSettings[`${key}Confirmed`])throw Error(`Confirm ${key==='firstAidRelief'?'first-aid':'judge'} relief, or choose Keep the team on duty.`);
+  }
+  rotaPlanDraft=planCommitteeRotation(state,{firstAidRelief:rotaPlanSettings.firstAidRelief,judgeRelief:rotaPlanSettings.judgeRelief,replace:rotaPlanSettings.replace});
+  rotaPlanBaseline=currentPlanBaseline();renderPanel();
+}
 function gameSheet(game) {
   if(game!=='tug')return scorePanel(game);
   if(game==='tug')return `<div class="section-label">MATCH RESULTS <span class="badge">Auto-saved</span></div><div class="score-table-wrap"><table class="score-table match-sheet"><thead><tr><th>Match</th><th>Opponents</th><th>Winner</th><th></th></tr></thead><tbody>${MATCH_KEYS.map(k=>{const pair=matchTeams(state.tug,k),ready=state.tug.locked&&pair.every(Boolean);return `<tr><td>${MATCH_NAMES[k]}</td><td>${pair.map(id=>esc(team(id)?.name||'TBD')).join(' vs ')}</td><td>${state.tug.winners[k]?teamLabel(state.tug.winners[k]):'—'}</td><td><button class="text-button" data-live-match="${k}" ${ready?'':'disabled'}>${state.tug.winners[k]?'Review':canEdit()?'Run':'View'} ↗</button></td></tr>`;}).join('')}</tbody></table></div><p class="help">Final results go straight to the main Scores overview. Semifinal losers share third place.</p><button class="secondary" data-open="results">Championship points →</button>`;
@@ -221,7 +243,7 @@ function renderPanel() {
   const previousLiveKey = body.querySelector('[data-live-key]')?.dataset.liveKey;
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
-  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', rotation:'Committee rotation', sync:'Scorekeeper',location:'Location guide' })[current];
+  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', rotation:'Committee rotation', 'rotation-plan':'Auto-fill rotation', sync:'Scorekeeper',location:'Location guide' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : `${eventDetails.title} / OCT 25`;
   $('#back-detail').hidden=!navigation.previous;
   $('#back-detail').textContent=navigation.previous?'‹ Back to '+panelName(navigation.previous.key):'';
@@ -244,6 +266,13 @@ function renderPanel() {
   else if(current==='rotation') {
     rotaRound=resolveRotationRound(rotaGame,rotaRound,state);
     body.innerHTML=renderCommitteeRotation(state,{editable:canEdit(),game:rotaGame,round:rotaRound,filter:rotaFilter});
+  }
+  else if(current==='rotation-plan') {
+    syncPlannerRoster();
+    const candidates=new Set(reliefCandidates(state).map(person=>person.id));
+    for(const key of ['firstAidRelief','judgeRelief'])if(rotaPlanSettings[key]&&!candidates.has(rotaPlanSettings[key])){rotaPlanSettings[key]=null;rotaPlanSettings[`${key}Confirmed`]=false;}
+    if(rotaPlanDraft&&rotaPlanBaseline!==currentPlanBaseline()){rotaPlanDraft=null;rotaPlanBaseline=null;}
+    body.innerHTML=renderRotationPlanner(state,{editable:canEdit(),settings:rotaPlanSettings,draft:rotaPlanDraft});
   }
   else if(current==='results') body.innerHTML=resultsPanel();
   else if(current==='data') body.innerHTML=dataPanel();
@@ -447,6 +476,18 @@ document.addEventListener('click',async event=>{
     if(['random-draw','seed-draw','lock-draw','clear-matches'].includes(el.dataset.action)&&!requireEditor())return;
     if(['reset-all','restore-before-sync'].includes(el.dataset.action)&&!requireWriter())return;
     switch(el.dataset.action){
+      case 'preview-rotation-plan':previewRotationPlan();break;
+      case 'apply-rotation-plan':{
+        if(!requireEditor()||!rotaPlanDraft?.summary.plannedRounds)return;
+        if(rotaPlanBaseline!==currentPlanBaseline()){rotaPlanDraft=null;renderPanel();toast('The event changed. Preview the plan again before applying.');return;}
+        if(rotaPlanSettings.replace&&!await confirmChange('Replace existing committee plans for unstarted rounds with this preview? Started and completed rounds, scores and timers will stay.'))return;
+        if(!requireEditor())return;
+        if(rotaPlanBaseline!==currentPlanBaseline()){rotaPlanDraft=null;renderPanel();toast('The event changed. Preview the plan again before applying.');return;}
+        const rotation=validateCommitteeRotation(rotaPlanDraft.rotation);rotaPlanDraft=null;rotaPlanBaseline=null;
+        state.committeeRotation=rotation;save();
+        if(navigation.previous?.key==='rotation')backPanel();else openPanel('rotation');
+        toast('Rotation filled. You can adjust every assignment.');break;
+      }
       case 'reset-committee-round':
         if(requireEditor()&&state.committeeRotation[rotaRound]&&await confirmChange('Clear the committee rota for this round? Other rounds and all scores will stay.'))updateRotation(next=>delete next[rotaRound]);
         break;
@@ -483,7 +524,17 @@ document.addEventListener('change',async event=>{
   const el=event.target,d=el.dataset;if(el.closest('[data-live-event]'))return;let n=el.value===''?null:Number(el.value);
   try {
     if(el.type==='number'&&!el.validity.valid){toast('Enter a whole number within the field’s range.');renderPanel();return;}
-    if(d.rotaCover!==undefined){
+    if(d.rotaPlanSetting!==undefined){
+      if(!requireEditor()){renderPanel();return;}
+      const key=d.rotaPlanSetting;
+      if(!Object.hasOwn(rotaPlanSettings,key))return;
+      if(key==='firstAidRelief'||key==='judgeRelief'){
+        if(el.value&&!reliefCandidates(state).some(person=>person.id===el.value))return;
+        rotaPlanSettings[key]=el.value||null;rotaPlanSettings[`${key}Confirmed`]=false;
+      }else rotaPlanSettings[key]=el.checked;
+      rotaPlanDraft=null;rotaPlanBaseline=null;renderPanel();
+    }
+    else if(d.rotaCover!==undefined){
       if(!COMMITTEE_PERSON_IDS.includes(d.rotaCover)||state.committeeRotation[rotaRound]?.[d.rotaCover]?.status!=='cover')return;
       const target=el.value||null;
       if(target){const [id,index]=target.split(':');if(target===d.rotaCover||!COMMITTEE_PERSON_IDS.includes(target)||!state.committeeMembers[id][Number(index)].trim())return;}
