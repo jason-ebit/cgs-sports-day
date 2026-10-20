@@ -127,7 +127,7 @@ Five championship categories, normally 5/4/3/2/1 points by placing, highest tota
 - Existing items: mat, one whistle, icebox, transport cart, umbrellas, pens/markers, phones/timer and equipment bags.
 - No handball, extra medium balls, long basket pole, canopy, medals or certificates. Winner coupons/gift vouchers planned.
 
-- First aid shows a collapsible 16-item kit guide with English names, Korean labels and each actual product photo from the supplied collage. Check quantities and expiry dates on the real packs. Do not add the other suggested missing items; cold packs go in Equipment.
+- First aid shows a collapsible 19-item kit guide with English names, Korean labels and each actual product photo from the supplied collage. Check quantities and expiry dates on the real packs. Do not add the other suggested missing items; cold packs go in Equipment.
 
 ## Equipment checklist
 

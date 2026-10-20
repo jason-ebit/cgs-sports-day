@@ -1,4 +1,4 @@
-const VERSION = '50';
+const VERSION = '51';
 const CACHE = `cg-sports-day-v${VERSION}`;
 const scopeURL = new URL('./', self.location.href);
 const homeURL = new URL('./index.html', scopeURL).href;
@@ -20,6 +20,7 @@ const APP_SHELL = [
   './assets/location/entrance-guide.jpg',
   './assets/location/park-map-guide.jpg',
   './assets/first-aid/kit-reference.png',
+  './assets/first-aid/kit-reference-19.png',
   './assets/share/live-qr.svg',
   './assets/share/live-qr.png',
   './assets/Poppins-Black.ttf',
