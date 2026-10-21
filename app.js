@@ -1,27 +1,29 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=52';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=52';
-import { createLiveDesk } from './live.js?v=52';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=52';
-import { icon } from './icons.js?v=52';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=52';
-import { renderMedia, downloadBlob } from './media.js?v=52';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=52';
-import { captureView } from './view-state.js?v=52';
-import { createDeviceStore } from './device-store.js?v=52';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=52';
-import { createBeforeSyncBackup } from './before-sync.js?v=52';
-import { SYNC_CONFIG } from './sync-config.js?v=52';
-import { renderLiveConnection } from './connection-badge.js?v=52';
-import { createGameTimeline } from './game-timeline.js?v=52';
-import { createPanelNavigation } from './panel-navigation.js?v=52';
-import { renderLocationGuide } from './location-guide.js?v=52';
-import { googleCalendarLink } from './calendar-link.js?v=52';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=52';
-import { renderFirstAidKit } from './first-aid-kit.js?v=52';
-import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=52';
-import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=52';
-import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=52';
-import { renderRotationPlanner } from './rota-planner-ui.js?v=52';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=53';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=53';
+import { createLiveDesk } from './live.js?v=53';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=53';
+import { icon } from './icons.js?v=53';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=53';
+import { renderMedia, downloadBlob } from './media.js?v=53';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=53';
+import { captureView } from './view-state.js?v=53';
+import { createDeviceStore } from './device-store.js?v=53';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=53';
+import { createBeforeSyncBackup } from './before-sync.js?v=53';
+import { SYNC_CONFIG } from './sync-config.js?v=53';
+import { renderLiveConnection } from './connection-badge.js?v=53';
+import { createGameTimeline } from './game-timeline.js?v=53';
+import { createPanelNavigation } from './panel-navigation.js?v=53';
+import { renderLocationGuide } from './location-guide.js?v=53';
+import { createAppInstall } from './app-install.js?v=53';
+import { renderInstallGuide } from './install-guide.js?v=53';
+import { googleCalendarLink } from './calendar-link.js?v=53';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=53';
+import { renderFirstAidKit } from './first-aid-kit.js?v=53';
+import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=53';
+import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=53';
+import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=53';
+import { renderRotationPlanner } from './rota-planner-ui.js?v=53';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -41,11 +43,20 @@ let renderedPanel = null, live = null;
 let timeline = null;
 let sync = null, applyingRemote = false, lastSyncEditable = false;
 const localPreview = ['localhost','127.0.0.1'].includes(location.hostname) && new URLSearchParams(location.search).has('local');
+const appInstall = createAppInstall({onChange:updateInstallUI});
+function updateInstallUI() {
+  const status=appInstall.state;
+  $('#install-guide-tool').textContent=status.installed?'App guide':'Install app';
+  const prompt=$('.install-prompt');if(prompt)prompt.hidden=!status.installed&&!status.available&&!status.installing;
+  const button=$('[data-install-app]');
+  if(button){button.hidden=status.installed||!status.available&&!status.installing;button.disabled=status.installing;button.textContent=status.installing?'Opening…':'Install app';}
+  const message=$('#install-status');if(message)message.hidden=!status.installed;
+}
 const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.status.phase !== 'conflict' && !sync.status.storageError;
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=52', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=53', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -164,7 +175,7 @@ function restoreFocus(){
   const target=[...replacements,$('#teams-tool')].find(canFocus);target?.focus();
 }
 function closePanel() { dialog.close(); }
-function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',rotation:'Committee rotation','rotation-plan':'Auto-fill rotation',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide'})[key]||'Back';}
+function panelName(key){return key?.startsWith('event:')?schedule[Number(key.split(':')[1])].title:({committee:'Committee',rotation:'Committee rotation','rotation-plan':'Auto-fill rotation',results:'Scores',teams:'Teams',data:'Reset / backup',media:'Share / export',sync:'Scorekeeper',location:'Location guide',install:'Install app'})[key]||'Back';}
 function bullets(title, items, pending=false) { return `<section class="note-card compact-note ${pending?'pending':''}"><h3>${esc(title)}</h3><ul>${items.map(item=>`<li>${esc(item)}</li>`).join('')}</ul></section>`; }
 function eventNotes(index,game) {return bullets('How it works',NOTES[index])+`<div class="button-row"><button class="primary" data-tab="timer">Open timer →</button>${game?`<button class="secondary" data-tab="${game==='tug'?'play':game==='cavalry'?'timer':'scores'}">${game==='tug'?'Draw & bracket':game==='cavalry'?'Set up arena':'Score sheet'} →</button>`:''}</div>`;}
 const inventoryItems=SUPPLIES.groups.flatMap(group=>group.items);
@@ -243,7 +254,7 @@ function renderPanel() {
   const previousLiveKey = body.querySelector('[data-live-key]')?.dataset.liveKey;
   const eventIndex = current?.startsWith('event:') ? Number(current.split(':')[1]) : null;
   const event = eventIndex !== null ? schedule[eventIndex] : null, game = EVENT_GAMES[eventIndex];
-  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', rotation:'Committee rotation', 'rotation-plan':'Auto-fill rotation', sync:'Scorekeeper',location:'Location guide' })[current];
+  $('#detail-title').textContent = event?.title || ({ teams:'Teams', results:'Scores', media:'Share / export', data:'Reset / backup', committee:'Committee notes', rotation:'Committee rotation', 'rotation-plan':'Auto-fill rotation', sync:'Scorekeeper',location:'Location guide',install:'Install app' })[current];
   $('#detail-eyebrow').textContent = event ? `${event.start}${event.durationMinutes ? ' – '+event.end+' · '+event.durationMinutes+' MIN' : ''} / OCT 25` : `${eventDetails.title} / OCT 25`;
   $('#back-detail').hidden=!navigation.previous;
   $('#back-detail').textContent=navigation.previous?'‹ Back to '+panelName(navigation.previous.key):'';
@@ -252,6 +263,7 @@ function renderPanel() {
   dialog.classList.toggle('game-dialog',Boolean(game));
   dialog.classList.toggle('sync-dialog',current==='sync');
   dialog.classList.toggle('location-dialog',current==='location');
+  dialog.classList.toggle('install-dialog',current==='install');
   if(tab==='play'&&game&&game!=='tug')tab=game==='cavalry'?'timer':'scores';
   $('#detail-tabs').innerHTML=event?tabs.map(([key,label])=>`<button data-tab="${key}" class="${tab===key?'active':''}" aria-pressed="${tab===key}">${label}</button>`).join(''):'';
   if(event) {
@@ -278,6 +290,7 @@ function renderPanel() {
   else if(current==='data') body.innerHTML=dataPanel();
   else if(current==='sync') body.innerHTML=syncPanel();
   else if(current==='location') body.innerHTML=renderLocationGuide();
+  else if(current==='install') body.innerHTML=renderInstallGuide({...appInstall.state,moreOpen:body.querySelector('#install-browser-help')?.open});
   else if(current==='media') { body.innerHTML=mediaPanel(); updateMedia(); }
   if(!canEdit())body.querySelectorAll('[data-assign-slot],[data-borrow-rounds],[data-winner],[data-placement],[data-placement-rule],[data-team][data-field="name"],[data-team][data-field="seed"],[data-action="random-draw"],[data-action="seed-draw"],[data-action="lock-draw"],[data-action="clear-matches"]').forEach(el=>el.disabled=true);
   if(!writerAuthority())body.querySelectorAll('[data-action="reset-all"],[data-action="restore-before-sync"],#import-file').forEach(el=>el.disabled=true);
@@ -449,6 +462,11 @@ document.addEventListener('submit',async event=>{
 document.addEventListener('click',async event=>{
   const el=event.target.closest('button,[data-open]');if(!el||el.disabled)return;
   try {
+    if(el.hasAttribute('data-install-app')){
+      const result=await appInstall.install();
+      toast({accepted:'Follow the browser prompt to finish adding OLYMPICS.',installed:'OLYMPICS is added to your home screen.',dismissed:'You can add it later using the steps below.',failed:'Couldn’t open installation. Use the steps below.',unsupported:'Use the steps below to add it to your home screen.',busy:'Installation is already open.'}[result]);
+      return;
+    }
     if(el.dataset.syncAction){await syncAction(el.dataset.syncAction);return;}
     if(el.dataset.open){if(el.dataset.open==='rotation'&&el.dataset.rotaEvent!==undefined)selectEventRotation(Number(el.dataset.rotaEvent));openPanel(el.dataset.open,el.dataset.initialTab||null);return;}
     if(el.dataset.rotaGame){
@@ -593,7 +611,7 @@ function fitPoster(){
 $('#fit-toggle').addEventListener('click',()=>{fitEnabled=!fitEnabled;$('#fit-toggle').textContent=fitEnabled?'Expand layout':'Fit screen';$('#fit-toggle').setAttribute('aria-pressed',String(!fitEnabled));fitPoster();});
 document.querySelectorAll('[data-home-view-button]').forEach(button=>button.addEventListener('click',()=>{document.body.dataset.homeView=button.dataset.homeViewButton;document.querySelectorAll('[data-home-view-button]').forEach(item=>item.setAttribute('aria-pressed',String(item===button)));fitPoster();}));
 window.addEventListener('resize',fitPoster);document.fonts.ready.then(fitPoster);
-renderPoster();live.tick();
+renderPoster();live.tick();updateInstallUI();
 const linkedPosterSize=posterSizeFromSearch(location.search);
 if(linkedPosterSize){exportSize=linkedPosterSize;revealLinkedPoster=true;openPanel('media');}
 if(sync)void sync.start();else{$('#sync-label').textContent='Local preview';}

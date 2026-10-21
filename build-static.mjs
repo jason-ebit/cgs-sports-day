@@ -31,6 +31,8 @@ const files = [
   'connection-badge.js',
   'game-timeline.js',
   'location-guide.js',
+  'app-install.js',
+  'install-guide.js',
   'calendar-link.js',
   'share-link.js',
   'schedule.json',

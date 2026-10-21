@@ -2,9 +2,11 @@
 
 ## Use on a phone
 
-The published site is installable and keeps its app shell available offline after the first successful visit. On iPhone, open the GitHub Pages URL in Safari, choose **Share → Add to Home Screen**, and open it once while online. On Android, open the URL in Chrome and choose **Install app** or **Add to Home screen**.
+The published site is installable and keeps its app shell available offline after the first successful visit. On iPhone, open the GitHub Pages URL in Safari, choose **Share → Add to Home Screen**, and open it once while online. On Android, open the URL in Chrome and choose **⋮ → Install and create shortcut → Install**. Some versions say **Install app** or **Add to Home screen**.
 
 Shared scores, brackets, timers, committee names, round rota and equipment checks use Supabase. Everyone watches the same GitHub Pages link; one registered scorekeeper signs in through the status indicator in the top bar. Its panel is marked **Scorekeeper only**. A green blinking ● Live appears only while connected with confirmed scores; Pending / Review and Offline remain distinct. Committee reminders, leaders and headcounts stay in the browser on that phone. Use **Reset / backup → Download JSON backup** to safeguard device data.
+
+Use **Install app** at the bottom of the home screen for the compact iPhone / Android guide. Other-browser help includes Firefox and Samsung Internet. A direct install button appears only when the browser provides an installation prompt; dismissing it keeps the manual steps available. The installed app shows **App guide** instead. Instructions follow [Apple Safari](https://support.apple.com/guide/iphone/iphea86e5236/ios), [Google Chrome](https://support.google.com/chrome/answer/9658361?co=GENIE.Platform%3DAndroid&hl=en) and [Firefox for iOS](https://support.mozilla.org/en-US/kb/add-website-shortcut-your-home-screen-ios). Live scores still need internet.
 
 Updates install as a complete offline version and take effect on the next page load. They never reload a running timer. If an update download fails, the installed version remains available.
 

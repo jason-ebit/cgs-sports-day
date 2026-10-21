@@ -19,6 +19,7 @@ The user then asked to move the work to Codex. No completed interactive app sour
 - Venue: 응봉공원 · 다목적구장. Meet at the second, larger rectangular court on the supplied park map.
 - Venue map: https://naver.me/59lqYcXJ. Toilet map: https://naver.me/G6RwJ9lQ.
 - Walking guide: from the entrance turn right, go up the stairs, then right to the larger court. The guide includes the actual field photo after the entrance photo and route map. Both supplied HEIC attachments were the same entrance photo; the distinct staircase photo is still needed.
+- Home has an Install app guide with iPhone / Android steps and compact Firefox / Samsung help. A native install button appears only after the browser offers installation; the manual guide stays available. Live scores require internet.
 - Committee arrival: 11:40; participant program: 12:00–16:00; field clear by 16:00.
 - Five mixed teams, roughly 6–8 members each; around 15 men (unconfirmed) and 15–20+ women.
 - Default team identifiers: Red, Blue, Yellow, Green, White. Team names and leaders are editable, not already known.
