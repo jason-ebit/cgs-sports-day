@@ -1,4 +1,5 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=56';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=57';
+import { changedScoreUnits, scoreUnits, rebaseScoreSnapshot, reanchorScoreIntent, replaceScoreUnits, sameScoreValue } from './sync-merge.js?v=57';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
@@ -88,82 +89,114 @@ function samePublic(a, b) {
   return JSON.stringify(normalized) === JSON.stringify(reference);
 }
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const clone = value => structuredClone(value);
+const canonical = snapshot => publicSnapshot(mergePublicState(snapshot));
+const validRevision = value => Number.isSafeInteger(value) && value >= 0;
 
-// The database owns the writer lease and revision. An attempted operation stays
-// immutable until acknowledged, so a lost response can be retried idempotently.
+// Devices share editor authority, while every immutable request still uses a
+// revision compare-and-swap. Pending intent is based on real public snapshots.
 export function createSyncService({
   url, publishableKey, eventId = 'cgs-oct25', fetch: fetcher = globalThis.fetch,
   now = () => Date.now(), uuid = () => globalThis.crypto.randomUUID(),
   getStorage = () => globalThis.localStorage,
   scheduler = globalThis, subscribe, onStatus = () => {}, onRemote = () => {},
-  pollMs = 30000, heartbeatMs = 40000, requestTimeoutMs = 15000,
+  pollMs = 30000, requestTimeoutMs = 15000,
 } = {}) {
   if (!/^https:\/\/[^/]+\.supabase\.co\/?$/.test(url ?? '') || !publishableKey) throw Error('Shared scores need a Supabase project URL and publishable key.');
   const baseUrl = url.replace(/\/$/, ''), storageKey = `cg-sports-day-sync:${baseUrl}:${eventId}`;
-  let writerId = uuid(), session = null, wantsWriter = false, role = 'viewer';
-  let revision = null, remote = null, offsetMs = 0, connected = false, phase = 'connecting', error = '';
-  let outbox = [], storageError = false, protectedStorage = false, running = false, interval = null, unsubscribe = null;
-  let sending = null, refreshing = null, refreshingToken = null, renewing = null;
-  let lastAck = null, lastRenewal = 0, remoteAvailable = false, deliveredOffset = null;
-  let blockedConflict = false, conflictMessage = '';
-  let knownLeaseRevision = null;
+  let writerId = uuid(), session = null, wantsWriter = false, role = 'viewer', editingMode = null;
+  let revision = null, remote = null, confirmed = null, presented = null, lastDelivered = null;
+  let unitVersions = {}, resetRevision = 0, offsetMs = 0, connected = false, phase = 'connecting', error = '';
+  let outbox = [], legacyOutbox = [], blockedConflict = false, conflictMessage = '';
+  let storageError = false, protectedStorage = false, running = false, interval = null, unsubscribe = null;
+  let sending = null, refreshing = null, refreshingToken = null, authorizing = null, deliveredOffset = null;
 
-  function validateSnapshot(value) { mergePublicState(value); return value; }
+  function validateSession(value) {
+    if (value !== null && (!value || typeof value.access_token !== 'string' || typeof value.refresh_token !== 'string' || !Number.isFinite(value.expires_at))) throw Error('Invalid saved login.');
+    return value;
+  }
+  function validateVersions(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 2000 || Object.values(value).some(version => !validRevision(version))) throw Error('The shared unit revisions are invalid.');
+    return { ...value };
+  }
   try {
     const raw = getStorage().getItem(storageKey);
     if (raw !== null) {
-      const stored = JSON.parse(raw);
-      if (!stored || !uuidPattern.test(stored.writerId) || !Array.isArray(stored.outbox) || stored.outbox.length > 2 || typeof stored.wantsWriter !== 'boolean') throw Error('Invalid saved sync data.');
-      if (stored.conflict !== undefined && typeof stored.conflict !== 'boolean') throw Error('Invalid saved sync conflict.');
-      if (stored.revision !== undefined && stored.revision !== null && (!Number.isSafeInteger(stored.revision) || stored.revision < 0)) throw Error('Invalid saved shared revision.');
-      if (stored.leaseRevision !== undefined && stored.leaseRevision !== null && (!Number.isSafeInteger(stored.leaseRevision) || stored.leaseRevision < 0)) throw Error('Invalid saved scorekeeper revision.');
-      if (stored.offsetMs !== undefined && !Number.isSafeInteger(stored.offsetMs)) throw Error('Invalid saved server clock offset.');
-      for (const item of stored.outbox) {
-        if (!uuidPattern.test(item.operationId) || !Number.isSafeInteger(item.baseRevision) || item.baseRevision < 0 || typeof item.attempted !== 'boolean') throw Error('Invalid pending result.');
-        if (item.leaseRevision !== undefined && (!Number.isSafeInteger(item.leaseRevision) || item.leaseRevision < 0)) throw Error('Invalid pending scorekeeper revision.');
-        validateSnapshot(item.snapshot);
+      const saved = JSON.parse(raw);
+      if (!saved || !uuidPattern.test(saved.writerId) || !Array.isArray(saved.outbox) || saved.outbox.length > 2 || typeof saved.wantsWriter !== 'boolean') throw Error('Invalid saved sync data.');
+      session = validateSession(saved.session); writerId = saved.writerId; wantsWriter = saved.wantsWriter;
+      if (saved.format === 2) {
+        if (saved.revision !== null && !validRevision(saved.revision)) throw Error('Invalid saved revision.');
+        revision = saved.revision; unitVersions = validateVersions(saved.unitVersions); resetRevision = saved.resetRevision;
+        if (!validRevision(resetRevision) || revision !== null && (resetRevision > revision || Object.values(unitVersions).some(value => value > revision))) throw Error('Invalid reset revision.');
+        confirmed = saved.confirmed === null ? null : canonical(saved.confirmed);
+        presented = saved.presented === null ? null : canonical(saved.presented);
+        editingMode = saved.editingMode === 'shared-v1' ? 'shared-v1' : null;
+        outbox = saved.outbox.map((item, index) => {
+          if (!item || !uuidPattern.test(item.operationId) || !validRevision(item.baseRevision) || typeof item.attempted !== 'boolean' || typeof item.barrier !== 'boolean' || index > 0 && item.attempted) throw Error('Invalid pending update.');
+          if (!sameScoreValue(canonical(item.baseSnapshot), item.baseSnapshot) || !sameScoreValue(canonical(item.snapshot), item.snapshot)) throw Error('The pending update contains unsupported fields.');
+          if (revision === null || item.baseRevision > revision) throw Error('Invalid pending base revision.');
+          if (item.attempted && (!item.request || item.request.p_operation_id !== item.operationId || item.request.p_device_id !== writerId || item.request.p_event_id !== eventId || item.request.p_expected_revision !== item.baseRevision || item.request.p_barrier !== item.barrier || !sameScoreValue(item.request.p_snapshot, item.snapshot))) throw Error('Invalid attempted request.');
+          if (item.attempted && Object.keys(item.request).sort().join(',') !== ['p_event_id', 'p_device_id', 'p_expected_revision', 'p_operation_id', 'p_snapshot', 'p_barrier'].sort().join(',')) throw Error('Invalid attempted request fields.');
+          return clone(item);
+        });
+        legacyOutbox = Array.isArray(saved.legacyOutbox) ? saved.legacyOutbox : [];
+        if (legacyOutbox.length > 2) throw Error('Invalid older pending updates.');
+        for (const item of legacyOutbox) canonical(item.snapshot);
+        blockedConflict = saved.conflict === true || legacyOutbox.length > 0;
+        conflictMessage = typeof saved.conflictMessage === 'string' ? saved.conflictMessage.slice(0, 240) : '';
+      } else {
+        for (const item of saved.outbox) {
+          if (!item || !uuidPattern.test(item.operationId) || !validRevision(item.baseRevision) || typeof item.attempted !== 'boolean') throw Error('Invalid older pending update.');
+          canonical(item.snapshot);
+        }
+        legacyOutbox = clone(saved.outbox);
+        // Older queues do not include their true base snapshots. They cannot
+        // safely be converted into intent against today's shared scores.
+        if (legacyOutbox.length) {
+          blockedConflict = true;
+          conflictMessage = 'Older pending results were kept on this device. Download a backup, then load the shared scores before editing.';
+        }
       }
-      if (stored.session !== null && (!stored.session || typeof stored.session.access_token !== 'string' || typeof stored.session.refresh_token !== 'string' || !Number.isFinite(stored.session.expires_at))) throw Error('Invalid saved login.');
-      writerId = stored.writerId; outbox = stored.outbox; session = stored.session; wantsWriter = stored.wantsWriter;
-      revision = stored.revision ?? null; knownLeaseRevision = stored.leaseRevision ?? outbox[0]?.leaseRevision ?? null;
-      offsetMs = stored.offsetMs ?? 0;
-      role = wantsWriter && session ? 'writer' : 'viewer';
-      blockedConflict = stored.conflict === true;
-      conflictMessage = blockedConflict ? 'The shared scores changed. Pending results were kept on this device.' : '';
-      if (outbox.length) { phase = blockedConflict ? 'conflict' : 'pending'; revision = outbox[0].baseRevision; }
+      if (saved.offsetMs !== undefined && !Number.isSafeInteger(saved.offsetMs)) throw Error('Invalid saved server offset.');
+      offsetMs = saved.offsetMs || 0;
+      role = session && wantsWriter && editingMode === 'shared-v1' ? 'writer' : 'viewer';
+      if (blockedConflict) phase = 'conflict'; else if (outbox.length) phase = 'pending';
     }
-  } catch { storageError = true; protectedStorage = true; }
+  } catch { storageError = true; protectedStorage = true; role = 'viewer'; }
 
+  const pending = () => outbox.length + legacyOutbox.length;
   function persist() {
     if (protectedStorage) return false;
     try {
-      getStorage().setItem(storageKey, JSON.stringify({ writerId, session, wantsWriter, outbox, conflict: blockedConflict,
-        revision, leaseRevision: knownLeaseRevision, offsetMs }));
+      getStorage().setItem(storageKey, JSON.stringify({ format: 2, writerId, session, wantsWriter, editingMode,
+        revision, unitVersions, resetRevision, confirmed, presented, outbox, legacyOutbox,
+        conflict: blockedConflict, conflictMessage, offsetMs }));
       storageError = false; return true;
     } catch { storageError = true; return false; }
   }
   function status() {
-    return { phase, role, pending: outbox.length, revision, connected, email: session?.user?.email ?? '',
-      signedIn: Boolean(session), error, remoteAvailable, storageError, offsetMs };
+    return { phase, role, pending: pending(), revision, connected, email: session?.user?.email ?? '', signedIn: Boolean(session),
+      error, remoteAvailable: confirmed !== null, storageError, offsetMs, editingMode, legacyPending: legacyOutbox.length > 0 };
   }
-  function emit(nextPhase = phase, message = '') {
-    phase = blockedConflict ? 'conflict' : nextPhase;
+  function emit(next = phase, message = '') {
+    phase = blockedConflict ? 'conflict' : next;
     error = blockedConflict ? conflictMessage : message;
     onStatus(status());
   }
-  function block(message) { blockedConflict = true; conflictMessage = message; persist(); emit('conflict'); }
+  function block(message = 'These pending changes overlap newer shared results. Download a backup, then load the shared scores before editing.') {
+    blockedConflict = true; conflictMessage = message; persist(); emit('conflict');
+  }
   function failure(cause) {
     connected = false;
-    if (cause?.status === 401 || (cause?.status === 400 && !session)) {
-      emit('signed-out', 'Sign in again to continue syncing.'); return;
-    }
-    emit(outbox.length ? 'pending' : 'offline', cause?.network ? 'Waiting for a connection.' : cause?.message || 'Shared scores are unavailable.');
+    if (cause?.status === 401 || !session && cause?.status === 400) { emit('signed-out', 'Sign in again to continue syncing.'); return; }
+    emit(pending() ? 'pending' : 'offline', cause?.network ? 'Waiting for a connection.' : cause?.message || 'Shared scores are unavailable.');
   }
   async function request(path, { method = 'POST', body, auth = false } = {}) {
     const start = now(), headers = { apikey: publishableKey, 'Content-Type': 'application/json' };
     if (auth) {
       await ensureSession();
-      if (!session) throw Error('Sign in to keep score.');
+      if (!session) throw Object.assign(Error('Sign in to keep score.'), { status: 401 });
       headers.Authorization = `Bearer ${session.access_token}`;
     }
     let response, data;
@@ -171,27 +204,18 @@ export function createSyncService({
     try {
       response = await fetcher(baseUrl + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), cache: 'no-store', signal: controller.signal });
       try { data = await response.json(); }
-      catch (cause) {
-        if (controller.signal.aborted || cause?.name === 'AbortError') throw cause;
-        throw Error('The shared score service returned an unreadable response.');
-      }
+      catch (cause) { if (controller.signal.aborted || cause?.name === 'AbortError') throw cause; throw Error('The shared score service returned an unreadable response.'); }
     } catch (cause) {
-      if (controller.signal.aborted || cause?.name === 'AbortError' || !response) {
-        const networkError = Error('Waiting for a connection.'); networkError.network = true; throw networkError;
-      }
+      if (controller.signal.aborted || cause?.name === 'AbortError' || !response) throw Object.assign(Error('Waiting for a connection.'), { network: true });
       throw cause;
-    }
-    finally { globalThis.clearTimeout(timeout); }
+    } finally { globalThis.clearTimeout(timeout); }
     if (!response.ok) {
-      const cause = Error(String(data?.msg || data?.message || data?.error_description || 'Unable to reach shared scores.').slice(0, 240));
-      cause.status = response.status;
-      if (response.status === 401 && auth) {
-        session = null; role = 'viewer'; wantsWriter = false; persist();
-        emit('signed-out', 'Sign in again to continue syncing.');
-      }
+      const cause = Object.assign(Error(String(data?.msg || data?.message || data?.error_description || 'Unable to reach shared scores.').slice(0, 240)), { status: response.status });
+      if (auth && response.status === 401) { session = null; role = 'viewer'; persist(); emit('signed-out', 'Sign in again to continue syncing.'); }
+      if (auth && response.status === 403) { role = 'viewer'; wantsWriter = false; persist(); emit('watching', 'This login no longer has scorekeeper access. Pending changes were kept on this device.'); }
       throw cause;
     }
-    if (data && Number.isFinite(data.server_ms) && (!remote || (data.server_ms >= remote.server_ms && data.lease_revision >= remote.lease_revision))) offsetMs = Math.round(data.server_ms - (start + now()) / 2);
+    if (Number.isFinite(data?.server_ms) && (!remote || data.revision >= remote.revision && data.server_ms >= remote.server_ms)) offsetMs = Math.round(data.server_ms - (start + now()) / 2);
     connected = true;
     return data;
   }
@@ -202,160 +226,150 @@ export function createSyncService({
       user: { email: data.user?.email || session?.user?.email || '' } };
   }
   async function ensureSession() {
-    if (!session) return;
-    if (session.expires_at * 1000 - now() > 60000) return;
+    if (!session || session.expires_at * 1000 - now() > 60000) return;
     if (!refreshingToken) refreshingToken = (async () => {
-      try {
-        const data = await request('/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: session.refresh_token } });
-        session = normalizeSession(data); persist();
-      } catch (cause) {
-        if (cause.status === 400 || cause.status === 401) { session = null; role = 'viewer'; persist(); emit('signed-out', 'Sign in again to continue syncing.'); }
-        throw cause;
-      } finally { refreshingToken = null; }
+      try { session = normalizeSession(await request('/auth/v1/token?grant_type=refresh_token', { body: { refresh_token: session.refresh_token } })); persist(); }
+      catch (cause) { if ([400, 401].includes(cause.status)) { session = null; role = 'viewer'; persist(); emit('signed-out', 'Sign in again to continue syncing.'); } throw cause; }
+      finally { refreshingToken = null; }
     })();
     await refreshingToken;
   }
   function record(data) {
-    if (!data || !Number.isSafeInteger(data.revision) || data.revision < 0) throw Error('The shared score revision is invalid.');
-    if (!Number.isSafeInteger(data.lease_revision) || data.lease_revision < 0) throw Error('The shared scorekeeper revision is invalid.');
-    if (data.public_state !== null) validateSnapshot(data.public_state);
-    if ((revision !== null && data.revision < revision) || (remote && (data.revision < remote.revision || data.lease_revision < remote.lease_revision))) return false;
-    remote = data; remoteAvailable = data.public_state !== null;
-    knownLeaseRevision = data.lease_revision;
+    if (!data || !validRevision(data.revision)) throw Error('The shared score revision is invalid.');
+    const versions = validateVersions(data.unit_versions || {}), reset = data.reset_revision ?? 0;
+    if (!validRevision(reset) || reset > data.revision || Object.values(versions).some(value => value > data.revision)) throw Error('The shared change history is invalid.');
+    const snapshot = data.public_state === null ? null : canonical(data.public_state);
+    if (revision !== null && data.revision < revision) return false;
+    remote = data; revision = data.revision; confirmed = snapshot; unitVersions = versions; resetRevision = reset;
+    if (data.editing_mode === 'shared-v1') editingMode = 'shared-v1';
     return true;
   }
-  function deliver(data) {
-    const changed = revision !== data.revision || !lastAck || deliveredOffset === null || Math.abs(deliveredOffset - offsetMs) > 1000;
-    revision = data.revision;
-    if (data.public_state !== null) {
-      lastAck = data.public_state;
-      if (changed) { deliveredOffset = offsetMs; onRemote(data.public_state, { revision, offsetMs }); }
+  function options(item) { return { baseRevision: item.baseRevision, currentRevision: revision, unitVersions, resetRevision, barrier: item.barrier, now: now() + offsetMs }; }
+  function deliver(snapshot, { force = false } = {}) {
+    if (!snapshot || legacyOutbox.length || protectedStorage) return;
+    const changed = force || !sameScoreValue(lastDelivered, snapshot) || deliveredOffset === null || Math.abs(deliveredOffset - offsetMs) > 1000;
+    presented = clone(snapshot);
+    if (changed) { lastDelivered = clone(snapshot); deliveredOffset = offsetMs; onRemote(clone(snapshot), { revision, offsetMs }); }
+  }
+  function projection({ force = false } = {}) {
+    if (!confirmed || legacyOutbox.length || protectedStorage) return;
+    let view = clone(confirmed);
+    for (const item of outbox) {
+      const result = rebaseScoreSnapshot(item.baseSnapshot, item.snapshot, view, { ...options(item), projecting: true });
+      if (result.ok) view = result.snapshot;
+      else {
+        // An attempted head may already have committed; only its exact retry
+        // can resolve that uncertainty. Keep the local intent visible while
+        // unrelated confirmed changes continue to arrive.
+        try {
+          const local = reanchorScoreIntent(item.baseSnapshot, item.snapshot, view, { now: now() + offsetMs });
+          view = canonical(local);
+        } catch { view = presented || item.snapshot; }
+      }
     }
+    deliver(view, { force });
+    persist();
   }
   async function refresh() {
     if (refreshing) return refreshing;
     refreshing = (async () => {
       try {
         const data = await request('/rest/v1/rpc/read_sports_day_event', { body: { p_event_id: eventId } });
-        if (!record(data)) return remote;
-        if (role === 'writer' && data.writer_id !== writerId) {
-          role = 'viewer'; wantsWriter = false; persist();
-          if (outbox.length) block('Scorekeeping moved to another phone. Pending results were kept on this device.');
-          else emit('busy', 'Scorekeeping moved to another phone.');
-          if (!outbox.length) deliver(data);
-        } else if (outbox.length) {
-          emit(phase === 'conflict' ? 'conflict' : 'pending', phase === 'conflict' ? error : 'Results are waiting to sync.');
-        } else {
-          deliver(data); emit(role === 'writer' ? 'synced' : 'watching');
-        }
-        return data;
+        if (record(data)) { projection(); persist(); emit(outbox.length ? 'pending' : role === 'writer' ? 'synced' : 'watching'); }
+        return remote;
       } catch (cause) { failure(cause); throw cause; }
       finally { refreshing = null; }
     })();
     return refreshing;
   }
   async function login(email, password) {
-    const data = await request('/auth/v1/token?grant_type=password', { body: { email: email.trim(), password } });
-    session = normalizeSession(data); persist(); emit(outbox.length ? 'pending' : 'watching');
-    return session.user;
+    session = normalizeSession(await request('/auth/v1/token?grant_type=password', { body: { email: email.trim(), password } }));
+    persist(); emit(pending() ? 'pending' : 'watching'); return session.user;
   }
-  async function claimWriter({ transfer = false, adoptRemote = true, flushPending = true } = {}) {
-    const data = await request('/rest/v1/rpc/claim_sports_day_writer', { auth: true, body: {
-      p_event_id: eventId, p_writer_id: writerId, p_transfer: Boolean(transfer),
-    } });
-    if (!record(data)) return false;
-    if (data.status !== 'claimed') {
-      role = 'viewer'; wantsWriter = false; persist();
-      if (outbox.length) block('Another phone is keeping score. Pending results were kept on this device.');
-      else emit('busy', 'Another phone is keeping score. Use Transfer to move it here.');
-      return false;
-    }
-    role = 'writer'; wantsWriter = true; lastRenewal = now();
-    if (outbox.length && outbox[0].leaseRevision !== data.lease_revision) block('Scorekeeping changed phones. Load the shared scores before editing. Pending results were kept on this device.');
-    if (!outbox.length) {
-      revision = data.revision;
-      lastAck = data.public_state;
-      if (adoptRemote && data.public_state !== null) onRemote(data.public_state, { revision, offsetMs });
-    }
-    persist(); emit(outbox.length ? 'pending' : 'synced');
-    if (outbox.length && flushPending && !blockedConflict) await flush();
+  async function claimWriter({ adoptRemote = true, flushPending = true } = {}) {
+    if (authorizing) return authorizing;
+    authorizing = (async () => {
+      try {
+        const data = await request('/rest/v1/rpc/authorize_sports_day_editor', { auth: true, body: { p_event_id: eventId, p_device_id: writerId } });
+        if (data.status !== 'authorized' || data.editing_mode !== 'shared-v1') { role = 'viewer'; persist(); emit('watching', 'Shared editing needs the latest server setup.'); return false; }
+        record(data); editingMode = 'shared-v1'; role = 'writer'; wantsWriter = true;
+        if (adoptRemote || outbox.length) projection({ force: true });
+        persist(); emit(pending() ? 'pending' : 'synced');
+        if (outbox.length && flushPending && !blockedConflict) await flush();
+        return true;
+      } catch (cause) { if (cause.status === 403) role = 'viewer'; failure(cause); throw cause; }
+      finally { authorizing = null; }
+    })();
+    return authorizing;
+  }
+  function queue(state, { barrier = false } = {}) {
+    if (role !== 'writer' || blockedConflict || protectedStorage || revision === null) return false;
+    let snapshot = publicSnapshot(state, { offsetMs });
+    const baseline = presented || confirmed || publicSnapshot(defaultState());
+    if (!barrier && samePublic(snapshot, baseline)) return true;
+    // Ignore small clock-offset noise without hiding any explicit timer edit.
+    if (samePublic(snapshot, baseline)) snapshot = clone(baseline);
+    const tail = outbox.at(-1);
+    if (tail && !tail.attempted) { tail.snapshot = clone(snapshot); tail.barrier ||= Boolean(barrier); tail.operationId = uuid(); }
+    else outbox.push({ operationId: uuid(), baseRevision: revision, baseSnapshot: clone(baseline), snapshot: clone(snapshot), barrier: Boolean(barrier), attempted: false, request: null });
+    presented = clone(snapshot);
+    persist(); emit('pending'); void flush(); return true;
+  }
+  function retargetTail(oldItem, nextSnapshot) {
+    const tail = outbox[1];
+    if (!tail || tail.attempted) return true;
+    const oldValues = scoreUnits(oldItem.snapshot), newValues = scoreUnits(nextSnapshot);
+    const transformed = changedScoreUnits(oldItem.baseSnapshot, oldItem.snapshot).filter(unit => !sameScoreValue(oldValues[unit], newValues[unit]));
+    if (!transformed.length) return true;
+    const anchor = replaceScoreUnits(tail.baseSnapshot, nextSnapshot, transformed);
+    let next;
+    try { next = reanchorScoreIntent(tail.baseSnapshot, tail.snapshot, anchor, { now: now() + offsetMs }); }
+    catch { block('The pending timer change needs review. Download a backup, then load the shared scores before editing.'); return false; }
+    tail.snapshot = next;
+    tail.baseSnapshot = anchor;
     return true;
   }
-  async function renewWriter() {
-    if (renewing) return renewing;
-    renewing = (async () => {
-      try { return await claimWriter({ adoptRemote: false, flushPending: false }); }
-      catch (cause) { failure(cause); return false; }
-      finally { renewing = null; }
-    })();
-    return renewing;
-  }
-  function queue(state) {
-    if (role !== 'writer' || blockedConflict) return false;
-    const snapshot = publicSnapshot(state, { offsetMs });
-    if (samePublic(snapshot, outbox.at(-1)?.snapshot ?? lastAck)) return true;
-    if (revision === null) return false;
-    const tail = outbox.at(-1);
-    if (tail && !tail.attempted) {
-      tail.snapshot = snapshot; tail.operationId = uuid();
-    } else {
-      outbox.push({ baseRevision: outbox.length ? outbox[0].baseRevision + 1 : revision,
-        leaseRevision: outbox[0]?.leaseRevision ?? knownLeaseRevision, operationId: uuid(), snapshot, attempted: false });
-    }
-    persist(); emit('pending');
-    void flush();
+  function prepare(item, { afterConflict = false } = {}) {
+    const base = confirmed || publicSnapshot(defaultState());
+    const result = rebaseScoreSnapshot(item.baseSnapshot, item.snapshot, base, options(item));
+    if (!result.ok) { block(); projection(); return false; }
+    if (!retargetTail(item, result.snapshot)) return false;
+    if (afterConflict) item.operationId = uuid();
+    item.baseSnapshot = clone(base); item.baseRevision = revision; item.snapshot = clone(result.snapshot); item.attempted = false; item.request = null;
     return true;
   }
   async function flush() {
     if (sending) return sending;
     if (role !== 'writer' || blockedConflict || !outbox.length) return false;
     sending = (async () => {
-      if (now() - lastRenewal >= heartbeatMs && !await renewWriter()) return false;
+      let races = 0;
       while (role === 'writer' && outbox.length && !blockedConflict) {
-        const item = outbox[0]; item.attempted = true; persist(); emit('syncing');
+        const item = outbox[0];
+        if (!item.attempted) {
+          if (!prepare(item)) return false;
+          if (!item.barrier && sameScoreValue(item.snapshot, confirmed)) { outbox.shift(); projection({ force: true }); persist(); continue; }
+          item.request = { p_event_id: eventId, p_device_id: writerId, p_expected_revision: item.baseRevision, p_operation_id: item.operationId, p_snapshot: clone(item.snapshot), p_barrier: item.barrier };
+          item.attempted = true; persist();
+        }
+        emit('syncing');
         try {
-          const data = await request('/rest/v1/rpc/apply_sports_day_update', { auth: true, body: {
-            p_event_id: eventId, p_writer_id: writerId, p_expected_revision: item.baseRevision,
-            p_operation_id: item.operationId, p_snapshot: item.snapshot,
-          } });
-          if (!record(data)) {
-            if (remote?.writer_id !== writerId) { role = 'viewer'; wantsWriter = false; }
-            block('The shared scores changed. Pending results were kept on this device.'); return false;
-          }
-          if (!['applied', 'duplicate'].includes(data.status)) {
-            if (data.status === 'lease_lost') { role = 'viewer'; wantsWriter = false; }
-            block(data.status === 'lease_lost' ? 'Scorekeeping moved to another phone. Pending results were kept on this device.' : 'The shared scores changed. Pending results were kept on this device.');
-            persist(); return false;
-          }
-          revision = data.revision; lastAck = data.public_state; lastRenewal = now();
-          outbox.shift();
-          if (outbox.length) outbox[0].baseRevision = revision;
-          const omittedPaths=['committeeMembers','equipmentReady','committeeRotation'].filter(key=>item.snapshot[key]===undefined).map(key=>[key]);
-          if(item.snapshot.equipmentColdPacksReady===undefined&&!Object.hasOwn(item.snapshot.equipmentReady??{},'cold-packs'))omittedPaths.push(['equipmentColdPacksReady']);
-          if(omittedPaths.length&&data.public_state!==null){
-            const confirmed=publicSnapshot(mergePublicState(data.public_state)),defaults=publicSnapshot(defaultState());
-            // A new edit may have inherited defaults while an older retry was
-            // pending. Preserve both payloads and require review rather than
-            // guessing whether it meant to replace shared names, checks or rota.
-            for(const path of omittedPaths){
-              const atPath=value=>path.reduce((section,key)=>section?.[key],value);
-              const modernTail=outbox.find(pending=>atPath(pending.snapshot)!==undefined);
-              if(modernTail&&JSON.stringify(atPath(confirmed))!==JSON.stringify(atPath(defaults))
-                &&JSON.stringify(atPath(publicSnapshot(mergePublicState(modernTail.snapshot))))!==JSON.stringify(atPath(confirmed))){
-                const section=path[0]==='committeeMembers'?'Shared committee names':path[0]==='committeeRotation'?'Shared committee rotation':'Shared equipment checks';
-                block(`${section} need review. Pending changes were kept on this phone. Load the shared scores before continuing.`);
-                return false;
-              }
-            }
-            if(!outbox.length){
-              deliveredOffset=offsetMs;
-              onRemote(data.public_state,{revision,offsetMs});
-            }
-          }
-          persist(); emit(role === 'writer' ? outbox.length ? 'pending' : 'synced' : outbox.length ? 'conflict' : 'watching');
+          const data = await request('/rest/v1/rpc/apply_sports_day_patch', { auth: true, body: item.request });
+          record(data);
+          if (['applied', 'duplicate'].includes(data.status)) {
+            const applied = data.applied_revision ?? (data.status === 'applied' ? data.revision : null);
+            if (!validRevision(applied) || applied <= item.baseRevision || applied > data.revision) throw Error('The shared result receipt is invalid.');
+            outbox.shift();
+            if (outbox[0] && !outbox[0].attempted) outbox[0].baseRevision = Math.max(outbox[0].baseRevision, applied);
+            persist(); projection({ force: true }); emit(outbox.length ? 'pending' : role === 'writer' ? 'synced' : 'watching'); races = 0;
+          } else if (data.status === 'conflict') {
+            if (!prepare(item, { afterConflict: true })) return false;
+            persist(); projection({ force: true });
+            // Bounded retry prevents a busy event from monopolising the UI.
+            if (++races >= 5) { emit('pending', 'Other results are arriving. Retrying shortly.'); return false; }
+          } else { block('The server could not confirm these changes. Pending results were kept on this device.'); return false; }
         } catch (cause) { failure(cause); return false; }
       }
-      return !outbox.length;
+      return outbox.length === 0;
     })();
     try { return await sending; } finally { sending = null; }
   }
@@ -363,43 +377,31 @@ export function createSyncService({
     if (sending) await sending;
     const data = await refresh();
     if (!data || data.public_state === null) throw Error('There are no shared scores to load yet.');
-    outbox = []; blockedConflict = false; conflictMessage = ''; protectedStorage = false; persist();
-    revision = null; deliver(data); emit(role === 'writer' ? 'synced' : 'watching');
-    return true;
+    outbox = []; legacyOutbox = []; blockedConflict = false; conflictMessage = ''; protectedStorage = false;
+    record(data); deliver(confirmed, { force: true }); persist(); emit(role === 'writer' ? 'synced' : 'watching'); return true;
   }
   async function releaseWriter() {
+    role = 'viewer'; wantsWriter = false; persist(); emit(pending() ? 'pending' : 'watching');
     if (sending) await sending;
-    try {
-      if (session && role === 'writer') await request('/rest/v1/rpc/release_sports_day_writer', { auth: true, body: { p_event_id: eventId, p_writer_id: writerId } });
-    } finally {
-      role = 'viewer'; wantsWriter = false; persist(); emit(outbox.length ? 'pending' : 'watching');
-    }
   }
   async function logout() {
     const token = session?.access_token;
-    try { await releaseWriter(); } catch { /* Logout must still clear a local login offline. */ }
-    session = null; persist();
+    await releaseWriter(); session = null; persist();
+    emit(pending() ? 'pending' : 'watching');
     if (token) {
-      try { await fetcher(baseUrl + '/auth/v1/logout', { method: 'POST', headers: { apikey: publishableKey, Authorization: `Bearer ${token}` } }); }
-      catch { /* The server session will expire; no credential remains on this phone. */ }
+      const controller = new AbortController(), timeout = globalThis.setTimeout(() => controller.abort(), requestTimeoutMs);
+      try { await fetcher(baseUrl + '/auth/v1/logout?scope=local', { method: 'POST', headers: { apikey: publishableKey, Authorization: `Bearer ${token}` }, signal: controller.signal }); } catch { /* Local login still clears while offline. */ }
+      finally { globalThis.clearTimeout(timeout); }
     }
-    emit(outbox.length ? 'pending' : 'watching');
+    emit(pending() ? 'pending' : 'watching');
   }
   async function start() {
     if (running) return;
     running = true; emit();
-    if (subscribe) unsubscribe = subscribe(() => { void refresh().catch(() => {}); }, online => {
-      if (online) void refresh().catch(() => {});
-    });
-    interval = scheduler.setInterval(() => {
-      if (role === 'writer' && now() - lastRenewal >= heartbeatMs) void renewWriter().then(claimed => { if (claimed) void flush(); });
-      else if (outbox.length && role === 'writer') void flush();
-      void refresh().catch(() => {});
-    }, pollMs);
-    try {
-      await refresh();
-      if (wantsWriter && session) await claimWriter({ adoptRemote: !outbox.length });
-    } catch (cause) { failure(cause); }
+    if (subscribe) unsubscribe = subscribe(() => { void refresh().catch(() => {}); }, online => { if (online) void refresh().then(() => { if (role === 'writer') void flush(); }).catch(() => {}); });
+    interval = scheduler.setInterval(() => { void refresh().then(() => { if (role === 'writer' && outbox.length) void flush(); }).catch(() => {}); }, pollMs);
+    try { await refresh(); if (session && wantsWriter) await claimWriter({ flushPending: true }); }
+    catch (cause) { failure(cause); }
   }
   function stop() {
     running = false;
@@ -410,6 +412,5 @@ export function createSyncService({
   }
   return { start, stop, refresh, login, logout, claimWriter, releaseWriter, queue, flush, acceptRemote,
     get status() { return status(); }, get role() { return role; }, get session() { return session?.user ?? null; },
-    get pending() { return outbox.length; }, get remote() { return remote; }, get offsetMs() { return offsetMs; },
-  };
+    get pending() { return pending(); }, get remote() { return remote; }, get offsetMs() { return offsetMs; } };
 }

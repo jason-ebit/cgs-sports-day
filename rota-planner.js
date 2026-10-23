@@ -1,6 +1,6 @@
-import { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, validateCommitteeRotation } from './rota-model.js?v=56';
-import { gameDone } from './model.js?v=56';
-import { roundDone } from './rounds.js?v=56';
+import { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, validateCommitteeRotation } from './rota-model.js?v=57';
+import { gameDone } from './model.js?v=57';
+import { roundDone } from './rounds.js?v=57';
 
 const PROTECTED = new Set(['director', 'judges', 'first-aid']);
 const STAFFED = ['equipment', 'food-water', 'comms'];

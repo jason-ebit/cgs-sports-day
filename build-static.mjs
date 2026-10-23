@@ -30,6 +30,7 @@ const files = [
   'view-state.js',
   'device-store.js',
   'sync.js',
+  'sync-merge.js',
   'sync-config.js',
   'before-sync.js',
   'connection-badge.js',

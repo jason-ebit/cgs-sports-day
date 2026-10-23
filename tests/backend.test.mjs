@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { defaultState, defaultCommitteeMembers, DEPARTMENT_IDS, COMMITTEE_SLOTS } from '../model.js';
 import { publicSnapshot, mergePublicState } from '../sync.js';
 
-// Schema contract checks, not a substitute for running against PostgreSQL.
+// Historical base-schema contract checks. The multi-device migration tests cover
+// the final active protocol. These checks are not a substitute for running against PostgreSQL.
 // They protect the default data and the public/private access boundary while
 // the production SQL is reviewed and installed in Supabase.
 const sql = readFileSync(new URL('../supabase/schema.sql', import.meta.url), 'utf8');
@@ -187,7 +188,7 @@ test('Only the signed-in editor can execute scorekeeper mutations', () => {
   }
 });
 
-test('Writes serialize, require the active lease and revision, and reject changed retries', () => {
+test('Historical base schema: writes serialize, require the active lease and revision, and reject changed retries', () => {
   const body = functionBody('public.apply_sports_day_update');
   const lock = body.indexOf('for update');
   const auth = body.indexOf('auth.uid()');
@@ -201,7 +202,7 @@ test('Writes serialize, require the active lease and revision, and reject change
   assert.match(body, /insert into sports_day_private\.operations/);
 });
 
-test('An expired phone remains the owner until an explicit transfer or release', () => {
+test('Historical base schema: an expired phone remains the owner until an explicit transfer or release', () => {
   const body = functionBody('public.claim_sports_day_writer');
   const busyGuard = body.match(/if not p_transfer([\s\S]*?)then\s+return sports_day_private\.reply\(e,'busy'\)/)[1];
   assert.match(busyGuard, /e\.writer_id is not null/);
@@ -210,7 +211,7 @@ test('An expired phone remains the owner until an explicit transfer or release',
   assert.ok(body.indexOf("reply(e,'busy')") < body.indexOf('update public.sports_day_events'));
 });
 
-test('Ownership changes are ordered separately from scores and ordinary renewals', () => {
+test('Historical base schema: ownership changes are ordered separately from scores and ordinary renewals', () => {
   const claim = functionBody('public.claim_sports_day_writer');
   const release = functionBody('public.release_sports_day_writer');
   const apply = functionBody('public.apply_sports_day_update');

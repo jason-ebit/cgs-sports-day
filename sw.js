@@ -1,4 +1,4 @@
-const VERSION = '56';
+const VERSION = '57';
 const CACHE = `cg-sports-day-v${VERSION}`;
 const scopeURL = new URL('./', self.location.href);
 const homeURL = new URL('./index.html', scopeURL).href;
@@ -11,7 +11,7 @@ const APP_SHELL = [
     './scoreboard-controller.js', './scoreboard-model.js', './scoreboard-view.js',
     './icons.js', './live.js', './media.js', './media-share.js', './model.js', './rounds.js', './flow-model.js', './panel-navigation.js', './first-aid-kit.js', './committee-rotation.js', './rota-model.js', './rota-planner.js', './rota-planner-ui.js',
     './timer-model.js', './timer-popup.js', './view-state.js', './device-store.js', './schedule.json',
-    './sync.js', './sync-config.js', './before-sync.js', './connection-badge.js', './game-timeline.js', './location-guide.js', './app-install.js', './install-guide.js', './calendar-link.js', './share-link.js'
+    './sync.js', './sync-merge.js', './sync-config.js', './before-sync.js', './connection-badge.js', './game-timeline.js', './location-guide.js', './app-install.js', './install-guide.js', './calendar-link.js', './share-link.js'
   ].map(path => `${path}?v=${VERSION}`),
   './manifest.webmanifest',
   './assets/favicon.svg',

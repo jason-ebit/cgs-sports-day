@@ -1,83 +1,155 @@
 import assert from 'node:assert/strict';
-import { defaultState, championship } from '../model.js';
-import { makeClock, startClock } from '../timer-model.js';
+import { isDeepStrictEqual } from 'node:util';
+import { defaultState, championship, TEAM_IDS, GAME_IDS } from '../model.js';
+import { makeClock, startClock, pauseClock, addTime } from '../timer-model.js';
+import { recordSuccess, eliminate, setBasketScore, finishBasketAttempt, resetRound, resetGame, recordWinner } from '../rounds.js';
 import { publicSnapshot, mergePublicState, createSyncService } from '../sync.js';
 
-const tests = [];
+const tests = [], activeServices = new Set();
+const clone = value => structuredClone(value);
+const deferred = () => { let resolve; const promise = new Promise(done => resolve = done); return {promise,resolve}; };
 async function test(name, fn) {
-  try { await fn(); tests.push({ name, passed: true }); }
-  catch (cause) { tests.push({ name, passed: false, cause }); }
+  try { await fn(); tests.push({name,passed:true}); }
+  catch (cause) { tests.push({name,passed:false,cause}); }
+  finally { for (const service of activeServices) service.stop(); activeServices.clear(); }
 }
 function memoryStorage() {
   const data = new Map();
-  return { data, getItem: key => data.get(key) ?? null, setItem: (key, value) => data.set(key, value) };
-}
-function fixture({ snapshot = publicSnapshot(defaultState()), localOffset = 0 } = {}) {
-  let serverNow = 1700000000000, counter = 0, offline = false, loseAck = false, denyAccess = false, responseJitter = 0;
-  let revision = 0, leaseRevision = 0, writer = null, lease = 0, shared = snapshot;
-  const operations = new Map(), calls = [], storage = memoryStorage(), intervals = new Map();
-  const uuid = () => `00000000-0000-4000-8000-${String(++counter).padStart(12, '0')}`;
-  const data = status => ({ status, public_state: shared, revision, lease_revision: leaseRevision, writer_id: writer,
-    lease_until: writer ? new Date(lease).toISOString() : null, server_ms: serverNow + responseJitter });
-  const response = (payload, status = 200) => ({ ok: status < 400, status, json: async () => payload });
-  const fetch = async (url, options) => {
-    const path = new URL(url).pathname, body = options.body ? JSON.parse(options.body) : {};
-    calls.push({ path, body, headers: options.headers });
-    if (offline) throw Error('Network offline');
-    assert.equal(options.headers.apikey, 'sb_publishable_test');
-    if (path === '/auth/v1/token') return response({ access_token: 'editor-access', refresh_token: 'editor-refresh', expires_in: 3600, user: { email: body.email || 'keeper@example.org' } });
-    if (path === '/auth/v1/logout') return response({});
-    if (path.endsWith('/read_sports_day_event')) return response(data());
-    if (denyAccess || options.headers.Authorization !== 'Bearer editor-access') return response({ message: 'Sign in first.' }, 401);
-    if (path.endsWith('/claim_sports_day_writer')) {
-      if (writer && writer !== body.p_writer_id && !body.p_transfer) return response(data('busy'));
-      if (writer !== body.p_writer_id) leaseRevision++;
-      writer = body.p_writer_id; lease = serverNow + 120000; return response(data('claimed'));
-    }
-    if (path.endsWith('/release_sports_day_writer')) {
-      if (writer !== body.p_writer_id) return response(data('lease_lost'));
-      writer = null; lease = 0; leaseRevision++; return response(data('released'));
-    }
-    if (path.endsWith('/apply_sports_day_update')) {
-      const prior = operations.get(body.p_operation_id);
-      if (prior) return response(data(prior === revision ? 'duplicate' : 'conflict'));
-      if (writer !== body.p_writer_id || lease <= serverNow) return response(data('lease_lost'));
-      if (body.p_expected_revision !== revision) return response(data('conflict'));
-      mergePublicState(body.p_snapshot);
-      const roster=body.p_snapshot.committeeMembers??shared?.committeeMembers??defaultState().committeeMembers;
-      const incoming=body.p_snapshot.equipmentReady??shared?.equipmentReady??defaultState().equipmentReady;
-      const {'cold-packs':nestedColdPacks,...equipment}=incoming;
-      const equipmentColdPacksReady=body.p_snapshot.equipmentColdPacksReady??nestedColdPacks??shared?.equipmentColdPacksReady??shared?.equipmentReady?.['cold-packs']??false;
-      const committeeRotation=body.p_snapshot.committeeRotation??shared?.committeeRotation??{};
-      revision++; shared = {...body.p_snapshot,committeeMembers:roster,equipmentReady:equipment,equipmentColdPacksReady,committeeRotation}; lease = serverNow + 120000;
-      operations.set(body.p_operation_id, revision);
-      if (loseAck) { loseAck = false; throw Error('Response lost after commit'); }
-      return response(data('applied'));
-    }
-    throw Error('Unexpected request ' + path);
-  };
-  const scheduler = { setInterval: fn => { const id = uuid(); intervals.set(id, fn); return id; }, clearInterval: id => intervals.delete(id) };
-  function service(options = {}) {
-    const statuses = [], delivered = [];
-    const sync = createSyncService({ url: 'https://test-project.supabase.co', publishableKey: 'sb_publishable_test',
-      fetch, getStorage: () => storage, uuid, scheduler, now: () => serverNow + localOffset,
-      onStatus: value => statuses.push(value), onRemote: (state, meta) => delivered.push({ state, meta }), ...options });
-    return { sync, statuses, delivered };
-  }
-  return { service, calls, storage, intervals, uuid, fetch,
-    now: () => serverNow, advance: ms => serverNow += ms,
-    offline: value => offline = value, loseAck: () => loseAck = true,
-    denyAccess: () => denyAccess = true, jitter: value => responseJitter = value,
-    get shared() { return shared; }, get revision() { return revision; }, get writer() { return writer; },
-    externalUpdate(state) { shared = publicSnapshot(state); revision++; },
-  };
-}
-async function writerFixture(options) {
-  const f = fixture(options), instance = f.service();
-  await instance.sync.start(); await instance.sync.login('keeper@example.org', 'private-password');
-  await instance.sync.claimWriter(); return { ...f, ...instance, fixture: f };
+  return {data,getItem:key=>data.get(key)??null,setItem:(key,value)=>data.set(key,value)};
 }
 
+// Independent model of the server's public transaction units. The production
+// client merge helper is deliberately not used to decide fixture conflicts.
+function serverUnits(snapshot) {
+  const s=mergePublicState(snapshot), units={};
+  for (const t of s.teams) {units[`team:${t.id}:name`]=t.name;units[`team:${t.id}:seed`]=t.seed;}
+  for (const [department,names] of Object.entries(s.committeeMembers)) names.forEach((name,index)=>units[`roster:${department}:${index}`]=name);
+  for (const [id,ready] of Object.entries(s.equipmentReady)) units[`equipment:${id}`]=ready;
+  for (const [round,people] of Object.entries(s.committeeRotation)) for (const [person,assignment] of Object.entries(people)) units[`rota:${round}:${person}`]=assignment;
+  units['borrow:rounds']=s.borrow.rounds;
+  for (let round=0;round<7;round++) units[`borrow:${round}`]=s.borrow.scores.map(row=>row[round]);
+  for (let round=0;round<3;round++) units[`relay:${round}`]=s.relay.scores.map(row=>row[round]);
+  TEAM_IDS.forEach((id,index)=>[0,1].forEach(attempt=>units[`basket:${id}:${attempt}`]={score:s.basket.scores[index][attempt],finished:s.finished.includes(`basket:${id}:${attempt}`)}));
+  for (const division of ['women','men']) units[`cavalry:${division}`]=snapshot.cavalry.divisions[division];
+  units['cavalry:config']={division:s.cavalry.division,cap:s.cavalry.cap};
+  units.tug=s.tug;
+  for (const game of GAME_IDS) units[`placements:${game}`]=snapshot.placements[game];
+  units.timing={timers:snapshot.timers,activeKey:snapshot.activeKey};
+  units['finished-other']=snapshot.finished.filter(key=>!key.startsWith('basket:'));
+  return units;
+}
+function serverBarrier(before, after) {
+  const a=mergePublicState(before),b=mergePublicState(after);
+  if(a.borrow.rounds!==b.borrow.rounds)return true;
+  for(const game of ['borrow','relay']) for(let team=0;team<5;team++) for(let round=0;round<a[game].scores[team].length;round++)
+    if(a[game].scores[team][round]!==null&&a[game].scores[team][round]!==b[game].scores[team][round])return true;
+  for(let team=0;team<5;team++) for(let attempt=0;attempt<2;attempt++) {
+    const key=`basket:${TEAM_IDS[team]}:${attempt}`,old=a.basket.scores[team][attempt],next=b.basket.scores[team][attempt];
+    if(old!==null&&next===null||a.finished.includes(key)&&(!b.finished.includes(key)||old!==next))return true;
+  }
+  for(const division of ['women','men']) {
+    const old=a.cavalry.divisions[division],next=b.cavalry.divisions[division];
+    if(old.started&&(!next.started||!isDeepStrictEqual(old.active,next.active))||old.eliminated.some((id,index)=>next.eliminated[index]!==id))return true;
+  }
+  if(a.tug.locked&&(!b.tug.locked||!isDeepStrictEqual(a.tug.slots,b.tug.slots)))return true;
+  if(Object.keys(a.tug.winners).some(match=>a.tug.winners[match]&&a.tug.winners[match]!==b.tug.winners[match]))return true;
+  if(Object.entries(a.timers).some(([key,clock])=>!b.timers[key]||clock.started&&!b.timers[key].started))return true;
+  return a.finished.some(key=>!b.finished.includes(key));
+}
+function fixture({snapshot=publicSnapshot(defaultState()),automaticRealtime=true}={}) {
+  let serverNow=1700000000000,counter=0,revision=0,resetRevision=0,shared=clone(snapshot),jitter=0,upgrade=false;
+  const unitVersions=Object.fromEntries(Object.keys(serverUnits(shared)).map(key=>[key,0]));
+  const operations=new Map(),sessions=new Map(),calls=[],intervals=new Map(),listeners=new Set(),devices=[];
+  const uuid=()=>`00000000-0000-4000-8000-${String(++counter).padStart(12,'0')}`;
+  const reply=(status,extra={})=>({status,editing_mode:upgrade?'upgrade-required':'shared-v1',public_state:clone(shared),revision,
+    unit_versions:{...unitVersions},reset_revision:resetRevision,server_ms:serverNow+jitter,...extra});
+  const response=(payload,status=200)=>({ok:status<400,status,payload:clone(payload),json:async()=>clone(payload)});
+  const notify=()=>{for(const listener of listeners)queueMicrotask(listener);};
+  function commit(next,{barrier=false}={}) {
+    mergePublicState(next);
+    const before=serverUnits(shared),after=serverUnits(next),nextRevision=revision+1;
+    for(const key of new Set([...Object.keys(before),...Object.keys(after)])) if(!isDeepStrictEqual(before[key],after[key]))unitVersions[key]=nextRevision;
+    if(barrier||serverBarrier(shared,next))resetRevision=nextRevision;
+    shared=clone(next);revision=nextRevision;
+    if(automaticRealtime)notify();
+  }
+  function issueSession(email='keeper@example.org') {
+    const id=uuid(),token=`access-${id}`,refresh=`refresh-${id}`;
+    const session={id,email,token,refresh,approved:email==='keeper@example.org',valid:true,refreshValid:true};
+    sessions.set(token,session);
+    return {access_token:token,refresh_token:refresh,expires_in:3600,user:{id:'approved-scorekeeper',email}};
+  }
+  const fetch=async(url,options)=>{
+    const address=new URL(url),path=address.pathname,body=options.body?JSON.parse(options.body):{};
+    calls.push({path,search:address.search,body:clone(body),headers:{...options.headers}});
+    assert.equal(options.headers.apikey,'sb_publishable_test');
+    if(path==='/auth/v1/token') {
+      if(address.searchParams.get('grant_type')==='refresh_token') {
+        const old=[...sessions.values()].find(item=>item.refresh===body.refresh_token);
+        if(!old?.refreshValid)return response({message:'Invalid Refresh Token'},400);
+        old.refreshValid=false;return response(issueSession(old.email));
+      }
+      return response(issueSession(body.email));
+    }
+    const token=options.headers.Authorization?.replace('Bearer ',''),session=sessions.get(token);
+    if(path==='/auth/v1/logout') {
+      if(session)for(const item of sessions.values())if(address.searchParams.get('scope')!=='local'||item.id===session.id){item.refreshValid=false;item.valid=false;}
+      return response({});
+    }
+    if(path.endsWith('/read_sports_day_event'))return response(reply('ready'));
+    if(!session?.valid)return response({message:'Sign in first.'},401);
+    if(!session.approved)return response({message:'This login is not the scorekeeper.'},403);
+    if(path.endsWith('/authorize_sports_day_editor'))return response(reply(upgrade?'upgrade_required':'authorized'));
+    if(/\/(claim_sports_day_writer|release_sports_day_writer|apply_sports_day_update)$/.test(path))return response(reply('upgrade_required'));
+    if(path.endsWith('/apply_sports_day_patch')) {
+      if(upgrade)return response(reply('upgrade_required'));
+      const prior=operations.get(body.p_operation_id);
+      if(prior) {
+        if(prior.device!==body.p_device_id||!isDeepStrictEqual(prior.body,body))return response({message:'An operation ID cannot be reused.'},400);
+        return response(reply('duplicate',{applied_revision:prior.revision}));
+      }
+      if(body.p_expected_revision!==revision)return response(reply('conflict'));
+      try{mergePublicState(body.p_snapshot);}catch{return response({message:'Invalid public score update.'},400);}
+      commit(body.p_snapshot,{barrier:body.p_barrier===true});
+      operations.set(body.p_operation_id,{device:body.p_device_id,body:clone(body),revision});
+      return response(reply('applied',{applied_revision:revision}));
+    }
+    throw Error('Unexpected request '+path);
+  };
+  const scheduler={setInterval:fn=>{const id=uuid();intervals.set(id,fn);return id;},clearInterval:id=>intervals.delete(id)};
+  function service({storage=memoryStorage(),initialState=defaultState(),localOffset=0,fetch:overrideFetch,onRemote,...options}={}) {
+    let visible=clone(initialState),offline=false,dropAck=false,hold=null;
+    const statuses=[],delivered=[];
+    const transport=async(url,request)=>{
+      if(offline)throw Error('Network offline');
+      const applying=new URL(url).pathname.endsWith('/apply_sports_day_patch');
+      const gate=applying?hold:null;if(gate)hold=null;
+      if(gate&&!gate.after){gate.entered.resolve();await gate.released.promise;}
+      const result=await (overrideFetch||fetch)(url,request);
+      if(gate&&gate.after){gate.entered.resolve();await gate.released.promise;}
+      if(applying&&dropAck&&result.payload?.status==='applied'){dropAck=false;throw Error('Response lost after commit');}
+      return result;
+    };
+    const sync=createSyncService({url:'https://test-project.supabase.co',publishableKey:'sb_publishable_test',fetch:transport,
+      getStorage:()=>storage,uuid,scheduler,now:()=>serverNow+localOffset,
+      subscribe:callback=>{listeners.add(callback);return()=>listeners.delete(callback);},
+      onStatus:value=>statuses.push(value),onRemote:(value,meta)=>{visible=mergePublicState(value,visible,{offsetMs:meta.offsetMs});delivered.push({state:clone(value),meta});onRemote?.(value,meta);},...options});
+    const device={sync,storage,statuses,delivered,get state(){return visible;},setState:value=>visible=clone(value),
+      offline:value=>offline=value,loseAck:()=>dropAck=true,
+      holdApply:({after=false}={})=>{const gate={after,entered:deferred(),released:deferred()};hold=gate;return{entered:gate.entered.promise,release:()=>gate.released.resolve()};}};
+    devices.push(device);activeServices.add(sync);return device;
+  }
+  return{service,calls,intervals,listeners,uuid,fetch,notify,now:()=>serverNow,advance:ms=>serverNow+=ms,jitter:value=>jitter=value,
+    externalUpdate:(state,options)=>commit(publicSnapshot(state),options),upgrade:value=>upgrade=value,
+    denyAccess:()=>{for(const session of sessions.values())session.valid=false;},
+    revokeApproval:()=>{for(const session of sessions.values())session.approved=false;},
+    get shared(){return shared;},get revision(){return revision;},get resetRevision(){return resetRevision;}};
+}
+async function editor(f,options={}) {const device=f.service(options);await device.sync.start();await device.sync.login('keeper@example.org','private-password');await device.sync.claimWriter();return device;}
+function edit(device,mutate,options) {const next=clone(device.state);mutate(next);device.setState(next);return device.sync.queue(next,options);}
+async function settle(...devices) {await Promise.all(devices.map(device=>device.sync.flush()));await Promise.all(devices.map(device=>device.sync.refresh()));}
+function startRound(state,key,now=1700000000000) {state.timers[key]=makeClock(60);startClock(state.timers,key,now);state.activeKey=key;}
+const applyCalls=f=>f.calls.filter(call=>call.path.endsWith('/apply_sports_day_patch'));
 await test('Shared snapshots include committee names but exclude private reminders, leaders, headcounts and rule text', () => {
   const s = defaultState();
   s.committeeMembers.director[0] = 'Shared director';
@@ -144,98 +216,6 @@ await test('Legacy shared snapshots normalize roster defaults and cannot retain 
   }
 });
 
-await test('A viewer fetches shared scores and can never queue an update', async () => {
-  const f = fixture(), { sync, delivered } = f.service(); await sync.start();
-  assert.equal(sync.role, 'viewer'); assert.equal(sync.status.phase, 'watching'); assert.equal(delivered.length, 1);
-  assert.equal(sync.queue(defaultState()), false); assert.equal(f.calls.some(c => c.path.endsWith('/apply_sports_day_update')), false);
-  assert.equal(f.calls[0].headers.Authorization, undefined, 'The publishable key is not a bearer token.'); sync.stop();
-});
-
-await test('Only a scorekeeper publishes committee name edits and other phones receive the shared roster', async () => {
-  const f=await writerFixture(),state=defaultState();state.committeeMembers.director[0]='New director';state.committeeMembers.warmup[0]='Warm-up lead';
-  state.committeeNotes.director={general:'Private reminder'};
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();
-  assert.deepEqual(f.fixture.shared.committeeMembers,state.committeeMembers);
-  assert.equal('committeeNotes' in f.fixture.shared,false);
-  const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
-  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeMembers,state.committeeMembers);
-  const changed=defaultState();changed.committeeMembers.director[0]='Viewer edit';
-  assert.equal(viewer.sync.queue(changed),false);assert.equal(f.fixture.shared.committeeMembers.director[0],'New director');
-  f.sync.stop();viewer.sync.stop();
-});
-
-await test('Only the scorekeeper publishes rota changes; viewers receive assignments and explicit clears',async()=>{
-  const f=await writerFixture(),state=defaultState();
-  state.committeeRotation={'tug:prelim':{'comms:0':{status:'playing',coverFor:null},'comms:1':{status:'cover',coverFor:'comms:0'}}};
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();assert.deepEqual(f.fixture.shared.committeeRotation,state.committeeRotation);
-  const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
-  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeRotation,state.committeeRotation);
-  const denied=defaultState();assert.equal(viewer.sync.queue(denied),false);assert.deepEqual(f.fixture.shared.committeeRotation,state.committeeRotation);
-  state.committeeRotation={};assert.equal(f.sync.queue(state),true);await f.sync.flush();await viewer.sync.refresh();
-  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeRotation,{});
-  f.sync.stop();viewer.sync.stop();
-});
-
-await test('Basket team turns stay separate across offline reloads and shared viewer updates',async()=>{
-  const f=await writerFixture(),state=defaultState();f.fixture.offline(true);
-  state.committeeRotation={
-    'basket:red:0':{'comms:0':{status:'playing',coverFor:null}},
-    'basket:red:1':{'comms:0':{status:'duty',coverFor:null}},
-    'basket:blue:0':{'comms:0':{status:'cover',coverFor:'equipment:0'}},
-  };
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();f.sync.stop();
-  const next=f.fixture.service();await next.sync.start();assert.equal(next.sync.pending,1);
-  f.fixture.offline(false);await next.sync.claimWriter();assert.equal(next.sync.pending,0);
-  const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
-  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).committeeRotation,state.committeeRotation);
-  state.committeeRotation['basket:blue:0']['comms:0']={status:'duty',coverFor:null};next.sync.queue(state);await next.sync.flush();await viewer.sync.refresh();
-  const shared=mergePublicState(viewer.delivered.at(-1).state).committeeRotation;
-  assert.equal(shared['basket:red:0']['comms:0'].status,'playing');assert.equal(shared['basket:red:1']['comms:0'].status,'duty');
-  assert.equal(shared['basket:blue:0']['comms:0'].status,'duty');next.sync.stop();viewer.sync.stop();
-});
-
-await test('Older snapshots default to an empty rota and reordered rota keys do not turn private saves into writes',async()=>{
-  const state=defaultState();state.committeeRotation={'relay:2':{'warmup:0':{status:'cover',coverFor:null}},'borrow:0':{'comms:1':{status:'duty',coverFor:null},'comms:0':{status:'playing',coverFor:null}}};
-  const reverseKeys=value=>Array.isArray(value)?value.map(reverseKeys):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([key,nested])=>[key,reverseKeys(nested)])):value;
-  const reordered=reverseKeys(publicSnapshot(state)),f=await writerFixture({snapshot:reordered});
-  state.notes[4]='Private reminder';assert.equal(f.sync.queue(state),true);await f.sync.flush();
-  assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);f.sync.stop();
-  const old=publicSnapshot(defaultState());delete old.committeeRotation;
-  assert.deepEqual(mergePublicState(old,state).committeeRotation,{});
-  for(const committeeRotation of [null,[],{'borrow:7':{}},{'borrow:0':{'comms:0':{status:'duty',coverFor:'comms:1'}}}])assert.throws(()=>mergePublicState({...old,committeeRotation}));
-});
-
-await test('An old writer can change a score without clearing the shared rota',async()=>{
-  const server=defaultState();server.committeeRotation={'borrow:0':{'comms:0':{status:'duty',coverFor:null}}};
-  const f=await writerFixture({snapshot:publicSnapshot(server)}),oldWriter=publicSnapshot(defaultState());
-  delete oldWriter.committeeRotation;oldWriter.borrow.scores[0][0]=5;
-  const response=await f.fixture.fetch('https://test-project.supabase.co/rest/v1/rpc/apply_sports_day_update',{
-    headers:{apikey:'sb_publishable_test',Authorization:'Bearer editor-access'},
-    body:JSON.stringify({p_writer_id:f.fixture.writer,p_expected_revision:f.fixture.revision,p_operation_id:f.fixture.uuid(),p_snapshot:oldWriter}),
-  });
-  const reply=await response.json();assert.equal(reply.status,'applied');assert.deepEqual(reply.public_state.committeeRotation,server.committeeRotation);
-  assert.equal(reply.public_state.borrow.scores[0][0],5);assert.deepEqual(f.calls.at(-1).body.p_snapshot,oldWriter);f.sync.stop();
-});
-
-await test('Only the scorekeeper publishes equipment readiness and viewers receive checked and unchecked items',async()=>{
-  const f=await writerFixture(),state=defaultState();state.equipmentReady.basket=true;state.equipmentReady.balls=true;
-  state.equipmentReady['cold-packs']=true;
-  state.committeeChecklist['inventory:setup:rope']=true;state.committeeNotes.equipment={general:'Private reminder'};
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();assert.deepEqual(mergePublicState(f.fixture.shared).equipmentReady,state.equipmentReady);
-  assert.equal('committeeChecklist' in f.fixture.shared,false);assert.equal('committeeNotes' in f.fixture.shared,false);
-  const viewer=f.fixture.service({getStorage:()=>memoryStorage()});await viewer.sync.start();
-  assert.deepEqual(mergePublicState(viewer.delivered.at(-1).state).equipmentReady,state.equipmentReady);
-  const denied=defaultState();denied.equipmentReady.rope=true;assert.equal(viewer.sync.queue(denied),false);
-  assert.equal(f.fixture.shared.equipmentReady.rope,false);
-  state.equipmentReady.basket=false;assert.equal(f.sync.queue(state),true);await f.sync.flush();await viewer.sync.refresh();
-  assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady.basket,false);
-  assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady.balls,true);
-  assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady['cold-packs'],true);
-  state.equipmentReady['cold-packs']=false;assert.equal(f.sync.queue(state),true);await f.sync.flush();await viewer.sync.refresh();
-  assert.equal(mergePublicState(viewer.delivered.at(-1).state).equipmentReady['cold-packs'],false);
-  f.sync.stop();viewer.sync.stop();
-});
-
 await test('New wire snapshots keep the exact 21-item map accepted by v47 phones and carry cold packs separately',()=>{
   const oldIds=['gloves','cones','balls','batons','rider-cloth','colour-sticks','borrow-cards','basket','rope','leg-ties','spoons','mat','whistle','icebox','cart','umbrellas','pens-markers','phones-timer','bags','food-water','prizes'];
   const state=defaultState();state.equipmentReady['cold-packs']=true;state.equipmentReady.basket=true;
@@ -261,19 +241,6 @@ await test('New wire snapshots keep the exact 21-item map accepted by v47 phones
   }
 });
 
-await test('An unchanged v47 writer can update its 21 equipment items without clearing separately stored cold packs',async()=>{
-  const state=defaultState();state.equipmentReady['cold-packs']=true;
-  const f=await writerFixture({snapshot:publicSnapshot(state)}),oldWriter=publicSnapshot(defaultState());
-  delete oldWriter.equipmentColdPacksReady;oldWriter.equipmentReady.basket=true;
-  const response=await f.fixture.fetch('https://test-project.supabase.co/rest/v1/rpc/apply_sports_day_update',{
-    headers:{apikey:'sb_publishable_test',Authorization:'Bearer editor-access'},
-    body:JSON.stringify({p_writer_id:f.fixture.writer,p_expected_revision:f.fixture.revision,p_operation_id:f.fixture.uuid(),p_snapshot:oldWriter}),
-  });
-  const reply=await response.json();assert.equal(reply.status,'applied');assert.equal(reply.public_state.equipmentColdPacksReady,true);
-  assert.equal(reply.public_state.equipmentReady.basket,true);assert.equal(Object.keys(reply.public_state.equipmentReady).length,21);
-  assert.deepEqual(f.calls.at(-1).body.p_snapshot,oldWriter);f.sync.stop();
-});
-
 await test('Missing legacy equipment readiness defaults without importing a viewer’s private setup ticks',()=>{
   const old=publicSnapshot(defaultState());delete old.equipmentReady;
   const local=defaultState();local.equipmentReady.basket=true;local.committeeChecklist['inventory:setup:rope']=true;
@@ -284,546 +251,388 @@ await test('Missing legacy equipment readiness defaults without importing a view
   }
 });
 
-await test('The first scorekeeper can publish existing local results into an empty event', async () => {
-  const f = await writerFixture({ snapshot: null });
-  assert.equal(f.sync.status.remoteAvailable, false);
-  const s = defaultState(); s.borrow.scores[0][0] = 5;
-  assert.equal(f.sync.queue(s), true); await f.sync.flush();
-  assert.equal(f.fixture.shared.borrow.scores[0][0], 5); assert.equal(f.fixture.revision, 1); assert.equal(f.sync.status.phase, 'synced'); f.sync.stop();
+await test('Anonymous viewers receive public scores but cannot queue writes',async()=>{
+  const f=fixture(),viewer=f.service();await viewer.sync.start();
+  assert.equal(viewer.sync.role,'viewer');assert.equal(viewer.sync.queue(defaultState()),false);
+  assert.equal(applyCalls(f).length,0);assert.equal(viewer.delivered.length,1);
 });
 
-await test('Changes to private notes produce no shared update', async () => {
-  const f = await writerFixture(), s = defaultState(); s.notes[4] = 'Private'; s.teams[0].leader = 'Private';
-  assert.equal(f.sync.queue(s), true); await f.sync.flush();
-  assert.equal(f.calls.some(c => c.path.endsWith('/apply_sports_day_update')), false); f.sync.stop();
+await test('The same approved login edits simultaneously on independent devices without a transfer',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);
+  await Promise.all([a.sync.refresh(),b.sync.refresh()]);
+  assert.notEqual(a.storage,b.storage);assert.equal(a.sync.role,'writer');assert.equal(b.sync.role,'writer');
+  const authorized=f.calls.filter(call=>call.path.endsWith('/authorize_sports_day_editor'));
+  assert.equal(authorized.length,2);assert.notEqual(authorized[0].body.p_device_id,authorized[1].body.p_device_id);
+  assert.equal(f.calls.some(call=>/claim_sports_day_writer|release_sports_day_writer/.test(call.path)),false);
 });
 
-await test('Legacy snapshots and reordered JSON keys do not turn private-note saves into roster writes', async () => {
-  const state=defaultState();state.timers['relay:2']=makeClock(60);state.timers['borrow:0']=makeClock(90);
-  const legacy=publicSnapshot(state);delete legacy.committeeMembers;delete legacy.equipmentReady;
-  const reverseKeys=value=>Array.isArray(value)?value.map(reverseKeys):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([key,nested])=>[key,reverseKeys(nested)])):value;
-  const f=await writerFixture({snapshot:reverseKeys(legacy)});state.notes[4]='Private reminder';
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();
-  assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);
-  f.sync.stop();
+await test('A valid but unapproved login remains a viewer',async()=>{
+  const f=fixture(),device=f.service();await device.sync.start();await device.sync.login('other@example.org','password');
+  await assert.rejects(device.sync.claimWriter(),/scorekeeper/i);
+  assert.equal(device.sync.role,'viewer');assert.equal(device.sync.queue(defaultState()),false);assert.equal(applyCalls(f).length,0);
 });
 
-await test('Private setup ticks do not write when server readiness is missing or JSONB keys are reordered',async()=>{
-  const state=defaultState();state.equipmentReady.basket=true;state.equipmentReady['leg-ties']=true;
-  const reversed=Object.fromEntries(Object.entries(publicSnapshot(state)).reverse());
-  reversed.equipmentReady=Object.fromEntries(Object.entries(reversed.equipmentReady).reverse());
-  const f=await writerFixture({snapshot:reversed});state.committeeChecklist['inventory:setup:rope']=true;
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();
-  assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);f.sync.stop();
+await test('An old backend cannot authorize new simultaneous writes and stays readable',async()=>{
+  const f=fixture();f.upgrade(true);const device=f.service();await device.sync.start();await device.sync.login('keeper@example.org','password');
+  await device.sync.claimWriter().catch(()=>{});
+  assert.equal(device.sync.role,'viewer');assert.equal(device.sync.queue(defaultState()),false);assert.equal(applyCalls(f).length,0);
+  assert.equal(device.state.teams[0].name,'Red');
 });
 
-await test('Exact old 21-item maps do not turn private-note saves into new checklist writes',async()=>{
-  const state=defaultState();state.equipmentReady.basket=true;
-  const old=publicSnapshot(state);delete old.equipmentColdPacksReady;
-  const f=await writerFixture({snapshot:old});state.committeeNotes.equipment={general:'Private reminder'};
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();
-  assert.equal(f.calls.some(call=>call.path.endsWith('/apply_sports_day_update')),false);f.sync.stop();
+await test('Concurrent distinct roster names merge without losing either phone’s change',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);
+  edit(a,s=>s.committeeMembers.director[0]='Main judge');edit(b,s=>s.committeeMembers.equipment[0]='Rina');
+  await settle(a,b);
+  assert.equal(f.shared.committeeMembers.director[0],'Main judge');assert.equal(f.shared.committeeMembers.equipment[0],'Rina');
+  for(const d of [a,b]){assert.equal(d.sync.pending,0);assert.equal(d.state.committeeMembers.director[0],'Main judge');assert.equal(d.state.committeeMembers.equipment[0],'Rina');}
 });
 
-await test('Small server-offset corrections cannot turn a private note into a running-timer update', async () => {
-  const f = await writerFixture(), s = defaultState(); s.timers['relay:0'] = makeClock(60);
-  startClock(s.timers, 'relay:0', f.fixture.now()); s.activeKey = 'relay:0';
-  f.sync.queue(s); await f.sync.flush(); const before = f.calls.filter(c => c.path.endsWith('/apply_sports_day_update')).length;
-  f.fixture.jitter(25); await f.sync.refresh(); s.notes[9] = 'Private relay instruction';
-  assert.equal(f.sync.queue(s), true); await f.sync.flush();
-  assert.equal(f.calls.filter(c => c.path.endsWith('/apply_sports_day_update')).length, before); f.sync.stop();
+await test('Concurrent different equipment checks include cold packs and unchecked values',async()=>{
+  const initial=defaultState();initial.equipmentReady.rope=true;
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>s.equipmentReady.rope=false);edit(b,s=>s.equipmentReady['cold-packs']=true);
+  await settle(a,b);
+  assert.equal(f.shared.equipmentReady.rope,false);assert.equal(f.shared.equipmentColdPacksReady,true);
+  assert.equal(a.state.equipmentReady['cold-packs'],true);assert.equal(b.state.equipmentReady.rope,false);
 });
 
-await test('Offline scorekeeper results persist and publish automatically after reconnecting', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); assert.equal(f.sync.pending, 1); assert.equal(f.sync.status.phase, 'pending');
-  const persisted = JSON.parse([...f.storage.data.values()][0]); assert.equal(persisted.outbox[0].snapshot.borrow.scores[0][0], 5);
-  f.fixture.offline(false); await f.sync.flush(); assert.equal(f.sync.pending, 0); assert.equal(f.fixture.shared.borrow.scores[0][0], 5); f.sync.stop();
+await test('Concurrent team names and separate rota assignments preserve both public changes',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);
+  edit(a,s=>{s.teams[0].name='Crimson';s.committeeRotation['borrow:0']={'comms:0':{status:'playing',coverFor:null}};});
+  edit(b,s=>{s.teams[1].name='Ocean';s.committeeRotation['borrow:0']={'comms:1':{status:'duty',coverFor:null}};});
+  await settle(a,b);
+  assert.equal(f.shared.teams[0].name,'Crimson');assert.equal(f.shared.teams[1].name,'Ocean');
+  assert.deepEqual(Object.keys(f.shared.committeeRotation['borrow:0']).sort(),['comms:0','comms:1']);
 });
 
-await test('A lost server acknowledgement retries the same operation without awarding twice', async () => {
-  const f = await writerFixture(), s = defaultState(); s.borrow.scores[0][0] = 5; f.fixture.loseAck();
-  f.sync.queue(s); await f.sync.flush(); assert.equal(f.sync.pending, 1); assert.equal(f.fixture.revision, 1);
-  await f.sync.flush(); assert.equal(f.sync.pending, 0); assert.equal(f.fixture.revision, 1);
-  const calls = f.calls.filter(c => c.path.endsWith('/apply_sports_day_update'));
-  assert.equal(calls[0].body.p_operation_id, calls[1].body.p_operation_id); assert.deepEqual(calls[0].body.p_snapshot, calls[1].body.p_snapshot); f.sync.stop();
+await test('Concurrent conflicting edits to the same roster slot stop for review',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);
+  edit(a,s=>s.committeeMembers.director[0]='Judge A');edit(b,s=>s.committeeMembers.director[0]='Judge B');
+  await settle(a,b);
+  assert.ok(['Judge A','Judge B'].includes(f.shared.committeeMembers.director[0]));
+  const blocked=[a,b].filter(d=>d.sync.status.phase==='conflict');assert.equal(blocked.length,1);assert.ok(blocked[0].sync.pending);
+  assert.equal(blocked[0].sync.queue(blocked[0].state),false);
 });
 
-await test('New offline edits never replace an attempted operation; only the unattempted tail is compacted', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true);
-  s.borrow.scores[0][0] = 5; f.sync.queue(s); await f.sync.flush();
-  s.borrow.scores[1][0] = 4; f.sync.queue(s); await f.sync.flush();
-  s.borrow.scores[2][0] = 3; f.sync.queue(s); await f.sync.flush();
-  assert.equal(f.sync.pending, 2); const persisted = JSON.parse([...f.storage.data.values()][0]);
-  assert.equal(persisted.outbox[0].snapshot.borrow.scores[1][0], null); assert.equal(persisted.outbox[1].snapshot.borrow.scores[2][0], 3);
-  f.fixture.offline(false); await f.sync.flush(); assert.equal(f.fixture.revision, 2); assert.equal(f.fixture.shared.borrow.scores[2][0], 3); f.sync.stop();
-});
-
-await test('Rapid taps during an in-flight save serialize writes and preserve the latest result', async () => {
-  const f = fixture(); let release, first = true, arrived;
-  const waiting = new Promise(resolve => arrived = resolve), blocked = new Promise(resolve => release = resolve);
-  const { sync } = f.service({ fetch: async (url, options) => {
-    if (url.endsWith('/apply_sports_day_update') && first) { first = false; arrived(); await blocked; }
-    return f.fetch(url, options);
-  } });
-  await sync.start(); await sync.login('keeper@example.org', 'password'); await sync.claimWriter();
-  const s = defaultState(); s.borrow.scores[0][0] = 5; sync.queue(s); await waiting;
-  s.borrow.scores[1][0] = 4; sync.queue(s); s.borrow.scores[2][0] = 3; sync.queue(s);
-  assert.equal(sync.pending, 2); release(); await sync.flush();
-  const updates = f.calls.filter(c => c.path.endsWith('/apply_sports_day_update'));
-  assert.equal(updates.length, 2); assert.deepEqual(updates.map(c => c.body.p_expected_revision), [0, 1]);
-  assert.equal(updates[0].body.p_snapshot.borrow.scores[1][0], null);
-  assert.equal(f.shared.borrow.scores[2][0], 3); assert.equal(sync.pending, 0); sync.stop();
-});
-
-await test('An offline reload restores pending edits before reading a stale server snapshot', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); f.sync.stop();
-  const next = f.fixture.service(); await next.sync.start(); assert.equal(next.sync.role, 'writer'); assert.equal(next.sync.pending, 1); assert.equal(next.delivered.length, 0);
-  s.borrow.scores[1][0] = 4; assert.equal(next.sync.queue(s), true); await next.sync.flush();
-  f.fixture.offline(false); await next.sync.claimWriter(); assert.equal(next.sync.pending, 0); assert.equal(f.fixture.shared.borrow.scores[1][0], 4); next.sync.stop();
-});
-
-async function legacyPendingFixture(serverNames=defaultState().committeeMembers){
-  const server=defaultState();server.committeeMembers=structuredClone(serverNames);
-  const f=await writerFixture({snapshot:publicSnapshot(server)}),local=defaultState();
-  f.fixture.offline(true);local.borrow.scores[0][0]=5;f.sync.queue(local);await f.sync.flush();f.sync.stop();
-  const key=[...f.storage.data.keys()][0],stored=JSON.parse(f.storage.getItem(key));
-  delete stored.outbox[0].snapshot.committeeMembers;f.storage.setItem(key,JSON.stringify(stored));f.fixture.offline(false);
-  return {...f,local,key};
-}
-
-await test('The final legacy retry hydrates confirmed names before later modern game edits can publish defaults',async()=>{
-  const names=defaultState().committeeMembers;names.director[0]='Confirmed director';
-  const f=await legacyPendingFixture(names);let visible=f.local;
-  const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
-  await next.sync.start();assert.equal(next.sync.pending,0);assert.deepEqual(visible.committeeMembers,names);
-  assert.equal(visible.borrow.scores[0][0],5);
-  visible.borrow.scores[1][0]=4;assert.equal(next.sync.queue(visible),true);await next.sync.flush();
-  assert.deepEqual(f.fixture.shared.committeeMembers,names);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
-});
-
-await test('Modern tails queued during a legacy retry retain default or explicit names for review instead of erasing a named server roster',async()=>{
-  for(const proposed of ['', 'Explicit new director']){
-    const names=defaultState().committeeMembers;names.director[0]='Confirmed director';const f=await legacyPendingFixture(names);
-    let releaseAck,announceAck;const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-    const next=f.fixture.service({fetch:async(url,options)=>{
-      const response=await f.fixture.fetch(url,options);
-      if(url.endsWith('/apply_sports_day_update')&&!JSON.parse(options.body).p_snapshot.committeeMembers){announceAck();await held;}
-      return response;
-    }});
-    const boot=next.sync.start();await started;
-    const newest=structuredClone(f.local);newest.borrow.scores[1][0]=4;newest.committeeMembers.director[0]=proposed;
-    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-    assert.equal(next.sync.status.phase,'conflict');assert.equal(next.sync.pending,1);
-    assert.deepEqual(f.fixture.shared.committeeMembers,names);assert.equal(f.fixture.shared.borrow.scores[1][0],null);
-    const stored=JSON.parse(f.storage.getItem(f.key));assert.equal(stored.outbox[0].snapshot.committeeMembers.director[0],proposed);
-    assert.equal(stored.outbox[0].snapshot.borrow.scores[1][0],4);assert.equal(stored.outbox[0].attempted,false);
-    assert.equal(f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')&&call.body.p_snapshot.committeeMembers).length,1,'Only the original offline call had a modern payload; the queued tail was not sent.');
-    next.sync.stop();
+await test('Concurrent Borrow and Relay arrivals never merge duplicate first awards',async()=>{
+  for(const game of ['borrow','relay']) {
+    const initial=defaultState();startRound(initial,`${game}:0`);
+    const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+    edit(a,s=>assert.equal(recordSuccess(s,game,0,'red'),true));edit(b,s=>assert.equal(recordSuccess(s,game,0,'blue'),true));
+    await settle(a,b);
+    const saved=f.shared[game].scores.map(row=>row[0]).filter(value=>value!==null);
+    assert.deepEqual(saved,game==='borrow'?[5,4]:[1,2]);assert.equal(a.sync.pending,0);assert.equal(b.sync.pending,0);
   }
 });
 
-await test('Explicit modern roster edits queued behind a legacy retry can proceed when the server still has defaults',async()=>{
-  const f=await legacyPendingFixture();let releaseAck,announceAck;
-  const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-  const next=f.fixture.service({fetch:async(url,options)=>{
-    const response=await f.fixture.fetch(url,options);
-    if(url.endsWith('/apply_sports_day_update')&&!JSON.parse(options.body).p_snapshot.committeeMembers){announceAck();await held;}
-    return response;
+await test('Two phones recording the same team’s success save one award, not two',async()=>{
+  const initial=defaultState();startRound(initial,'borrow:0');
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>assert.equal(recordSuccess(s,'borrow',0,'red'),true));edit(b,s=>assert.equal(recordSuccess(s,'borrow',0,'red'),true));await settle(a,b);
+  assert.deepEqual(f.shared.borrow.scores.map(row=>row[0]),[5,null,null,null,null]);assert.equal(f.revision,1);
+  assert.equal(a.sync.pending,0);assert.equal(b.sync.pending,0);
+});
+
+await test('A simultaneous success and fail for the same team require review',async()=>{
+  const initial=defaultState();startRound(initial,'borrow:0');
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>assert.equal(recordSuccess(s,'borrow',0,'red',true),true));edit(b,s=>assert.equal(recordSuccess(s,'borrow',0,'red',false),true));await settle(a,b);
+  assert.equal(f.shared.borrow.scores[0][0],5);assert.equal(b.sync.status.phase,'conflict');assert.ok(b.sync.pending);
+});
+
+await test('Concurrent Cavalry eliminations append once in server commit order',async()=>{
+  const initial=defaultState();startRound(initial,'cavalry:women');initial.cavalry.divisions.women={active:[...TEAM_IDS],eliminated:[],started:true,counts:Array(5).fill(null)};
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>assert.equal(eliminate(s,'women','red'),true));edit(b,s=>assert.equal(eliminate(s,'women','blue'),true));await settle(a,b);
+  assert.deepEqual(f.shared.cavalry.divisions.women.eliminated,['red','blue']);
+  assert.equal(a.sync.pending,0);assert.equal(b.sync.pending,0);
+});
+
+await test('A late Basket count cannot overwrite an attempt another phone has locked',async()=>{
+  const initial=defaultState();startRound(initial,'basket:red:0');initial.basket.scores[0][0]=2;
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f),gate=b.holdApply();
+  edit(b,s=>assert.equal(setBasketScore(s,'red',0,4),true));await gate.entered;
+  edit(a,s=>{assert.equal(setBasketScore(s,'red',0,3),true);assert.equal(finishBasketAttempt(s,'red',0),true);});await a.sync.flush();
+  gate.release();await b.sync.flush();
+  assert.equal(f.shared.basket.scores[0][0],3);assert.ok(f.shared.finished.includes('basket:red:0'));assert.equal(b.sync.status.phase,'conflict');
+});
+
+await test('Concurrent Tug semifinal results cannot replace each other’s tournament snapshot',async()=>{
+  const initial=defaultState();initial.tug.slots=[...TEAM_IDS];initial.tug.locked=true;initial.tug.winners.prelim='red';
+  for(const key of ['tug:semi1','tug:semi2']){initial.timers[key]=makeClock(60);initial.timers[key].started=true;}
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>assert.equal(recordWinner(s,'semi1','yellow'),true));edit(b,s=>assert.equal(recordWinner(s,'semi2','green'),true));await settle(a,b);
+  assert.equal(f.shared.tug.winners.semi1,'yellow');assert.equal(f.shared.tug.winners.semi2,'green');assert.equal(f.shared.tug.winners.prelim,'red');
+  assert.equal(a.sync.pending,0);assert.equal(b.sync.pending,0);
+});
+
+await test('Competing timer starts leave exactly one running shared clock',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);
+  edit(a,s=>startRound(s,'borrow:0',f.now()));edit(b,s=>startRound(s,'relay:0',f.now()));await settle(a,b);
+  const running=Object.entries(f.shared.timers).filter(([,clock])=>clock.deadline!==null);
+  assert.equal(running.length,1);assert.equal(f.shared.activeKey,running[0][0]);assert.equal(f.shared.activeKey,'relay:0');
+  assert.equal(f.shared.timers['borrow:0'].deadline,null);assert.equal(a.sync.pending,0);assert.equal(b.sync.pending,0);
+});
+
+await test('A timer extension on one device survives a simultaneous scoring tap on another',async()=>{
+  const initial=defaultState();startRound(initial,'borrow:0');
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f),gate=b.holdApply();
+  edit(b,s=>assert.equal(recordSuccess(s,'borrow',0,'red'),true));await gate.entered;
+  edit(a,s=>addTime(s.timers['borrow:0'],30,f.now()));await a.sync.flush();gate.release();await b.sync.flush();
+  assert.equal(f.shared.borrow.scores[0][0],5);assert.equal(b.sync.pending,0);assert.equal(f.shared.timers['borrow:0'].deadline,f.now()+90000);
+});
+
+await test('Distinct simultaneous 30-second extensions accumulate after a revision conflict',async()=>{
+  const initial=defaultState();startRound(initial,'borrow:0');
+  const f=fixture({snapshot:publicSnapshot(initial),automaticRealtime:false}),a=await editor(f),b=await editor(f),gate=a.holdApply();
+  edit(a,s=>addTime(s.timers['borrow:0'],30,f.now()));await gate.entered;
+  edit(b,s=>addTime(s.timers['borrow:0'],30,f.now()));await b.sync.flush();gate.release();await a.sync.flush();await settle(a,b);
+  assert.equal(f.shared.timers['borrow:0'].deadline,f.now()+120000);assert.equal(a.sync.pending,0);assert.equal(b.sync.pending,0);assert.equal(f.revision,2);
+});
+
+await test('An already committed extension is not projected twice while its acknowledgement and a later local extension wait',async()=>{
+  for(const loseAck of [false,true]) {
+    const initial=defaultState();startRound(initial,'borrow:0');
+    const f=fixture({snapshot:publicSnapshot(initial),automaticRealtime:false}),a=await editor(f),gate=a.holdApply({after:true});if(loseAck)a.loseAck();
+    edit(a,s=>addTime(s.timers['borrow:0'],30,f.now()));await gate.entered;await a.sync.refresh();
+    assert.equal(a.state.timers['borrow:0'].deadline,f.now()+90000,'An uncertain receipt cannot add the same pending extension again.');
+    edit(a,s=>addTime(s.timers['borrow:0'],30,f.now()));assert.equal(a.state.timers['borrow:0'].deadline,f.now()+120000);
+    gate.release();await a.sync.flush();await a.sync.flush();
+    assert.equal(f.shared.timers['borrow:0'].deadline,f.now()+120000);assert.equal(a.sync.pending,0);assert.equal(f.revision,2);
+  }
+});
+
+await test('Round reset plus identical restart cannot revive an older offline arrival',async()=>{
+  const initial=defaultState();startRound(initial,'borrow:0');
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);b.offline(true);
+  edit(b,s=>assert.equal(recordSuccess(s,'borrow',0,'red'),true));await b.sync.flush();
+  edit(a,s=>resetRound(s,'borrow:0'),{barrier:true});await a.sync.flush();
+  edit(a,s=>Object.assign(s,clone(initial)));await a.sync.flush();assert.deepEqual(f.shared,publicSnapshot(initial));
+  b.offline(false);await b.sync.flush();assert.equal(b.sync.status.phase,'conflict');assert.equal(f.shared.borrow.scores[0][0],null);assert.ok(b.sync.pending);
+});
+
+await test('Explicit no-op whole-event reset is a barrier against older pending edits',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);b.offline(true);edit(b,s=>s.equipmentReady.rope=true);await b.sync.flush();
+  assert.equal(a.sync.queue(a.state,{barrier:true}),true);await a.sync.flush();assert.ok(f.resetRevision>0);
+  b.offline(false);await b.sync.flush();assert.equal(b.sync.status.phase,'conflict');assert.equal(f.shared.equipmentReady.rope,false);
+});
+
+await test('Tug reset invalidates dependent semifinal and final work across devices',async()=>{
+  const initial=defaultState();initial.tug.slots=[...TEAM_IDS];initial.tug.locked=true;initial.tug.winners.prelim='red';
+  for(const key of ['tug:prelim','tug:semi1']){initial.timers[key]=makeClock(60);initial.timers[key].started=true;}
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);b.offline(true);
+  edit(b,s=>assert.equal(recordWinner(s,'semi1','yellow'),true));await b.sync.flush();
+  edit(a,s=>resetRound(s,'tug:prelim'),{barrier:true});await a.sync.flush();b.offline(false);await b.sync.flush();
+  assert.equal(f.shared.tug.winners.prelim,null);assert.equal(f.shared.tug.winners.semi1,null);assert.equal(f.shared.timers['tug:semi1'],undefined);assert.equal(b.sync.status.phase,'conflict');
+});
+
+await test('A lost acknowledgement remains idempotent after another device commits later work',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f),b=await editor(f);a.loseAck();
+  edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();assert.equal(a.sync.pending,1);assert.equal(f.revision,1);
+  await b.sync.refresh();edit(b,s=>s.committeeMembers.equipment[0]='Rina');await b.sync.flush();assert.equal(f.revision,2);
+  await a.sync.flush();assert.equal(a.sync.pending,0);assert.equal(f.revision,2);assert.equal(a.sync.status.revision,2);
+  assert.equal(a.state.equipmentReady.rope,true);assert.equal(a.state.committeeMembers.equipment[0],'Rina');
+  const retries=applyCalls(f).filter(call=>call.body.p_snapshot.equipmentReady.rope&&call.body.p_snapshot.committeeMembers.equipment[0]==='');
+  assert.equal(retries.length,2);assert.deepEqual(retries[0].body,retries[1].body);
+});
+
+await test('An unattempted tail rebases after an acknowledged retry without erasing another phone’s work',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f),b=await editor(f);a.loseAck();edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();
+  a.offline(true);edit(a,s=>s.committeeMembers.equipment[0]='Rina');await a.sync.flush();assert.equal(a.sync.pending,2);
+  await b.sync.refresh();edit(b,s=>s.equipmentReady['cold-packs']=true);await b.sync.flush();
+  a.offline(false);await a.sync.flush();await settle(a,b);
+  assert.equal(a.sync.pending,0);assert.equal(f.shared.equipmentReady.rope,true);assert.equal(f.shared.equipmentColdPacksReady,true);assert.equal(f.shared.committeeMembers.equipment[0],'Rina');
+  assert.equal(a.state.equipmentReady['cold-packs'],true);assert.equal(b.state.committeeMembers.equipment[0],'Rina');
+});
+
+await test('A delayed successful response cannot roll back a newer realtime snapshot or its queued tail',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f),b=await editor(f),gate=a.holdApply({after:true});
+  edit(a,s=>s.equipmentReady.rope=true);await gate.entered;
+  await b.sync.refresh();edit(b,s=>s.committeeMembers.comms[0]='Jenni');await b.sync.flush();await a.sync.refresh();
+  edit(a,s=>s.teams[0].name='Crimson');gate.release();await a.sync.flush();await settle(a,b);
+  assert.equal(a.sync.pending,0);assert.equal(a.sync.status.phase,'synced');assert.equal(a.state.committeeMembers.comms[0],'Jenni');
+  assert.equal(f.shared.committeeMembers.comms[0],'Jenni');assert.equal(f.shared.teams[0].name,'Crimson');assert.equal(f.shared.equipmentReady.rope,true);
+});
+
+await test('Pending devices receive unrelated confirmed changes without losing their optimistic edit',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f),b=await editor(f),gate=a.holdApply();
+  edit(a,s=>s.equipmentReady.rope=true);await gate.entered;
+  edit(b,s=>s.committeeMembers.comms[0]='Jenni');await b.sync.flush();await a.sync.refresh();
+  assert.equal(a.state.committeeMembers.comms[0],'Jenni');assert.equal(a.state.equipmentReady.rope,true);assert.ok(a.sync.pending);
+  gate.release();await a.sync.flush();assert.equal(f.shared.equipmentReady.rope,true);assert.equal(f.shared.committeeMembers.comms[0],'Jenni');
+});
+
+await test('Repeated timeouts after commit retry one immutable operation and award once',async()=>{
+  const f=fixture({automaticRealtime:false});let stalls=2;
+  const a=await editor(f,{requestTimeoutMs:5,fetch:async(url,options)=>{
+    const result=await f.fetch(url,options);
+    if(url.includes('/apply_sports_day_patch')&&stalls-->0)return{ok:true,status:200,json:()=>new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Object.assign(Error('Body aborted'),{name:'AbortError'})),{once:true}))};
+    return result;
   }});
-  const boot=next.sync.start();await started;
-  const newest=structuredClone(f.local);newest.committeeMembers.director[0]='New director';newest.borrow.scores[1][0]=4;
-  assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-  assert.equal(next.sync.pending,0);assert.equal(next.sync.status.phase,'synced');
-  assert.equal(f.fixture.shared.committeeMembers.director[0],'New director');assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+  edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();assert.equal(a.sync.pending,1);
+  await a.sync.flush();assert.equal(a.sync.pending,1);await a.sync.flush();assert.equal(a.sync.pending,0);
+  assert.equal(f.revision,1);const requests=applyCalls(f);assert.equal(requests.length,3);assert.deepEqual(requests[0].body,requests[1].body);assert.deepEqual(requests[1].body,requests[2].body);
 });
 
-async function legacyEquipmentPendingFixture({serverReady=defaultState().equipmentReady,omitted=['equipmentReady'],serverName=''}={}){
-  const server=defaultState();server.equipmentReady=structuredClone(serverReady);server.committeeMembers.director[0]=serverName;
-  const f=await writerFixture({snapshot:publicSnapshot(server)}),local=defaultState();local.committeeMembers.director[0]=serverName;
-  f.fixture.offline(true);local.borrow.scores[0][0]=5;f.sync.queue(local);await f.sync.flush();f.sync.stop();
-  const key=[...f.storage.data.keys()][0],stored=JSON.parse(f.storage.getItem(key));
-  for(const field of omitted)delete stored.outbox[0].snapshot[field];
-  if(omitted.includes('equipmentReady'))delete stored.outbox[0].snapshot.equipmentColdPacksReady;
-  f.storage.setItem(key,JSON.stringify(stored));f.fixture.offline(false);
-  return {...f,local,key,payload:structuredClone(stored.outbox[0].snapshot)};
-}
-
-async function legacy21PendingFixture(coldPacks=true){
-  const serverReady=defaultState().equipmentReady;serverReady['cold-packs']=coldPacks;
-  const f=await legacyEquipmentPendingFixture({serverReady,omitted:[]});
-  const stored=JSON.parse(f.storage.getItem(f.key));delete stored.outbox[0].snapshot.equipmentColdPacksReady;
-  f.storage.setItem(f.key,JSON.stringify(stored));return {...f,payload:structuredClone(stored.outbox[0].snapshot)};
-}
-
-await test('Exact 21-item retries and lost acknowledgements preserve server cold packs and hydrate before later edits',async()=>{
-  for(const loseAck of [false,true]){
-    const f=await legacy21PendingFixture();let visible=f.local;
-    if(loseAck)f.fixture.loseAck();
-    const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
-    await next.sync.start();await next.sync.flush();
-    assert.equal(next.sync.pending,0);assert.equal(visible.equipmentReady['cold-packs'],true);
-    const retries=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')&&call.body.p_snapshot.equipmentColdPacksReady===undefined);
-    assert.equal(retries.length,loseAck?2:1);
-    for(const retry of retries){assert.deepEqual(retry.body.p_snapshot,f.payload);assert.equal(Object.keys(retry.body.p_snapshot.equipmentReady).length,21);}
-    assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[0][0],5);
-    visible.borrow.scores[1][0]=4;assert.equal(next.sync.queue(visible),true);await next.sync.flush();
-    assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
-  }
+await test('Modern offline queues survive reload, accept new edits and sync after reconnecting',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f);a.offline(true);
+  edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();edit(a,s=>s.committeeMembers.equipment[0]='Rina');await a.sync.flush();a.sync.stop();
+  const reloaded=f.service({storage:a.storage,initialState:a.state});reloaded.offline(true);await reloaded.sync.start();
+  assert.ok(reloaded.sync.pending);assert.equal(reloaded.sync.role,'writer');assert.equal(edit(reloaded,s=>s.equipmentReady['cold-packs']=true),true);
+  reloaded.offline(false);await reloaded.sync.claimWriter();await reloaded.sync.flush();
+  assert.equal(reloaded.sync.pending,0);assert.equal(f.shared.equipmentReady.rope,true);assert.equal(f.shared.equipmentColdPacksReady,true);assert.equal(f.shared.committeeMembers.equipment[0],'Rina');
 });
 
-await test('A modern default-false tail behind a 21-item retry cannot erase confirmed cold packs',async()=>{
-  const f=await legacy21PendingFixture();let releaseAck,announceAck;
-  const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-  const next=f.fixture.service({fetch:async(url,options)=>{
-    const response=await f.fixture.fetch(url,options);
-    if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.equipmentColdPacksReady===undefined){announceAck();await held;}
-    return response;
+await test('An offline unrelated edit rebases onto the latest state without dropping confirmed changes',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f),b=await editor(f);a.offline(true);
+  edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();edit(b,s=>s.equipmentReady['cold-packs']=true);await b.sync.flush();
+  a.offline(false);await a.sync.flush();assert.equal(a.sync.pending,0);assert.equal(f.shared.equipmentReady.rope,true);assert.equal(f.shared.equipmentColdPacksReady,true);
+});
+
+await test('A conflict remains blocked through sign-in and reload until confirmed state is loaded',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f),b=await editor(f);a.offline(true);
+  edit(a,s=>s.committeeMembers.director[0]='Offline judge');await a.sync.flush();edit(b,s=>s.committeeMembers.director[0]='Confirmed judge');await b.sync.flush();
+  a.offline(false);await a.sync.flush();assert.equal(a.sync.status.phase,'conflict');const attempts=applyCalls(f).length;
+  await a.sync.login('keeper@example.org','password');await a.sync.claimWriter();await a.sync.flush();assert.equal(a.sync.status.phase,'conflict');
+  a.sync.stop();const reloaded=f.service({storage:a.storage,initialState:a.state});await reloaded.sync.start();
+  assert.equal(reloaded.sync.status.phase,'conflict');assert.ok(reloaded.sync.pending);assert.equal(applyCalls(f).length,attempts);
+  await reloaded.sync.acceptRemote();assert.equal(reloaded.sync.pending,0);assert.equal(reloaded.state.committeeMembers.director[0],'Confirmed judge');
+});
+
+await test('Version-one snapshot outboxes are quarantined rather than submitted under the new protocol',async()=>{
+  const f=fixture({automaticRealtime:false}),a=await editor(f),key=[...a.storage.data.keys()][0],record=JSON.parse(a.storage.getItem(key));
+  const pending=defaultState();pending.borrow.scores[0][0]=5;
+  const legacy={writerId:f.uuid(),session:record.session,wantsWriter:true,revision:0,leaseRevision:1,offsetMs:0,outbox:[{baseRevision:0,leaseRevision:1,operationId:f.uuid(),snapshot:publicSnapshot(pending),attempted:true}]};
+  a.sync.stop();a.storage.setItem(key,JSON.stringify(legacy));const reloaded=f.service({storage:a.storage,initialState:pending});await reloaded.sync.start();
+  assert.equal(reloaded.sync.status.phase,'conflict');assert.equal(reloaded.sync.pending,1);assert.equal(reloaded.sync.status.legacyPending,true);assert.equal(applyCalls(f).length,0);
+  assert.equal(reloaded.sync.queue(pending),false);await reloaded.sync.acceptRemote();assert.equal(reloaded.sync.pending,0);assert.equal(reloaded.state.borrow.scores[0][0],null);
+});
+
+await test('Private notes and server key ordering never create shared writes',async()=>{
+  const reverse=value=>Array.isArray(value)?value.map(reverse):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([key,nested])=>[key,reverse(nested)])):value;
+  const initial=defaultState();startRound(initial,'borrow:0');const snapshot=reverse(publicSnapshot(initial));delete snapshot.committeeRotation;
+  const f=fixture({snapshot}),a=await editor(f),before=applyCalls(f).length;
+  edit(a,s=>{s.notes[4]='Private note';s.teams[0].leader='Private leader';s.committeeChecklist['inventory:setup:rope']=true;});await a.sync.flush();
+  assert.equal(applyCalls(f).length,before);assert.equal(a.state.notes[4],'Private note');assert.equal(a.state.teams[0].leader,'Private leader');
+  f.jitter(250);await a.sync.refresh();edit(a,s=>s.committeeNotes['first-aid']={general:'Private health note'});await a.sync.flush();assert.equal(applyCalls(f).length,before);
+});
+
+await test('Server acknowledgements preserve each device’s private notes and team leaders',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);
+  a.state.notes[4]='A private note';a.state.teams[0].leader='A leader';b.state.notes[4]='B private note';b.state.teams[0].leader='B leader';
+  edit(a,s=>s.equipmentReady.rope=true);edit(b,s=>s.equipmentReady['cold-packs']=true);await settle(a,b);
+  assert.equal(a.state.notes[4],'A private note');assert.equal(b.state.notes[4],'B private note');assert.equal(a.state.teams[0].leader,'A leader');assert.equal(b.state.teams[0].leader,'B leader');
+  for(const privateText of ['A private note','B private note','A leader','B leader'])assert.equal(JSON.stringify(f.shared).includes(privateText),false);
+});
+
+await test('Concurrent final Relay arrivals recompute fourth and fifth and pause the completed round',async()=>{
+  const initial=defaultState();startRound(initial,'relay:0');initial.relay.scores[0][0]=1;initial.relay.scores[1][0]=2;initial.relay.scores[2][0]=3;
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>assert.equal(recordSuccess(s,'relay',0,'green'),true));edit(b,s=>assert.equal(recordSuccess(s,'relay',0,'white'),true));await settle(a,b);
+  assert.deepEqual(f.shared.relay.scores.map(row=>row[0]),[1,2,3,4,5]);assert.equal(f.shared.timers['relay:0'].deadline,null);assert.equal(f.shared.activeKey,null);
+  assert.equal(a.sync.pending,0);assert.equal(b.sync.pending,0);
+});
+
+await test('Competing final Cavalry outs cannot eliminate the last remaining horse',async()=>{
+  const initial=defaultState();startRound(initial,'cavalry:women');initial.cavalry.divisions.women={active:['red','blue'],eliminated:[],started:true,counts:Array(5).fill(null)};
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>assert.equal(eliminate(s,'women','red'),true));edit(b,s=>assert.equal(eliminate(s,'women','blue'),true));await settle(a,b);
+  assert.deepEqual(f.shared.cavalry.divisions.women.eliminated,['red']);assert.equal(f.shared.timers['cavalry:women'].deadline,null);
+  assert.equal(b.sync.status.phase,'conflict');assert.ok(b.sync.pending);
+});
+
+await test('An ordered arrival tail recomputes points after a lost acknowledgement and another phone’s finish',async()=>{
+  const initial=defaultState();startRound(initial,'borrow:0');
+  const f=fixture({snapshot:publicSnapshot(initial),automaticRealtime:false}),a=await editor(f),b=await editor(f);
+  a.loseAck();edit(a,s=>assert.equal(recordSuccess(s,'borrow',0,'red'),true));await a.sync.flush();
+  a.offline(true);edit(a,s=>assert.equal(recordSuccess(s,'borrow',0,'blue'),true));await a.sync.flush();
+  await b.sync.refresh();edit(b,s=>assert.equal(recordSuccess(s,'borrow',0,'yellow'),true));await b.sync.flush();
+  a.offline(false);await a.sync.flush();await settle(a,b);
+  assert.deepEqual(f.shared.borrow.scores.map(row=>row[0]),[5,3,4,null,null]);assert.equal(a.sync.pending,0);assert.equal(f.revision,3);
+});
+
+await test('Clock-skewed devices agree on one server-time timer deadline',async()=>{
+  const f=fixture(),a=await editor(f,{localOffset:90000}),b=await editor(f,{localOffset:-45000});
+  edit(a,s=>startRound(s,'relay:0',f.now()+90000));await a.sync.flush();await b.sync.refresh();
+  assert.equal(f.shared.timers['relay:0'].deadline,f.now()+60000);assert.equal(a.sync.offsetMs,-90000);assert.equal(b.sync.offsetMs,45000);
+  assert.equal(a.state.timers['relay:0'].deadline-(f.now()+90000),60000);assert.equal(b.state.timers['relay:0'].deadline-(f.now()-45000),60000);
+});
+
+await test('Stopping editing on one device leaves the other approved device editable',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);await a.sync.releaseWriter();await b.sync.refresh();
+  assert.equal(a.sync.role,'viewer');assert.equal(b.sync.role,'writer');edit(b,s=>s.equipmentReady.rope=true);await b.sync.flush();assert.equal(f.shared.equipmentReady.rope,true);
+  assert.equal(f.calls.some(call=>call.path.endsWith('/release_sports_day_writer')),false);
+});
+
+await test('Stopping editing disables new local changes immediately while an in-flight request settles',async()=>{
+  const f=fixture(),a=await editor(f),gate=a.holdApply();edit(a,s=>s.equipmentReady.rope=true);await gate.entered;
+  const stopped=a.sync.releaseWriter();assert.equal(a.sync.role,'viewer');assert.equal(a.sync.queue(a.state),false);
+  gate.release();await stopped;assert.equal(a.sync.role,'viewer');
+});
+
+await test('Sign-out is local and does not revoke the other device’s refresh session',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);await a.sync.logout();
+  assert.equal(a.sync.session,null);assert.equal(a.sync.role,'viewer');const logout=f.calls.find(call=>call.path==='/auth/v1/logout');assert.equal(logout.search,'?scope=local');
+  f.advance(3600000);await b.sync.claimWriter();assert.equal(b.sync.role,'writer');edit(b,s=>s.equipmentReady.rope=true);await b.sync.flush();assert.equal(f.shared.equipmentReady.rope,true);
+});
+
+await test('Credentials stay private and offline sign-out keeps durable pending results',async()=>{
+  const f=fixture(),a=await editor(f);assert.equal(a.sync.status.email,'keeper@example.org');assert.equal('access_token' in a.sync.status,false);assert.equal('access_token' in a.sync.session,false);
+  assert.equal([...a.storage.data.values()].some(value=>value.includes('private-password')),false);
+  a.offline(true);edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();await a.sync.logout();
+  assert.equal(a.sync.pending,1);assert.equal(a.sync.session,null);const record=JSON.parse([...a.storage.data.values()][0]);assert.equal(record.session,null);
+});
+
+await test('An invalidated login clears its credentials without discarding pending edits',async()=>{
+  const f=fixture(),a=await editor(f);f.denyAccess();edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();
+  assert.equal(a.sync.status.phase,'signed-out');assert.equal(a.sync.status.signedIn,false);assert.equal(a.sync.role,'viewer');assert.equal(a.sync.pending,1);
+});
+
+await test('Revoked editor approval disables editing but retains the login and pending recovery copy',async()=>{
+  const f=fixture(),a=await editor(f);f.revokeApproval();edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();
+  assert.equal(a.sync.role,'viewer');assert.equal(a.sync.status.signedIn,true);assert.equal(a.sync.pending,1);
+  assert.equal(f.shared.equipmentReady.rope,false);assert.equal(a.sync.queue(a.state),false);
+});
+
+await test('A stalled sign-out request is bounded after the local login has already cleared',async()=>{
+  const f=fixture();let device,clearedBeforeRequest=false,hadSignal=false,aborted=false;
+  device=await editor(f,{requestTimeoutMs:5,fetch:async(url,options)=>{
+    if(new URL(url).pathname!=='/auth/v1/logout')return f.fetch(url,options);
+    clearedBeforeRequest=device.sync.session===null&&device.sync.role==='viewer'&&device.statuses.at(-1).signedIn===false;
+    hadSignal=Boolean(options.signal);
+    if(!options.signal)throw Error('Missing timeout signal');
+    return new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>{aborted=true;reject(Object.assign(Error('Logout aborted'),{name:'AbortError'}));},{once:true}));
   }});
-  const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.borrow.scores[1][0]=4;
-  assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-  assert.equal(next.sync.status.phase,'conflict');assert.equal(next.sync.pending,1);
-  assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[1][0],null);
-  const stored=JSON.parse(f.storage.getItem(f.key));assert.equal(stored.outbox[0].snapshot.equipmentColdPacksReady,false);
-  assert.equal(stored.outbox[0].attempted,false);assert.deepEqual(f.calls.at(-1).body.p_snapshot,f.payload);next.sync.stop();
+  await device.sync.logout();assert.equal(clearedBeforeRequest,true);assert.equal(hadSignal,true);assert.equal(aborted,true);assert.equal(device.sync.session,null);
 });
 
-await test('Modern checked cold packs behind a 21-item retry can proceed for either server value',async()=>{
-  for(const serverColdPacks of [false,true]){
-    const f=await legacy21PendingFixture(serverColdPacks);let releaseAck,announceAck;
-    const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-    const next=f.fixture.service({fetch:async(url,options)=>{
-      const response=await f.fixture.fetch(url,options);
-      if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.equipmentColdPacksReady===undefined){announceAck();await held;}
-      return response;
-    }});
-    const boot=next.sync.start();await started;const newest=structuredClone(f.local);
-    newest.borrow.scores[1][0]=4;newest.equipmentReady['cold-packs']=true;
-    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-    assert.equal(next.sync.pending,0);assert.equal(next.sync.status.phase,'synced');
-    assert.equal(f.fixture.shared.equipmentColdPacksReady,true);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
-  }
+await test('Realtime invalidation updates viewers and stop removes subscriptions and fallback timers',async()=>{
+  const f=fixture({automaticRealtime:false}),viewer=f.service();await viewer.sync.start();
+  const changed=defaultState();changed.committeeMembers.equipment[0]='Rina';f.externalUpdate(changed);f.notify();await viewer.sync.refresh();
+  assert.equal(viewer.state.committeeMembers.equipment[0],'Rina');assert.equal(f.listeners.size,1);viewer.sync.stop();assert.equal(f.listeners.size,0);assert.equal(f.intervals.size,0);
 });
 
-await test('A final legacy retry hydrates server equipment checks without rewriting its immutable payload',async()=>{
-  const ready=defaultState().equipmentReady;ready.basket=true;ready.rope=true;
-  const f=await legacyEquipmentPendingFixture({serverReady:ready});let visible=f.local;
-  const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
-  await next.sync.start();assert.equal(next.sync.pending,0);assert.deepEqual(visible.equipmentReady,ready);
-  const retry=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')).at(-1);
-  assert.deepEqual(retry.body.p_snapshot,f.payload);assert.equal('equipmentReady' in retry.body.p_snapshot,false);
-  visible.borrow.scores[1][0]=4;next.sync.queue(visible);await next.sync.flush();
-  assert.deepEqual(mergePublicState(f.fixture.shared).equipmentReady,ready);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
+await test('A stalled request times out without preventing cached viewer use',async()=>{
+  const f=fixture(),viewer=f.service({requestTimeoutMs:5,fetch:(url,options)=>new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Error('Request aborted')),{once:true}))});
+  await viewer.sync.start();assert.equal(viewer.sync.status.phase,'offline');assert.equal(viewer.sync.role,'viewer');assert.equal(viewer.state.teams[0].name,'Red');
 });
 
-await test('Legacy retries missing both new fields hydrate the confirmed roster and equipment together',async()=>{
-  const ready=defaultState().equipmentReady;ready.balls=true;
-  const f=await legacyEquipmentPendingFixture({serverReady:ready,serverName:'Confirmed director',omitted:['committeeMembers','equipmentReady']});
-  let visible=f.local;const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
-  await next.sync.start();assert.equal(next.sync.pending,0);assert.equal(visible.committeeMembers.director[0],'Confirmed director');
-  assert.deepEqual(visible.equipmentReady,ready);assert.equal(visible.borrow.scores[0][0],5);next.sync.stop();
+await test('A stalled JSON response body also times out as a network failure',async()=>{
+  const f=fixture(),viewer=f.service({requestTimeoutMs:5,fetch:async(url,options)=>({ok:true,status:200,json:()=>new Promise((resolve,reject)=>options.signal.addEventListener('abort',()=>reject(Object.assign(Error('Body aborted'),{name:'AbortError'})),{once:true}))})});
+  await viewer.sync.start();assert.equal(viewer.sync.status.phase,'offline');assert.equal(viewer.sync.status.connected,false);assert.equal(viewer.sync.status.error,'Waiting for a connection.');
 });
 
-await test('Modern tails cannot clear checked server items while a retry from an old phone is pending',async()=>{
-  for(const proposed of [[],['rope']]){
-    const ready=defaultState().equipmentReady;ready.basket=true;const f=await legacyEquipmentPendingFixture({serverReady:ready});
-    let releaseAck,announceAck;const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-    const next=f.fixture.service({fetch:async(url,options)=>{
-      const response=await f.fixture.fetch(url,options);
-      if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.equipmentReady===undefined){announceAck();await held;}
-      return response;
-    }});
-    const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.borrow.scores[1][0]=4;
-    for(const id of proposed)newest.equipmentReady[id]=true;
-    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-    assert.equal(next.sync.status.phase,'conflict');assert.equal(next.sync.pending,1);assert.deepEqual(mergePublicState(f.fixture.shared).equipmentReady,ready);
-    assert.equal(f.fixture.shared.borrow.scores[1][0],null);const stored=JSON.parse(f.storage.getItem(f.key));
-    assert.deepEqual(stored.outbox[0].snapshot.equipmentReady,publicSnapshot(newest).equipmentReady);assert.equal(stored.outbox[0].attempted,false);
-    const updates=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update'));
-    assert.deepEqual(updates.at(-1).body.p_snapshot,f.payload);next.sync.stop();
-  }
+await test('Storage failure is reported while the pending operation remains recoverable in memory',async()=>{
+  const f=fixture(),a=await editor(f);a.storage.setItem=()=>{throw Error('Storage full');};a.offline(true);edit(a,s=>s.equipmentReady.rope=true);await a.sync.flush();
+  assert.equal(a.sync.status.storageError,true);assert.equal(a.sync.pending,1);
 });
 
-await test('New equipment ticks behind a legacy retry proceed when no server items were checked',async()=>{
-  const f=await legacyEquipmentPendingFixture();let releaseAck,announceAck;
-  const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-  const next=f.fixture.service({fetch:async(url,options)=>{
-    const response=await f.fixture.fetch(url,options);
-    if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.equipmentReady===undefined){announceAck();await held;}
-    return response;
-  }});
-  const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.equipmentReady.rope=true;
-  assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-  assert.equal(next.sync.pending,0);assert.equal(next.sync.status.phase,'synced');assert.equal(f.fixture.shared.equipmentReady.rope,true);next.sync.stop();
+await test('Unreadable pending sync storage is protected from silent replacement',async()=>{
+  const f=fixture(),storage=memoryStorage(),key='cg-sports-day-sync:https://test-project.supabase.co:cgs-oct25';storage.setItem(key,'{unfinished');
+  const a=f.service({storage});await a.sync.start();await a.sync.login('keeper@example.org','password');await a.sync.claimWriter().catch(()=>{});
+  assert.equal(storage.getItem(key),'{unfinished');assert.equal(a.sync.status.storageError,true);
 });
 
-await test('Old clients preserve each omitted field independently while explicit modern values can clear it',async()=>{
-  for(const omitted of ['equipmentReady','committeeMembers']){
-    const ready=defaultState().equipmentReady;ready.basket=true;
-    const f=await legacyEquipmentPendingFixture({serverReady:ready,serverName:'Confirmed director',omitted:[omitted]});
-    const stored=JSON.parse(f.storage.getItem(f.key));
-    if(omitted==='equipmentReady')stored.outbox[0].snapshot.committeeMembers.director[0]='Updated director';
-    else stored.outbox[0].snapshot.equipmentReady=defaultState().equipmentReady;
-    f.storage.setItem(f.key,JSON.stringify(stored));const next=f.fixture.service();await next.sync.start();
-    assert.equal(next.sync.pending,0);
-    assert.equal(f.fixture.shared.committeeMembers.director[0],omitted==='committeeMembers'?'Confirmed director':'Updated director');
-    assert.equal(f.fixture.shared.equipmentReady.basket,omitted==='equipmentReady');next.sync.stop();
-  }
-});
-
-async function legacyRotationPendingFixture(rotation={}){
-  const server=defaultState();server.committeeRotation=structuredClone(rotation);
-  const f=await writerFixture({snapshot:publicSnapshot(server)}),local=defaultState();
-  f.fixture.offline(true);local.borrow.scores[0][0]=5;f.sync.queue(local);await f.sync.flush();f.sync.stop();
-  const key=[...f.storage.data.keys()][0],stored=JSON.parse(f.storage.getItem(key));
-  delete stored.outbox[0].snapshot.committeeRotation;f.storage.setItem(key,JSON.stringify(stored));f.fixture.offline(false);
-  return {...f,local,key,payload:structuredClone(stored.outbox[0].snapshot)};
-}
-
-await test('Legacy retries hydrate the server rota without rewriting the immutable payload, even after a lost acknowledgement',async()=>{
-  const rotation={'borrow:0':{'comms:0':{status:'playing',coverFor:null},'comms:1':{status:'cover',coverFor:'comms:0'}}};
-  for(const loseAck of [false,true]){
-    const f=await legacyRotationPendingFixture(rotation);let visible=f.local;if(loseAck)f.fixture.loseAck();
-    const next=f.fixture.service({onRemote:snapshot=>{visible=mergePublicState(snapshot,visible);}});
-    await next.sync.start();await next.sync.flush();assert.equal(next.sync.pending,0);assert.deepEqual(visible.committeeRotation,rotation);
-    const retries=f.calls.filter(call=>call.path.endsWith('/apply_sports_day_update')&&call.body.p_snapshot.committeeRotation===undefined);
-    assert.equal(retries.length,loseAck?2:1);for(const retry of retries)assert.deepEqual(retry.body.p_snapshot,f.payload);
-    if(loseAck)assert.equal(retries[0].body.p_operation_id,retries[1].body.p_operation_id);
-    visible.borrow.scores[1][0]=4;assert.equal(next.sync.queue(visible),true);await next.sync.flush();
-    assert.deepEqual(f.fixture.shared.committeeRotation,rotation);assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
-  }
-});
-
-await test('A modern default or conflicting rota tail cannot erase a nonempty server rota behind an old retry',async()=>{
-  const rotation={'borrow:0':{'comms:0':{status:'duty',coverFor:null}}};
-  for(const proposed of [{},{'borrow:0':{'comms:0':{status:'playing',coverFor:null}}}]){
-    const f=await legacyRotationPendingFixture(rotation);let releaseAck,announceAck;
-    const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-    const next=f.fixture.service({fetch:async(url,options)=>{
-      const response=await f.fixture.fetch(url,options);
-      if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.committeeRotation===undefined){announceAck();await held;}
-      return response;
-    }});
-    const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.committeeRotation=proposed;newest.borrow.scores[1][0]=4;
-    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-    assert.equal(next.sync.status.phase,'conflict');assert.match(next.sync.status.error,/committee rotation/);assert.equal(next.sync.pending,1);
-    assert.deepEqual(f.fixture.shared.committeeRotation,rotation);assert.equal(f.fixture.shared.borrow.scores[1][0],null);
-    const stored=JSON.parse(f.storage.getItem(f.key));assert.deepEqual(stored.outbox[0].snapshot.committeeRotation,proposed);assert.equal(stored.outbox[0].attempted,false);
-    assert.deepEqual(f.calls.at(-1).body.p_snapshot,f.payload);next.sync.stop();
-  }
-});
-
-await test('A matching rota tail or first rota on an empty server can follow an old retry',async()=>{
-  const proposed={'borrow:0':{'comms:0':{status:'playing',coverFor:null}}};
-  for(const rotation of [{},proposed]){
-    const f=await legacyRotationPendingFixture(rotation);let releaseAck,announceAck;
-    const held=new Promise(resolve=>{releaseAck=resolve;}),started=new Promise(resolve=>{announceAck=resolve;});
-    const next=f.fixture.service({fetch:async(url,options)=>{
-      const response=await f.fixture.fetch(url,options);
-      if(url.endsWith('/apply_sports_day_update')&&JSON.parse(options.body).p_snapshot.committeeRotation===undefined){announceAck();await held;}
-      return response;
-    }});
-    const boot=next.sync.start();await started;const newest=structuredClone(f.local);newest.committeeRotation=proposed;newest.borrow.scores[1][0]=4;
-    assert.equal(next.sync.queue(newest),true);releaseAck();await boot;await next.sync.flush();
-    assert.equal(next.sync.pending,0);assert.equal(next.sync.status.phase,'synced');assert.deepEqual(f.fixture.shared.committeeRotation,proposed);
-    assert.equal(f.fixture.shared.borrow.scores[1][0],4);next.sync.stop();
-  }
-});
-
-await test('A previously synced scorekeeper can reload offline and keep new results durably pending', async () => {
-  const f = await writerFixture(); assert.equal(f.sync.pending, 0); f.sync.stop(); f.fixture.offline(true);
-  const reloaded = f.fixture.service(); await reloaded.sync.start(); assert.equal(reloaded.sync.role, 'writer');
-  const s = defaultState(); s.borrow.scores[0][0] = 5;
-  assert.equal(reloaded.sync.queue(s), true); await reloaded.sync.flush(); assert.equal(reloaded.sync.pending, 1);
-  const stored = JSON.parse([...f.storage.data.values()][0]); assert.equal(stored.outbox[0].snapshot.borrow.scores[0][0], 5);
-  f.fixture.offline(false); await reloaded.sync.claimWriter(); assert.equal(reloaded.sync.pending, 0);
-  assert.equal(f.fixture.shared.borrow.scores[0][0], 5); reloaded.sync.stop();
-});
-
-await test('A stale offline update stops at a conflict and never overwrites newer shared scores', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); const newer = defaultState(); newer.borrow.scores[1][0] = 5;
-  f.fixture.externalUpdate(newer); f.fixture.offline(false); await f.sync.flush();
-  assert.equal(f.sync.status.phase, 'conflict'); assert.equal(f.sync.pending, 1); assert.equal(f.fixture.shared.borrow.scores[0][0], null);
-  assert.equal(f.sync.queue(s), false); await f.sync.acceptRemote(); assert.equal(f.sync.pending, 0); assert.equal(f.delivered.at(-1).state.borrow.scores[1][0], 5); f.sync.stop();
-});
-
-await test('Conflicting offline roster edits cannot overwrite newer shared names', async () => {
-  const f=await writerFixture(),pending=defaultState();f.fixture.offline(true);pending.committeeMembers.director[0]='Offline edit';
-  f.sync.queue(pending);await f.sync.flush();
-  const newer=defaultState();newer.committeeMembers.director[0]='Confirmed shared name';f.fixture.externalUpdate(newer);f.fixture.offline(false);
-  await f.sync.flush();assert.equal(f.sync.status.phase,'conflict');assert.equal(f.sync.pending,1);
-  assert.equal(f.fixture.shared.committeeMembers.director[0],'Confirmed shared name');assert.equal(f.sync.queue(pending),false);
-  await f.sync.acceptRemote();assert.equal(f.delivered.at(-1).state.committeeMembers.director[0],'Confirmed shared name');f.sync.stop();
-});
-
-await test('Offline equipment ticks survive reload and publish after reconnecting',async()=>{
-  const f=await writerFixture(),state=defaultState();f.fixture.offline(true);state.equipmentReady.basket=true;
-  assert.equal(f.sync.queue(state),true);await f.sync.flush();f.sync.stop();
-  const next=f.fixture.service();await next.sync.start();assert.equal(next.sync.pending,1);assert.equal(next.delivered.length,0);
-  state.equipmentReady.rope=true;assert.equal(next.sync.queue(state),true);await next.sync.flush();
-  f.fixture.offline(false);await next.sync.claimWriter();assert.equal(next.sync.pending,0);
-  assert.equal(f.fixture.shared.equipmentReady.basket,true);assert.equal(f.fixture.shared.equipmentReady.rope,true);next.sync.stop();
-});
-
-await test('Stale offline equipment checks cannot replace newer shared readiness',async()=>{
-  const f=await writerFixture(),pending=defaultState();f.fixture.offline(true);pending.equipmentReady.basket=true;
-  f.sync.queue(pending);await f.sync.flush();const newer=defaultState();newer.equipmentReady.rope=true;
-  f.fixture.externalUpdate(newer);f.fixture.offline(false);await f.sync.flush();
-  assert.equal(f.sync.status.phase,'conflict');assert.equal(f.sync.pending,1);
-  assert.equal(f.fixture.shared.equipmentReady.rope,true);assert.equal(f.fixture.shared.equipmentReady.basket,false);
-  assert.equal(f.sync.queue(pending),false);await f.sync.acceptRemote();
-  assert.deepEqual(mergePublicState(f.delivered.at(-1).state).equipmentReady,newer.equipmentReady);f.sync.stop();
-});
-
-await test('Conflict stays blocked through renewal, reconnect, sign-in and reload until shared scores are explicitly loaded', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); const newer = defaultState(); newer.borrow.scores[1][0] = 5;
-  f.fixture.externalUpdate(newer); f.fixture.offline(false); await f.sync.flush();
-  assert.equal(f.sync.status.phase, 'conflict'); const attempts = f.calls.filter(c => c.path.endsWith('/apply_sports_day_update')).length;
-  f.fixture.advance(60000); for (const callback of f.intervals.values()) callback();
-  await f.sync.refresh(); await f.sync.claimWriter({ adoptRemote: false }); await f.sync.flush();
-  assert.equal(f.sync.status.phase, 'conflict'); assert.equal(f.sync.queue(s), false);
-  f.fixture.offline(true); await f.sync.refresh().catch(() => {}); assert.equal(f.sync.status.phase, 'conflict');
-  f.fixture.offline(false); await f.sync.login('keeper@example.org', 'password'); assert.equal(f.sync.status.phase, 'conflict');
-  f.sync.stop(); const reloaded = f.fixture.service(); await reloaded.sync.start();
-  assert.equal(reloaded.sync.status.phase, 'conflict'); assert.equal(reloaded.sync.pending, 1); assert.equal(reloaded.sync.queue(s), false);
-  assert.equal(f.calls.filter(c => c.path.endsWith('/apply_sports_day_update')).length, attempts);
-  await reloaded.sync.acceptRemote(); assert.equal(reloaded.sync.status.phase, 'synced'); assert.equal(reloaded.sync.pending, 0); reloaded.sync.stop();
-});
-
-await test('Another device needs an explicit Transfer to replace the active scorekeeper', async () => {
-  const f = await writerFixture(), other = f.fixture.service({ getStorage: () => memoryStorage() });
-  await other.sync.start(); await other.sync.login('keeper@example.org', 'password');
-  assert.equal(await other.sync.claimWriter(), false); assert.equal(other.sync.status.phase, 'busy');
-  assert.equal(await other.sync.claimWriter({ transfer: true }), true);
-  await f.sync.refresh(); assert.equal(f.sync.role, 'viewer'); assert.equal(f.sync.queue(defaultState()), false);
-  f.sync.stop(); other.sync.stop();
-});
-
-await test('A transferred lease keeps the old phone’s unsent results and blocks further editing', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); f.fixture.offline(false);
-  const other = f.fixture.service({ getStorage: () => memoryStorage() }); await other.sync.start(); await other.sync.login('keeper@example.org', 'password');
-  await other.sync.claimWriter({ transfer: true }); await f.sync.flush();
-  assert.equal(f.sync.role, 'viewer'); assert.equal(f.sync.status.phase, 'conflict'); assert.equal(f.sync.pending, 1);
-  assert.equal(f.fixture.shared.borrow.scores[0][0], null); assert.equal(f.sync.queue(s), false);
-  f.sync.stop(); other.sync.stop();
-});
-
-await test('An expired transferred lease cannot be silently reclaimed by an old offline phone', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); f.fixture.offline(false);
-  const other = f.fixture.service({ getStorage: () => memoryStorage() }); await other.sync.start(); await other.sync.login('keeper@example.org', 'password');
-  await other.sync.claimWriter({ transfer: true }); const transferred = f.fixture.writer;
-  f.fixture.advance(180000); await f.sync.flush();
-  assert.equal(f.fixture.writer, transferred); assert.equal(f.sync.role, 'viewer'); assert.equal(f.sync.pending, 1);
-  assert.equal(f.sync.status.phase, 'conflict');
-  assert.equal(f.fixture.shared.borrow.scores[0][0], null); assert.equal(f.sync.queue(s), false);
-  f.sync.stop(); other.sync.stop();
-});
-
-await test('Explicitly transferring back after a reload cannot flush results recorded under an older writer generation', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); f.sync.stop(); f.fixture.offline(false);
-  const other = f.fixture.service({ getStorage: () => memoryStorage() }); await other.sync.start(); await other.sync.login('keeper@example.org', 'password');
-  await other.sync.claimWriter({ transfer: true });
-  const returned = f.fixture.service();
-  assert.equal(await returned.sync.claimWriter({ transfer: true }), true);
-  assert.equal(returned.sync.status.phase, 'conflict'); assert.equal(returned.sync.pending, 1);
-  assert.equal(returned.sync.queue(s), false); await returned.sync.flush();
-  assert.equal(f.fixture.shared.borrow.scores[0][0], null); assert.equal(f.fixture.revision, 0);
-  await returned.sync.acceptRemote(); assert.equal(returned.sync.status.phase, 'synced'); assert.equal(returned.sync.pending, 0);
-  returned.sync.stop(); other.sync.stop();
-});
-
-await test('A delayed same-score claim response cannot restore the old writer after a transfer was observed', async () => {
-  const f = fixture(); let delay = false, release, arrived;
-  const waiting = new Promise(resolve => arrived = resolve), blocked = new Promise(resolve => release = resolve);
-  const first = f.service({ fetch: async (url, options) => {
-    const response = await f.fetch(url, options);
-    if (delay && url.endsWith('/claim_sports_day_writer')) { delay = false; arrived(); await blocked; }
-    return response;
-  } });
-  await first.sync.start(); await first.sync.login('keeper@example.org', 'password'); await first.sync.claimWriter();
-  delay = true; const renewal = first.sync.claimWriter({ adoptRemote: false }); await waiting;
-  const other = f.service({ getStorage: () => memoryStorage() }); await other.sync.start(); await other.sync.login('keeper@example.org', 'password');
-  await other.sync.claimWriter({ transfer: true }); await first.sync.refresh();
-  assert.equal(first.sync.role, 'viewer'); release(); assert.equal(await renewal, false);
-  assert.equal(first.sync.role, 'viewer'); assert.equal(first.sync.queue(defaultState()), false);
-  assert.equal(first.sync.remote.writer_id, f.writer); first.sync.stop(); other.sync.stop();
-});
-
-await test('A timer keeps the right countdown when the scorekeeper phone clock is skewed', async () => {
-  const f = await writerFixture({ localOffset: 90000 }), s = defaultState(); s.timers['relay:0'] = makeClock(60);
-  startClock(s.timers, 'relay:0', f.fixture.now() + 90000); s.activeKey = 'relay:0';
-  f.sync.queue(s); await f.sync.flush(); assert.equal(f.fixture.shared.timers['relay:0'].deadline, f.fixture.now() + 60000);
-  assert.equal(f.sync.offsetMs, -90000); f.sync.stop();
-});
-
-await test('The same writer renews an expired offline lease before sending pending scores', async () => {
-  const f = await writerFixture(), s = defaultState(); f.fixture.offline(true); s.borrow.scores[0][0] = 5;
-  f.sync.queue(s); await f.sync.flush(); f.fixture.advance(180000); f.fixture.offline(false);
-  await f.sync.flush(); assert.equal(f.sync.pending, 0); assert.equal(f.sync.role, 'writer'); assert.equal(f.fixture.shared.borrow.scores[0][0], 5);
-  assert.equal(f.calls.filter(c => c.path.endsWith('/claim_sports_day_writer')).length, 2); f.sync.stop();
-});
-
-await test('Realtime invalidation refreshes viewers and stopping removes the subscription and fallback timer', async () => {
-  const f = fixture(); let invalidate, connection, closed = false;
-  const { sync, delivered } = f.service({ subscribe: (onInvalidate, onConnection) => { invalidate = onInvalidate; connection = onConnection; return () => closed = true; } });
-  await sync.start(); const s = defaultState(); s.borrow.scores[0][0] = 5; f.externalUpdate(s);
-  invalidate(); await sync.refresh(); assert.equal(delivered.at(-1).state.borrow.scores[0][0], 5);
-  connection(true); await sync.refresh(); sync.stop(); assert.equal(closed, true); assert.equal(f.intervals.size, 0);
-});
-
-await test('Login credentials are private, session refresh is automatic, and logout keeps pending results', async () => {
-  const f = await writerFixture(); assert.equal(f.sync.status.email, 'keeper@example.org');
-  assert.equal('access_token' in f.sync.status, false); assert.equal('access_token' in f.sync.session, false);
-  assert.equal([...f.storage.data.values()][0].includes('private-password'), false);
-  f.fixture.advance(3600000); await f.sync.claimWriter();
-  assert.equal(f.calls.filter(c => c.path === '/auth/v1/token').length, 2);
-  f.fixture.offline(true); const s = defaultState(); s.borrow.scores[0][0] = 5; f.sync.queue(s); await f.sync.flush();
-  await f.sync.logout(); assert.equal(f.sync.session, null); assert.equal(f.sync.role, 'viewer'); assert.equal(f.sync.pending, 1);
-  const persisted = JSON.parse([...f.storage.data.values()][0]); assert.equal(persisted.session, null); f.sync.stop();
-});
-
-await test('An invalidated scorekeeper login clears credentials without losing pending results', async () => {
-  const f = await writerFixture(), s = defaultState(); s.borrow.scores[0][0] = 5; f.fixture.denyAccess();
-  f.sync.queue(s); await f.sync.flush();
-  assert.equal(f.sync.status.phase, 'signed-out'); assert.equal(f.sync.status.signedIn, false);
-  assert.equal(f.sync.role, 'viewer'); assert.equal(f.sync.pending, 1); f.sync.stop();
-});
-
-await test('A stalled request times out and leaves the viewer usable offline', async () => {
-  const f = fixture();
-  const { sync } = f.service({ requestTimeoutMs: 5, fetch: (url, options) => new Promise((resolve, reject) => {
-    options.signal.addEventListener('abort', () => reject(Error('Request aborted')), { once: true });
-  }) });
-  await sync.start(); assert.equal(sync.status.phase, 'offline'); assert.equal(sync.status.connected, false); sync.stop();
-});
-
-await test('A response with received headers but a stalled JSON body still times out as a network failure', async () => {
-  const f = fixture();
-  const { sync } = f.service({ requestTimeoutMs: 5, fetch: async (url, options) => ({ ok: true, status: 200,
-    json: () => new Promise((resolve, reject) => options.signal.addEventListener('abort', () => reject(Object.assign(Error('Body aborted'), { name: 'AbortError' })), { once: true })),
-  }) });
-  await sync.start(); assert.equal(sync.status.phase, 'offline'); assert.equal(sync.status.error, 'Waiting for a connection.'); sync.stop();
-});
-
-await test('Unavailable storage is reported while current pending scores remain in memory', async () => {
-  const f = fixture(), { sync } = f.service({ getStorage: () => { throw Error('Blocked'); } });
-  await sync.start(); await sync.login('keeper@example.org', 'password'); await sync.claimWriter();
-  f.offline(true); const s = defaultState(); s.borrow.scores[0][0] = 5; sync.queue(s); await sync.flush();
-  assert.equal(sync.status.storageError, true); assert.equal(sync.pending, 1); sync.stop();
-});
-
-await test('Unreadable pending sync data is protected from silent replacement', async () => {
-  const f = fixture(), key = 'cg-sports-day-sync:https://test-project.supabase.co:cgs-oct25'; f.storage.setItem(key, '{unfinished');
-  const { sync } = f.service(); await sync.start(); await sync.login('keeper@example.org', 'password'); await sync.claimWriter();
-  assert.equal(f.storage.getItem(key), '{unfinished'); assert.equal(sync.status.storageError, true); sync.stop();
-});
-
-for (const result of tests) console.log(`${result.passed ? 'PASS' : 'FAIL'} ${result.name}${result.cause ? '\n' + result.cause.stack : ''}`);
-if (tests.some(result => !result.passed)) process.exitCode = 1;
-console.log(`${tests.filter(result => result.passed).length}/${tests.length} sync tests passed.`);
+for(const result of tests)console.log(`${result.passed?'PASS':'FAIL'} ${result.name}${result.cause?'\n'+result.cause.stack:''}`);
+if(tests.some(result=>!result.passed))process.exitCode=1;
+console.log(`${tests.filter(result=>result.passed).length}/${tests.length} sync tests passed.`);

@@ -1,30 +1,30 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=56';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=56';
-import { createLiveDesk } from './live.js?v=56';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=56';
-import { icon } from './icons.js?v=56';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=56';
-import { renderMedia, downloadBlob } from './media.js?v=56';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=56';
-import { captureView } from './view-state.js?v=56';
-import { createDeviceStore } from './device-store.js?v=56';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=56';
-import { createBeforeSyncBackup } from './before-sync.js?v=56';
-import { SYNC_CONFIG } from './sync-config.js?v=56';
-import { renderLiveConnection } from './connection-badge.js?v=56';
-import { createGameTimeline } from './game-timeline.js?v=56';
-import { createPanelNavigation } from './panel-navigation.js?v=56';
-import { renderLocationGuide } from './location-guide.js?v=56';
-import { createAppInstall } from './app-install.js?v=56';
-import { renderInstallGuide } from './install-guide.js?v=56';
-import { googleCalendarLink } from './calendar-link.js?v=56';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=56';
-import { renderFirstAidKit } from './first-aid-kit.js?v=56';
-import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=56';
-import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=56';
-import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=56';
-import { renderRotationPlanner } from './rota-planner-ui.js?v=56';
-import { createScoreboard } from './scoreboard-controller.js?v=56';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=57';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=57';
+import { createLiveDesk } from './live.js?v=57';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=57';
+import { icon } from './icons.js?v=57';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=57';
+import { renderMedia, downloadBlob } from './media.js?v=57';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=57';
+import { captureView } from './view-state.js?v=57';
+import { createDeviceStore } from './device-store.js?v=57';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=57';
+import { createBeforeSyncBackup } from './before-sync.js?v=57';
+import { SYNC_CONFIG } from './sync-config.js?v=57';
+import { renderLiveConnection } from './connection-badge.js?v=57';
+import { createGameTimeline } from './game-timeline.js?v=57';
+import { createPanelNavigation } from './panel-navigation.js?v=57';
+import { renderLocationGuide } from './location-guide.js?v=57';
+import { createAppInstall } from './app-install.js?v=57';
+import { renderInstallGuide } from './install-guide.js?v=57';
+import { googleCalendarLink } from './calendar-link.js?v=57';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=57';
+import { renderFirstAidKit } from './first-aid-kit.js?v=57';
+import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=57';
+import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=57';
+import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=57';
+import { renderRotationPlanner } from './rota-planner-ui.js?v=57';
+import { createScoreboard } from './scoreboard-controller.js?v=57';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -57,7 +57,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=56', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=57', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -80,13 +80,13 @@ function updateLeaderCrowns() {
 const note = (title, text, pending = false) => `<section class="note-card ${pending ? 'pending' : ''}"><h3>${esc(title)}</h3><p>${esc(text)}</p></section>`;
 const numberInput = (label, value, attrs = '', max = 100, min = 0) => `<label class="field">${esc(label)}<input type="number" inputmode="numeric" min="${min}" max="${max}" step="1" value="${value ?? ''}" ${attrs}></label>`;
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('visible'); clearTimeout(toast.timer); toast.timer = setTimeout(() => $('#toast').classList.remove('visible'), 3000); }
-function save() {
+function save(options = {}) {
   saveAvailable = store.save(state);
   $('#save-state').textContent = saveAvailable ? 'Saved on this device' : store.protected ? 'Existing backup protected' : 'Not saved · export a backup';
   $('#panel-save').textContent = saveAvailable ? 'Changes save on this device' : store.protected ? 'Saved data unreadable · export before replacing' : 'Storage unavailable · export a backup';
   updateLeaderCrowns();
   timeline?.update();
-  if(sync&&!applyingRemote&&canEdit())sync.queue(state);
+  if(sync&&!applyingRemote&&canEdit())sync.queue(state,options);
   updateSyncLabels();
 }
 function updateSyncLabels(){
@@ -108,7 +108,7 @@ function syncErrorText(status){
 function syncPanel(){
   if(!sync)return '<p class="sync-caution"><strong>Scorekeeper only.</strong> Off limits to everyone else.</p>';
   const s=sync.status;
-  const login=!s.signedIn?`<form id="scorekeeper-login" class="sync-login"><label class="field">Scorekeeper email<input name="email" type="email" autocomplete="username" required></label><label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label><button class="primary" type="submit">Sign in &amp; keep score</button></form>`:`<p class="sync-account">Signed in as ${esc(s.email)}</p><div class="button-row">${s.role==='writer'?'<button class="secondary" data-sync-action="release">Stop keeping score</button>':'<button class="primary" data-sync-action="claim">Keep score on this phone</button><button class="secondary" data-sync-action="transfer">Transfer scorekeeping here</button>'}<button class="text-button" data-sync-action="logout">Sign out</button></div>`;
+  const login=!s.signedIn?`<form id="scorekeeper-login" class="sync-login"><label class="field">Scorekeeper email<input name="email" type="email" autocomplete="username" required></label><label class="field">Password<input name="password" type="password" autocomplete="current-password" required></label><button class="primary" type="submit">Sign in &amp; keep score</button></form>`:`<p class="sync-account">Signed in as ${esc(s.email)}</p><div class="button-row">${s.role==='writer'?'':'<button class="primary" data-sync-action="claim">Reconnect editing</button>'}<button class="text-button" data-sync-action="logout">Sign out</button></div>`;
   const pending=s.pending||s.storageError?`<span class="section-label">${s.storageError?'Storage needs attention':s.phase==='conflict'?'Pending results need review':'Pending results'}</span><div class="button-row"><button class="primary" data-sync-action="retry">Retry sync</button><button class="secondary" data-sync-action="accept">Load shared scores</button><button class="secondary" data-action="export-json">Download this phone’s backup</button></div>`:'';
   return `<p class="sync-caution"><strong>Scorekeeper only.</strong> Off limits to everyone else.</p><p class="sync-error" id="sync-error" role="status" ${s.error?'':'hidden'}>${esc(syncErrorText(s))}</p>${login}${pending}${beforeSync.raw?'<button class="secondary" data-open="data">Original phone backup →</button>':''}<div class="button-row"><button class="secondary" data-sync-action="refresh">Refresh scores</button><button class="secondary" data-open="results">Scoreboard →</button><button class="secondary" data-sync-action="share">Copy viewing link</button></div>`;
 }
@@ -325,7 +325,7 @@ function resultsPanel() {
   const c=championship(state),leaders=leadersFor(c);
   return note(c.complete?'All five games complete':`${c.completed} of 5 games complete`,c.complete?'Overall ties use most first-place finishes, then a short tie-breaker if still equal.':'Each game adds its points automatically after its last round. Finish the remaining games before announcing a winner.',!c.complete)+`<div class="score-table-wrap"><table class="score-table score-overview"><thead><tr><th>Team</th><th>Borrow</th><th>Basket</th><th>Cavalry</th><th>Tug</th><th>Relay</th><th>Total</th></tr></thead><tbody>${c.rows.map(r=>`<tr><td><span class="leader-score">${teamLabel(r.id)}${leaders.includes(r.id)?`<span class="score-crown" role="img" aria-label="Leading team">${icon('crown')}</span>`:''}</span></td>${r.points.map(p=>`<td>${p??'—'}</td>`).join('')}<td><strong>${r.total}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Crowns mark the leading total; tied leaders share a crown. A dash means the game is still in progress. Places award 5 / 4 / 3 / 2 / 1 points; tied scores share a place and points. Tug-of-war semifinal losers share third place.</p><div class="button-row">${GAME_IDS.map(g=>`<button class="secondary" data-score-open="${g}">${GAME_NAMES[g]}${gameDone(state,g)?' ✓':' ↗'}</button>`).join('')}</div>`;
 }
-function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync automatically. Keep a JSON copy before resets or switching phones.','This file includes leaders and committee reminders. Keep it private.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download private JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, committee rota, equipment checks, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
+function dataPanel() { return (store.protected?note('Saved data needs attention','The existing backup could not be read, so it stays untouched. Download it before importing a backup or resetting. New entries cannot save until then.',true):'')+(beforeSync.error?note('Original phone backup',beforeSync.error,true)+'<div class="button-row"><button class="secondary" data-action="export-recovery">Download recovery copy</button><button class="secondary" data-action="recover-sync">Reconnect to shared scores</button></div>':'')+bullets('Keep a backup',['Shared scores sync across your signed-in devices. Keep a JSON copy before resets or imports.','This file includes leaders and committee reminders. Keep it private.'])+'<div class="button-row"><button class="primary" data-action="export-json">Download private JSON backup</button><label class="secondary import-label">Import backup<input type="file" id="import-file" accept="application/json,.json"></label></div>'+(beforeSync.raw?note('Before live sync','The original scores are still backed up on this phone. Restoring replaces shared results for everyone; private reminders stay as they are.')+'<div class="button-row"><button class="secondary" data-action="export-before-sync">Download original phone backup</button><button class="secondary" data-action="restore-before-sync">Restore original scores</button></div>':'')+bullets('Reset the day',['The scorekeeper can clear shared teams, scores, committee rota, equipment checks, timers and draw for everyone.','This phone’s private notes are also cleared. Download a backup first.'])+'<button class="danger" data-action="reset-all">Reset event data</button>'; }
 function mediaPanel() {
   return renderViewingShare()+`<div class="section-label">POSTER &amp; PHONE STORY</div><p class="help">Schedule, teams and game formats. Private reminders stay out.</p>
     <div class="field-row export-controls">
@@ -386,7 +386,13 @@ async function copyPosterLink() {
   }
 }
 async function confirmChange(message) { const d=$('#confirm-dialog'); $('#confirm-copy').textContent=message; d.showModal(); return new Promise(resolve=>{const finish=value=>{d.close();d.oncancel=null;resolve(value);};$('#confirm-ok').onclick=()=>finish(true);$('#confirm-cancel').onclick=()=>finish(false);d.oncancel=e=>{e.preventDefault();finish(false);};}); }
-function changed(refresh=true){save();renderPoster();if(refresh)renderPanel();}
+async function confirmSharedChange(message) {
+  const baseline=JSON.stringify(publicSnapshot(state));
+  if(!await confirmChange(message))return false;
+  if(baseline!==JSON.stringify(publicSnapshot(state))){toast('The event changed on another device. Review it and try again.');return false;}
+  return true;
+}
+function changed(refresh=true,options={}){save(options);renderPoster();if(refresh)renderPanel();}
 function invalidatePlaces(game){state.placements[game].values=Array(5).fill(null);}
 async function recordTugWinner(match,id) {
   if(!requireEditor())return false;
@@ -398,7 +404,7 @@ async function recordTugWinner(match,id) {
   affected.forEach(k=>delete state.timers['tug:'+k]);
   save();renderPoster();return true;
 }
-live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit,showScoreboard:context=>scoreboard.open(context),
+live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange:confirmSharedChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit,showScoreboard:context=>scoreboard.open(context),
   syncStatus:()=>sync?.status||{localPreview:true},preferences:()=>state.preferences,
   savePreference:(key,value)=>{state.preferences[key]=value;save();}
 });
@@ -441,17 +447,13 @@ async function syncAction(action){
   if(action==='refresh')await sync.refresh();
   if(action==='retry')await sync.flush();
   if(action==='claim')await sync.claimWriter();
-  if(action==='transfer'){
-    if(!await confirmChange('Move scorekeeping to this phone? The other phone will become a viewer. Pending results on the other phone stay there until reviewed.'))return;
-    await sync.claimWriter({transfer:true});
-  }
   if(action==='accept'){
     if(!await confirmChange('Load the confirmed shared scores and discard this phone’s pending results? Download this phone’s backup first to keep them.'))return;
     await sync.acceptRemote();
   }
-  if(action==='release'||action==='logout'){
-    if(sync.pending&&!await confirmChange('This phone has pending results. Download a backup before stopping, or keep this page open to sync them. Stop anyway?'))return;
-    await (action==='logout'?sync.logout():sync.releaseWriter());
+  if(action==='logout'){
+    if(sync.pending&&!await confirmChange('This phone has pending results. Download a backup before signing out, or keep this page open to sync them. Sign out on this device?'))return;
+    await sync.logout();
   }
   if(current==='sync')renderPanel();
 }
@@ -510,13 +512,13 @@ document.addEventListener('click',async event=>{
         toast('Rotation filled. You can adjust every assignment.');break;
       }
       case 'reset-committee-round':
-        if(requireEditor()&&state.committeeRotation[rotaRound]&&await confirmChange('Clear the committee rota for this round? Other rounds and all scores will stay.'))updateRotation(next=>delete next[rotaRound]);
+        if(requireEditor()&&state.committeeRotation[rotaRound]&&await confirmSharedChange('Clear the committee rota for this round? Other rounds and all scores will stay.'))updateRotation(next=>delete next[rotaRound]);
         break;
       case 'copy-committee-round':{
         if(!requireEditor())return;
         const rounds=ROTATION_GAMES.find(game=>game.id===rotaGame)?.rounds??[],index=rounds.findIndex(round=>round.key===rotaRound),previous=rotaGame==='basket'?(rotaRound.endsWith(':1')?rotaRound.slice(0,-1)+'0':null):rounds[index-1]?.key;
         if(!previous||!state.committeeRotation[previous])return;
-        if(state.committeeRotation[rotaRound]&&!await confirmChange('Replace this round’s committee rota with the previous round’s assignments?'))return;
+        if(state.committeeRotation[rotaRound]&&!await confirmSharedChange('Replace this round’s committee rota with the previous round’s assignments?'))return;
         if(updateRotation(next=>{next[rotaRound]=structuredClone(next[previous]);}))toast('Previous round copied. Check playing turns and cover.');break;
       }
       case 'copy-viewing-link':await copyViewingLink();break;
@@ -527,14 +529,14 @@ document.addEventListener('click',async event=>{
         changed();toast('Saved checks added to the shared checklist.');break;
       case 'random-draw':if(!state.tug.locked){state.tug.slots=shuffled(TEAM_IDS);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Opponents drawn. Review and lock the draw.');}break;
       case 'seed-draw':if(!state.tug.locked){state.tug.slots=seededSlots(state.teams);clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();toast('Seeded draw ready. Review and lock it.');}break;
-      case 'lock-draw':if(state.tug.locked){if(!await confirmChange('Unlock the draw? All match results and approved tug-of-war placements will be cleared.')||!requireEditor())return;state.tug.locked=false;clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');}else if(validSlots(state.tug.slots))state.tug.locked=true;changed();break;
-      case 'clear-matches':if(await confirmChange('Clear all tug-of-war winners and approved placements? The locked draw will stay.')&&requireEditor()){clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed();}break;
+      case 'lock-draw':{const unlocking=state.tug.locked;if(unlocking){if(!await confirmSharedChange('Unlock the draw? All match results and approved tug-of-war placements will be cleared.')||!requireEditor())return;state.tug.locked=false;clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');}else if(validSlots(state.tug.slots))state.tug.locked=true;changed(true,{barrier:unlocking});break;}
+      case 'clear-matches':if(await confirmSharedChange('Clear all tug-of-war winners and approved placements? The locked draw will stay.')&&requireEditor()){clearTug(state.tug);Object.keys(state.timers).filter(k=>k.startsWith('tug:')).forEach(k=>delete state.timers[k]);invalidatePlaces('tug');changed(true,{barrier:true});}break;
       case 'export-json':downloadBlob(new Blob([store.backup(state)],{type:'application/json'}),'cg-sports-day-backup.json');break;
       case 'export-recovery':if(beforeSync.recoveryRaw!==null)downloadBlob(new Blob([beforeSync.recoveryRaw],{type:'application/json'}),'cg-sports-day-original-recovery.json');break;
-      case 'recover-sync':if(await confirmChange('Replace the unreadable original-backup record with this phone’s current scores, then load confirmed shared scores? Download the recovery copy first. Any pending results will be discarded.')){beforeSync.recover(state);await sync.acceptRemote();renderPanel();}break;
+      case 'recover-sync':if(await confirmSharedChange('Replace the unreadable original-backup record with this phone’s current scores, then load confirmed shared scores? Download the recovery copy first. Any pending results will be discarded.')){beforeSync.recover(state);await sync.acceptRemote();renderPanel();}break;
       case 'export-before-sync':if(beforeSync.raw)downloadBlob(new Blob([beforeSync.raw],{type:'application/json'}),'cg-sports-day-before-sync.json');break;
-      case 'restore-before-sync':if(beforeSync.raw&&await confirmChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current committee names, rota, equipment checks and personal notes will stay.')&&requireWriter()){state=mergePublicState({...publicSnapshot(validateState(JSON.parse(beforeSync.raw))),committeeMembers:state.committeeMembers,committeeRotation:state.committeeRotation,equipmentReady:publicSnapshot(state).equipmentReady,equipmentColdPacksReady:state.equipmentReady['cold-packs']},state);store.replace(state);changed();toast('Original phone scores restored.');}break;
-      case 'reset-all':if(await confirmChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, committee names, rota, equipment checks, scores, timers and draw will be reset. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed();toast('Event data reset.');}break;
+      case 'restore-before-sync':if(beforeSync.raw&&await confirmSharedChange('Replace shared scores with this phone’s original scores from before live sync? Everyone will see these results. Current committee names, rota, equipment checks and personal notes will stay.')&&requireWriter()){state=mergePublicState({...publicSnapshot(validateState(JSON.parse(beforeSync.raw))),committeeMembers:state.committeeMembers,committeeRotation:state.committeeRotation,equipmentReady:publicSnapshot(state).equipmentReady,equipmentColdPacksReady:state.equipmentReady['cold-packs']},state);store.replace(state);changed(true,{barrier:true});toast('Original phone scores restored.');}break;
+      case 'reset-all':if(await confirmSharedChange('Reset the shared event for everyone, plus this phone’s private notes? Teams, committee names, rota, equipment checks, scores, timers and draw will be reset. Download a backup first to keep them.')&&requireWriter()){state=defaultState();department=state.preferences.department;store.replace(state);changed(true,{barrier:true});toast('Event data reset.');}break;
       case 'share-media':await shareCurrentMedia(el);break;
       case 'copy-poster-link':await copyPosterLink();break;
       case 'download-media':if(mediaExport.asset)downloadBlob(mediaExport.asset.file,mediaExport.asset.file.name);break;
@@ -576,7 +578,7 @@ document.addEventListener('change',async event=>{
       if(!requireWriter())return;
       const file=el.files[0];if(!file)return;if(file.size>500000)throw Error('Backup is too large. Choose a Sports Day JSON backup.');
       const imported=validateState(JSON.parse(await file.text()));
-      if(await confirmChange('Replace shared scores, committee names, rota, equipment checks and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed();toast('Backup restored.');}
+      if(await confirmSharedChange('Replace shared scores, committee names, rota, equipment checks and this phone’s notes with the validated backup? Download your current backup first to keep it.')&&requireWriter()){state=imported;department=state.preferences.department;store.replace(state);changed(true,{barrier:true});toast('Backup restored.');}
       el.value='';
     }
   }catch(e){toast(e instanceof SyntaxError?'That file is not valid JSON. No data was changed.':e.message);}
@@ -618,6 +620,10 @@ renderPoster();live.tick();updateInstallUI();
 const linkedPosterSize=posterSizeFromSearch(location.search);
 if(linkedPosterSize){exportSize=linkedPosterSize;revealLinkedPoster=true;openPanel('media');}
 if(sync)void sync.start();else{$('#sync-label').textContent='Local preview';}
+const resumeSync=()=>{if(sync)void sync.refresh().then(()=>sync.flush()).catch(()=>{});};
+window.addEventListener('online',resumeSync);
+window.addEventListener('focus',resumeSync);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)resumeSync();});
 if(!saveAvailable){$('#save-state').textContent='Existing backup protected';toast('Saved data could not be loaded. Export it before restoring or resetting.');}else $('#save-state').textContent='Saved on this device';
 
 if ('serviceWorker' in navigator && !localPreview) {

@@ -1,5 +1,5 @@
-import { DEPARTMENTS, GAME_NAMES } from './content.js?v=56';
-import { TEAM_IDS, COLOURS } from './model.js?v=56';
+import { DEPARTMENTS, GAME_NAMES } from './content.js?v=57';
+import { TEAM_IDS, COLOURS } from './model.js?v=57';
 
 const escapeHTML=value=>String(value).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const e=escapeHTML;

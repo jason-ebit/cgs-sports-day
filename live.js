@@ -1,10 +1,10 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=56';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=56';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=56';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=56';
-import { activeRoundKey, nextTarget } from './flow-model.js?v=56';
-import { createTimerPopup } from './timer-popup.js?v=56';
-import { captureView } from './view-state.js?v=56';
+import { TEAM_IDS, matchTeams } from './model.js?v=57';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=57';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=57';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=57';
+import { activeRoundKey, nextTarget } from './flow-model.js?v=57';
+import { createTimerPopup } from './timer-popup.js?v=57';
+import { captureView } from './view-state.js?v=57';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -176,12 +176,12 @@ export function createLiveDesk(api) {
         if(!await api.confirmChange(action==='reset-game'?'Reset this game’s scores, timers and setup? Other games and team names stay.':ctx.game==='tug'?'Reset this match and any dependent later matches?':'Reset this round’s scores and timer?'))return;
         if(!canEdit())return;
         const s=getState();lastResultToken=null;
-        action==='reset-game'?resetGame(s,ctx.game):resetRound(s,ctx.key);if(action==='reset-game')delete choices[ctx.eventIndex];save();refreshViews();return;
+        action==='reset-game'?resetGame(s,ctx.game):resetRound(s,ctx.key);if(action==='reset-game')delete choices[ctx.eventIndex];save({barrier:true});refreshViews();return;
       }
       if(ctx.done||ctx.complete)return;
       const s=getState();
       if(action==='undo-result'){
-        if(lastResultToken?.key===ctx.key&&undoResult(s,lastResultToken)){lastResultToken=null;save();refreshViews();}
+        if(lastResultToken?.key===ctx.key&&undoResult(s,lastResultToken)){lastResultToken=null;save({barrier:true});refreshViews();}
         return;
       }
       const scoring=control.dataset.liveWinner||control.dataset.liveArrival||control.dataset.liveFail||control.dataset.liveEliminate||['plus-ball','minus-ball','finish'].includes(action);
@@ -214,7 +214,7 @@ export function createLiveDesk(api) {
         default:return;
       }
       if(roundDone(s,ctx.key)){if(c)pauseClock(c,now());if(s.activeKey===ctx.key)s.activeKey=null;}
-      save();refreshViews();presentSavedRound(ctx);
+      save({barrier:['reset-clock','rematch','undo-result'].includes(action)});refreshViews();presentSavedRound(ctx);
     }catch(error){toast(error.message);}
   });
   document.addEventListener('change',e=>{

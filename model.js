@@ -1,6 +1,6 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=56';
-import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=56';
-export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=56';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=57';
+import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=57';
+export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=57';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
