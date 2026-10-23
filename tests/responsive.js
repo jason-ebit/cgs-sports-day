@@ -6,6 +6,13 @@ if (new URLSearchParams(location.search).has('viewer')) {
   document.querySelector('#preview-mode').textContent = 'Live viewer inspection. Stay signed out while checking the login form and public layout.';
 }
 const label = element => element.id ? `#${element.id}` : `${element.tagName.toLowerCase()}.${[...element.classList].join('.')}`;
+const inspections = new Map();
+const initialSize = new URLSearchParams(location.search).get('size');
+if ([...document.querySelector('#size').options].some(option => option.value === initialSize)) {
+  document.querySelector('#size').value = initialSize;
+  const [width,height]=initialSize.split(',');
+  frame.style.width=`${width}px`;frame.style.height=`${height}px`;
+}
 
 function measure() {
   const d = frame.contentDocument, w = frame.contentWindow;
@@ -14,6 +21,11 @@ function measure() {
   const modal = [...d.querySelectorAll('dialog[open]')].at(-1);
   const root = modal || d.body;
   const issues = [];
+  if (modal) {
+    const rect = modal.getBoundingClientRect();
+    if (rect.left < -1 || rect.right > frame.clientWidth + 1) issues.push(`Dialog extends outside viewport horizontally`);
+    if (rect.top < -1 || rect.bottom > frame.clientHeight + 1) issues.push(`Dialog extends outside viewport vertically`);
+  }
   for (const element of root.querySelectorAll('*')) {
     if (!visible(element) || element.namespaceURI !== 'http://www.w3.org/1999/xhtml' ||
       ['INPUT','SELECT','TEXTAREA','SCRIPT','STYLE','OPTION'].includes(element.tagName)) continue;
@@ -41,20 +53,41 @@ function measure() {
   const width = d.documentElement.scrollWidth, height = d.documentElement.scrollHeight;
   if (width > frame.clientWidth + 1) issues.unshift(`Page overflow: ${width - frame.clientWidth}px horizontally`);
   if (!modal && d.body.classList.contains('fit-home') && height > frame.clientHeight + 1) issues.unshift(`Home overflow: ${height - frame.clientHeight}px vertically`);
-  const selection = [root.querySelector('.detail-tabs .active')?.textContent,root.querySelector('.committee-tabs .selected')?.textContent].filter(Boolean);
-  status.textContent = `Viewport ${frame.clientWidth} × ${frame.clientHeight}; document ${width} × ${height}\nView: ${modal?.getAttribute('aria-labelledby') ? d.getElementById(modal.getAttribute('aria-labelledby')).textContent : 'Home'}${selection.length ? ' / '+selection.join(' / ') : ''}\n${header.join('\n')}\n${issues.length ? issues.join('\n') : 'No unintended text or page overflow detected.'}`;
+  if (!modal && height > frame.clientHeight + 1) {
+    for (const selector of ['.toolbar','#poster-viewport','#poster','#home-shortcuts','.poster-header','.poster-columns','.poster-footer','#timer-float']) {
+      const element=d.querySelector(selector);if(!element||!visible(element))continue;
+      const r=element.getBoundingClientRect();
+      issues.push(`${selector}: top ${r.top.toFixed(1)}, bottom ${r.bottom.toFixed(1)}, height ${r.height.toFixed(1)}, content ${element.scrollHeight}`);
+    }
+  }
+  const selection = modal ? [root.querySelector('.detail-tabs .active')?.textContent,root.querySelector('.committee-tabs .selected')?.textContent].filter(Boolean) : [d.body.dataset.homeView,d.body.classList.contains('fit-home')?'fit':'expanded'].filter(Boolean);
+  const view=`${modal?.getAttribute('aria-labelledby') ? d.getElementById(modal.getAttribute('aria-labelledby')).textContent : 'Home'}${selection.length ? ' / '+selection.join(' / ') : ''}`;
+  status.textContent = `Viewport ${frame.clientWidth} × ${frame.clientHeight}; document ${width} × ${height}\nView: ${view}\n${header.join('\n')}\n${issues.length ? issues.join('\n') : 'No unintended text or page overflow detected.'}`;
+  const key=`${frame.clientWidth} × ${frame.clientHeight} · ${view}`;
+  inspections.set(key,issues.length?issues.join('; '):'OK');
+  const history=document.querySelector('#inspection-history');
+  if(history)history.textContent=[...inspections].map(([view,result])=>`${view}: ${result}`).join('\n');
 }
 
-document.querySelector('#size').addEventListener('change', event => {
-  const [width,height] = event.target.value.split(',');
+function setViewport(value) {
+  document.querySelector('#size').value=value;
+  const [width,height] = value.split(',');
   frame.style.width = `${width}px`; frame.style.height = `${height}px`;
   requestAnimationFrame(() => requestAnimationFrame(measure));
-});
+}
+document.querySelector('#size').addEventListener('change', event => setViewport(event.target.value));
+document.querySelectorAll('[data-viewport]').forEach(button => button.addEventListener('click',()=>setViewport(button.dataset.viewport)));
 document.querySelector('#measure').addEventListener('click', measure);
 frame.addEventListener('load', async () => {
   const d = frame.contentDocument;
   await d.fonts.ready;
   const afterLayout = () => requestAnimationFrame(() => requestAnimationFrame(measure));
+  let queued=false;
+  new MutationObserver(()=>{
+    if(queued)return;
+    queued=true;
+    requestAnimationFrame(()=>{queued=false;measure();});
+  }).observe(d.body,{childList:true,subtree:true,attributes:true,attributeFilter:['open','class','hidden','aria-pressed','viewBox','d']});
   if (d.querySelector('.game-card')) { afterLayout(); return; }
   const ready = new MutationObserver(() => {
     if (!d.querySelector('.game-card')) return;

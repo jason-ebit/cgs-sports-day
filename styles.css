@@ -756,6 +756,8 @@ h1 {
   gap: 8px;
 }
 .bracket-scroll {
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   padding-bottom: 10px;
 }
@@ -772,6 +774,7 @@ h1 {
   gap: 21px;
   justify-content: center;
   position: relative;
+  min-width: 0;
 }
 .bracket-column h4 {
   font-size: 9px;
@@ -809,6 +812,7 @@ h1 {
   padding: 9px;
   font-size: 11px;
   text-align: left;
+  min-width: 0;
   min-height: 35px;
 }
 .match button:last-child {
@@ -823,6 +827,8 @@ h1 {
   font-weight: 700;
 }
 .match button span:not(.dot) {
+  min-width: 0;
+  flex: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -830,6 +836,7 @@ h1 {
 .match .winner:after {
   content: "✓";
   margin-left: auto;
+  flex: none;
 }
 .bracket-column:first-child .match:after {
   content: "";
@@ -881,6 +888,8 @@ h1 {
   gap: 9px;
 }
 .score-table-wrap {
+  min-width: 0;
+  max-width: 100%;
   overflow-x: auto;
   border: 1px solid var(--line);
 }
@@ -910,6 +919,7 @@ h1 {
   align-items: center;
   gap: 7px;
   max-width: 140px;
+  min-width: 0;
 }
 .score-team span:last-child {
   overflow: hidden;
@@ -1071,15 +1081,15 @@ h1 {
   font-size: 21px;
 }
 .bracket .match {
-  height: 102px;
+  height: 118px;
   flex-shrink: 0;
 }
 .bracket .match-label {
   height: 28px;
 }
 .bracket .match button {
-  height: 36px;
-  min-height: 36px;
+  height: 44px;
+  min-height: 44px;
 }
 .bracket-column:first-child {
   padding-top: 30px;
@@ -1088,8 +1098,8 @@ h1 {
   top: 50%;
 }
 .bracket-column:nth-child(2):after {
-  top: 81px;
-  bottom: 51px;
+  top: 89px;
+  bottom: 59px;
   width: 0;
   border: 0;
   border-right: 1px solid #aeb5ba;
@@ -2342,6 +2352,10 @@ h1 {
   display: grid;
   grid-template-columns: minmax(0,1fr) minmax(250px,.95fr);
   align-items: start;
+  min-width: 0;
+}
+.match-workspace > section {
+  min-width: 0;
 }
 .match-workspace .live-result {
   margin: 0;
@@ -2375,6 +2389,7 @@ h1 {
 .arrival-actions {
   display: flex;
   flex-shrink: 0;
+  align-items: center;
 }
 .success-button,.fail-button {
   border: 1px solid #d7dde2;
@@ -2392,6 +2407,7 @@ h1 {
   align-items: center;
   gap: 10px;
   margin: 20px 0;
+  min-width: 0;
 }
 .ball-counter input {
   min-width: 0;
@@ -2847,5 +2863,44 @@ h1 {
     max-width: calc(100vw - 60px);
     font-size: 10px;
     padding: 12px;
+  }
+}
+
+/* Keep scoring labels and long custom clocks inside their own game card. */
+.live-desk {
+  min-width: 0;
+}
+.live-desk .live-result .section-label {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.live-desk .live-result .section-label .badge {
+  max-width: 100%;
+  margin-left: auto;
+  overflow-wrap: anywhere;
+}
+.live-desk .clock-settings {
+  flex-wrap: wrap;
+}
+.live-desk .arena-order .arrival-row > :last-child {
+  max-width: 55%;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+@supports (font-size:1cqi) {
+  .live-desk .live-stage {
+    container-type: inline-size;
+  }
+  .live-desk .live-stage .clock-digits[data-clock-length="6"] {
+    font-size: min(clamp(59px,7vw,94px),28cqi);
+  }
+  .live-desk .live-stage .clock-digits[data-clock-length="7"] {
+    font-size: min(clamp(59px,7vw,94px),24cqi);
+  }
+  .live-desk.is-big .live-stage .clock-digits[data-clock-length="6"] {
+    font-size: min(clamp(76px,11vh,106px),28cqi);
+  }
+  .live-desk.is-big .live-stage .clock-digits[data-clock-length="7"] {
+    font-size: min(clamp(76px,11vh,106px),24cqi);
   }
 }

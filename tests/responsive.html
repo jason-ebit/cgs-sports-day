@@ -5,9 +5,11 @@
 <style>
 body{background:#eee;color:#24332b;font:14px system-ui;margin:20px}header{display:flex;flex-wrap:wrap;gap:16px;align-items:center;margin-bottom:12px}h1{font-size:20px;margin:0}select,button{padding:8px;font:inherit}iframe{display:block;width:320px;height:667px;border:1px solid #aaa;background:white;border-radius:14px}pre{white-space:pre-wrap;max-width:1400px;line-height:1.5;padding:12px;background:white;border-radius:8px}p{max-width:900px}
 </style>
-<header><h1>Layout inspection</h1><label>Viewport <select id="size"><option value="320,667">320 × 667 · narrow phone</option><option value="390,844">390 × 844 · phone</option><option value="768,1024">768 × 1024 · tablet</option><option value="568,320">568 × 320 · small landscape phone</option><option value="667,320">667 × 320 · landscape phone</option><option value="1280,720">1280 × 720 · desktop</option></select></label><button id="measure">Measure current view</button><a href="../?local">Open local preview</a><a href="?viewer">Inspect live viewer</a></header>
+<header><h1>Layout inspection</h1><label>Viewport <select id="size"><option value="320,667">320 × 667 · narrow phone</option><option value="390,844">390 × 844 · phone</option><option value="700,500">700 × 500 · short window</option><option value="768,1024">768 × 1024 · tablet</option><option value="568,320">568 × 320 · small landscape phone</option><option value="667,320">667 × 320 · landscape phone</option><option value="1280,720">1280 × 720 · desktop</option></select></label><button id="measure">Measure current view</button><a href="../?local">Open local preview</a><a href="?viewer">Inspect live viewer</a></header>
 <p id="preview-mode">Local editable preview. Measurements only read the visible view; open each panel normally. Scrollable tabs, tables, brackets and ellipsized team names are intentional.</p>
+<nav id="sizes" aria-label="Viewport presets"><button data-viewport="320,667">320 phone</button><button data-viewport="390,844">390 phone</button><button data-viewport="700,500">Short window</button><button data-viewport="768,1024">Tablet</button><button data-viewport="568,320">Small landscape</button><button data-viewport="667,320">Landscape</button><button data-viewport="1280,720">Desktop</button></nav>
 <pre id="status" role="status">Loading…</pre>
 <iframe allow="fullscreen" title="Sports Day layout preview" src="../?local"></iframe>
+<details><summary>Inspection history</summary><pre id="inspection-history"></pre></details>
 <script src="responsive.js"></script>
 </html>
