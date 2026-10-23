@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createLiveDesk } from '../live.js';
 import { TEAM_IDS, defaultState, matchTeams } from '../model.js';
 import { makeClock, startClock } from '../timer-model.js';
+import { recordWinner as recordTugResult } from '../rounds.js';
 
 // Exercise the desk's public event handlers with real scoring/timer models.
 // The DOM fixture only provides the elements used by those handlers.
@@ -30,7 +31,7 @@ class Surface {
 async function fixture(fn) {
   const globals=['document','window','innerWidth','innerHeight','setInterval','CSS'];
   const saved=new Map(globals.map(name=>[name,Object.getOwnPropertyDescriptor(globalThis,name)]));
-  const originalNow=Date.now;let now=1000,saves=0,refreshes=0,editable=true,offset=0,confirm=async()=>true,syncStatus={localPreview:true};const messages=[],panels=[],rendered=[],syncLabels=[];
+  const originalNow=Date.now;let now=1000,saves=0,refreshes=0,editable=true,offset=0,confirm=async()=>true,syncStatus={localPreview:true};const messages=[],panels=[],rendered=[],syncLabels=[],boards=[];
   const document=new Surface(),window=new Surface();
   const elements=Object.fromEntries(['#timer-float','#active-timer','#live-dialog','#hide-timer','#timer-dropzone','#live-dropzone','#close-live','#live-title','#live-body'].map(selector=>[selector,new Surface()]));
   const overlay=elements['#live-dialog'],overlayBody=elements['#live-body'];
@@ -61,13 +62,13 @@ async function fixture(fn) {
     rendered.push(desk);return {digits,status};
   };
   const live=createLiveDesk({getState:()=>state,schedule,esc:value=>String(value),dot:()=>'',teamLabel:id=>id,
-    save:()=>saves++,refresh:()=>refreshes++,toast:message=>messages.push(message),recordWinner:()=>false,
+    save:()=>saves++,refresh:()=>refreshes++,toast:message=>messages.push(message),showScoreboard:context=>boards.push({...context}),recordWinner:(match,id)=>{const accepted=recordTugResult(state,match,id);if(accepted)saves++;return accepted;},
     confirmChange:message=>confirm(message),openPanel:(...args)=>panels.push(args),saved:()=>true,canEdit:()=>editable,now:()=>now+offset,
     syncStatus:()=>syncStatus,preferences:()=>state.preferences,savePreference:(key,value)=>{state.preferences[key]=value;saves++;}});
   const start=(key,seconds=30,signature='')=>{
     state.timers[key]=makeClock(seconds,signature);startClock(state.timers,key,now);state.activeKey=key;return state.timers[key];
   };
-  try{await fn({state,live,control,emit,start,desk,messages,panels,elements,renderClock,renderSync:()=>{const el=new Surface();syncLabels.push(el);return el;},advance:ms=>now+=ms,setEditing:value=>editable=value,setOffset:value=>offset=value,setConfirm:value=>confirm=value,setSyncStatus:value=>syncStatus=value,replaceState:value=>state=value,currentState:()=>state,saves:()=>saves,refreshes:()=>refreshes});}
+  try{await fn({state,live,control,emit,start,desk,messages,panels,boards,elements,renderClock,renderSync:()=>{const el=new Surface();syncLabels.push(el);return el;},advance:ms=>now+=ms,setEditing:value=>editable=value,setOffset:value=>offset=value,setConfirm:value=>confirm=value,setSyncStatus:value=>syncStatus=value,replaceState:value=>state=value,currentState:()=>state,saves:()=>saves,refreshes:()=>refreshes});}
   finally{Date.now=originalNow;for(const [name,descriptor] of saved){if(descriptor)Object.defineProperty(globalThis,name,descriptor);else delete globalThis[name];}}
 }
 
@@ -350,7 +351,7 @@ await test('Changing a timer limit clears the Undo journal even after Play resta
 
 await test('Play has one action slot and the underlying desk hides it while Big screen is open',async({live,elements})=>{
   assert.equal((live.panel(5).match(/data-live-action="toggle"/g)||[]).length,1);
-  assert.match(live.panel(5),/class="live-action-dock"/);
+  assert.match(live.panel(5),/class="live-action-dock(?: [^"]*)?"/);
   live.open(5);
   assert.equal((elements['#live-body'].innerHTML.match(/data-live-action="toggle"/g)||[]).length,1);
   assert.doesNotMatch(live.panel(5),/data-live-action="toggle"/);
@@ -416,6 +417,71 @@ await test('Completed games offer Main Scores while spectator pages omit all edi
   state.relay.scores.forEach((row,i)=>row.fill(i+1));setEditing(false);
   const markup=live.panel(9);assert.match(markup,/data-live-action="overview">Main Scores/);
   assert.doesNotMatch(markup,/clock-options|reset-menu|data-live-arrival|data-live-action="toggle"/);
+});
+
+await test('The audience scoreboard opens for viewers without leaving the match or changing state',async({state,live,setEditing,emit,control,boards,elements,saves})=>{
+  setEditing(false);live.open(4);const before=structuredClone(state);
+  await emit('click',control(4,{liveAction:'scoreboard'}));
+  assert.equal(boards.length,1);assert.equal(boards[0].key,'borrow:0');
+  assert.equal(elements['#live-dialog'].open,true);assert.deepEqual(state,before);assert.equal(saves(),0);
+  assert.match(live.panel(4),/data-live-action="scoreboard"/);
+  assert.doesNotMatch(live.panel(0),/data-live-action="scoreboard"/);
+});
+
+await test('Borrow and Relay present a board only after the final team result and allow deliberate resets',async({state,emit,control,start,boards})=>{
+  for(const [game,index] of [['borrow',4],['relay',9]]){
+    start(game+':0');const before=boards.length;
+    for(const id of TEAM_IDS.slice(0,4))await emit('click',control(index,{liveArrival:id}));
+    assert.equal(boards.length,before);
+    await emit('click',control(index,{liveArrival:TEAM_IDS[4]}));
+    assert.equal(boards.length,before+1);assert.equal(boards.at(-1).key,game+':0');
+    assert.equal(state.activeKey,null);assert.equal(state.timers[game+':0'].deadline,null);
+    await emit('click',control(index,{liveArrival:TEAM_IDS[4]}));
+    assert.equal(boards.length,before+1,'An already locked result does not reopen the board.');
+    await emit('click',control(index,{liveAction:'reset-round'}));start(game+':0');
+    for(const id of TEAM_IDS)await emit('click',control(index,{liveArrival:id}));
+    assert.equal(boards.length,before+2,'Finishing a deliberately reset round presents its new results.');
+  }
+});
+
+await test('A saved Borrow failure can complete the round and open its standings',async({state,emit,control,start,boards})=>{
+  start('borrow:0');
+  for(const id of TEAM_IDS.slice(0,4))await emit('click',control(4,{liveArrival:id}));
+  await emit('click',control(4,{liveFail:'white'}));
+  assert.equal(state.borrow.scores[4][0],0);assert.equal(boards.length,1);
+});
+
+await test('Basket counter changes do not present results until Finish locks the attempt',async({state,emit,control,start,boards,desk})=>{
+  start('basket:red:0');await emit('click',control(5,{liveAction:'plus-ball'}));
+  assert.equal(boards.length,0);
+  desk.querySelector=selector=>selector==='[data-live-score]'?{value:'12',validity:{valid:true}}:null;
+  await emit('click',control(5,{liveAction:'finish'}));
+  assert.equal(state.basket.scores[0][0],12);assert.ok(state.finished.includes('basket:red:0'));
+  assert.equal(boards.length,1);assert.equal(boards[0].key,'basket:red:0');
+});
+
+await test('Cavalry shows standings once the last horse is known',async({state,emit,control,start,boards})=>{
+  const division=state.cavalry.divisions.women;division.active=[...TEAM_IDS];division.started=true;
+  start('cavalry:women',300,TEAM_IDS.join('|'));
+  for(const id of TEAM_IDS.slice(0,3))await emit('click',control(7,{liveEliminate:id}));
+  assert.equal(boards.length,0);
+  await emit('click',control(7,{liveEliminate:'green'}));
+  assert.equal(boards.length,1);assert.equal(boards[0].key,'cavalry:women');
+});
+
+await test('A confirmed Tug winner opens a board and preserves the big match popup',async({state,live,emit,control,start,boards,elements})=>{
+  state.tug.slots=[...TEAM_IDS];state.tug.locked=true;
+  start('tug:prelim',60,matchTeams(state.tug,'prelim').join('|'));live.open(8);
+  await emit('click',control(8,{liveWinner:'red'}));
+  assert.equal(state.tug.winners.prelim,'red');assert.equal(boards.length,1);
+  assert.equal(boards[0].key,'tug:prelim');assert.equal(elements['#live-dialog'].open,true);
+});
+
+await test('Timer expiry and spectator refresh never force open an audience board',async({state,live,emit,control,start,advance,boards,setEditing})=>{
+  await emit('click',control(4,{liveArrival:'red'}));assert.equal(boards.length,0);
+  start('borrow:0',1);advance(1001);live.tick();assert.equal(boards.length,0);
+  setEditing(false);state.borrow.scores.forEach((row,i)=>row[0]=5-i);live.refresh();
+  assert.equal(boards.length,0);
 });
 
 for(const result of tests)console.log(`${result.pass?'PASS':'FAIL'} ${result.name}${result.error?'\n'+result.error:''}`);

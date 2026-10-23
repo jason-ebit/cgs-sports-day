@@ -1,10 +1,10 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=54';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=54';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=54';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=54';
-import { activeRoundKey, nextTarget } from './flow-model.js?v=54';
-import { createTimerPopup } from './timer-popup.js?v=54';
-import { captureView } from './view-state.js?v=54';
+import { TEAM_IDS, matchTeams } from './model.js?v=55';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=55';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=55';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=55';
+import { activeRoundKey, nextTarget } from './flow-model.js?v=55';
+import { createTimerPopup } from './timer-popup.js?v=55';
+import { captureView } from './view-state.js?v=55';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -87,7 +87,8 @@ export function createLiveDesk(api) {
     const primary=ctx.complete||ctx.done&&!target?'<button class="primary" data-live-action="overview">Main Scores →</button>':ctx.done?`<button class="primary" data-live-action="next">Next: ${esc(target.label)} →</button>`:editable?`<button class="primary" data-live-action="toggle" ${blocked(!ctx.ready||ms===0)}>${running?'Ⅱ Pause':'▶ Play'}</button>`:'';
     const undo=editable&&lastResultToken?.key===ctx.key&&canUndoResult(getState(),lastResultToken)?`<button class="text-button undo-result" data-live-action="undo-result">Undo ${esc(name(lastResultToken.teamId))} result</button>`:'';
     const sync=syncLabel();
-    const markup=`<div class="live-desk ${big?'is-big':''} ${ctx.complete?'game-completed':ctx.done?'round-completed':''}" data-live-event="${index}" data-live-key="${ctx.key}">${roundButtons(ctx)}${followControls(ctx)}<button class="live-sync ${sync.className}" data-live-action="sync" data-live-sync role="status">${esc(sync.text)}</button>${teamChoices(ctx)}<div class="match-workspace"><section class="live-stage ${running?'is-running':''}"><span class="eyebrow">${esc(ctx.title)}</span>${matchup(ctx)}<output class="clock-digits ${ms===0?'expired':''}" data-clock-digits role="timer" aria-label="Time remaining">${formatTime(ms)}</output><span class="clock-status" data-clock-status>${ctx.complete?'Game complete':ctx.done?'Round complete':running?'LIVE':ms===0?'Time up':started?'Paused':'Ready'}</span>${editable?`<div class="clock-controls"><button class="secondary" data-live-action="add" ${blocked(ctx.done||ctx.complete)}>+30s</button>${ctx.game==='tug'?`<button class="secondary" data-live-action="rematch" ${blocked(ctx.done||ctx.complete)}>30s rematch</button>`:''}</div><details class="clock-options"><summary>Timer settings</summary><div class="clock-settings"><label class="field">Limit (seconds)<input type="number" min="1" max="${ctx.game==='cavalry'?2700:86400}" step="1" inputmode="numeric" data-live-limit value="${c.duration/1000}" data-committed-value="${c.duration/1000}" ${blocked(running||ctx.done||ctx.complete)}></label><label class="checkbox"><input type="checkbox" data-live-sound ${sound?'checked':''}> End sound</label></div><button class="text-button" data-live-action="reset-clock" ${blocked(ctx.done||ctx.complete)}>Reset timer only</button></details>`:''}<p class="help">${esc(editable?ctx.hint:'Follow the timer and results as the scorekeeper updates them.')}</p></section>${ctx.game?`<section class="live-result">${results(ctx)}${undo}<p class="live-save-message" data-live-status role="status">${!editable?'Viewing live scores. Only the scorekeeper can record results.':!api.saved()?'Storage unavailable — export a backup to keep these results.':ctx.complete?'Game complete. Points added to the main Scores overview.':ctx.done?'Round saved and locked.':!started?'Press Play to unlock scoring.':'Results save as you tap. All rounds must finish for overall points.'}</p></section>`:''}</div>${primary&&(big||!overlay.open)?`<div class="live-action-dock">${primary}</div>`:''}<div class="live-bottom-actions">${!big?'<button class="secondary" data-live-action="expand">Big screen ↗</button>':''}${ctx.game?'<button class="text-button" data-live-action="sheet">Score sheet →</button>':''}${editable?`<details class="reset-menu"><summary>Reset…</summary><button class="text-button" data-live-action="reset-round">Reset ${ctx.game==='basket'?'attempt':ctx.game==='tug'?'match':'round'}</button>${ctx.game?'<button class="text-button" data-live-action="reset-game">Reset whole game</button>':''}</details>`:''}</div></div>`;
+    const scoreboard=ctx.game?'<button class="secondary score-display-launch" data-live-action="scoreboard">Scoreboard ↗</button>':'';
+    const markup=`<div class="live-desk ${big?'is-big':''} ${ctx.complete?'game-completed':ctx.done?'round-completed':''}" data-live-event="${index}" data-live-key="${ctx.key}">${roundButtons(ctx)}${followControls(ctx)}<button class="live-sync ${sync.className}" data-live-action="sync" data-live-sync role="status">${esc(sync.text)}</button>${teamChoices(ctx)}<div class="match-workspace"><section class="live-stage ${running?'is-running':''}"><span class="eyebrow">${esc(ctx.title)}</span>${matchup(ctx)}<output class="clock-digits ${ms===0?'expired':''}" data-clock-digits role="timer" aria-label="Time remaining">${formatTime(ms)}</output><span class="clock-status" data-clock-status>${ctx.complete?'Game complete':ctx.done?'Round complete':running?'LIVE':ms===0?'Time up':started?'Paused':'Ready'}</span>${editable?`<div class="clock-controls"><button class="secondary" data-live-action="add" ${blocked(ctx.done||ctx.complete)}>+30s</button>${ctx.game==='tug'?`<button class="secondary" data-live-action="rematch" ${blocked(ctx.done||ctx.complete)}>30s rematch</button>`:''}</div><details class="clock-options"><summary>Timer settings</summary><div class="clock-settings"><label class="field">Limit (seconds)<input type="number" min="1" max="${ctx.game==='cavalry'?2700:86400}" step="1" inputmode="numeric" data-live-limit value="${c.duration/1000}" data-committed-value="${c.duration/1000}" ${blocked(running||ctx.done||ctx.complete)}></label><label class="checkbox"><input type="checkbox" data-live-sound ${sound?'checked':''}> End sound</label></div><button class="text-button" data-live-action="reset-clock" ${blocked(ctx.done||ctx.complete)}>Reset timer only</button></details>`:''}<p class="help">${esc(editable?ctx.hint:'Follow the timer and results as the scorekeeper updates them.')}</p></section>${ctx.game?`<section class="live-result">${results(ctx)}${undo}<p class="live-save-message" data-live-status role="status">${!editable?'Viewing live scores. Only the scorekeeper can record results.':!api.saved()?'Storage unavailable — export a backup to keep these results.':ctx.complete?'Game complete. Points added to the main Scores overview.':ctx.done?'Round saved and locked.':!started?'Press Play to unlock scoring.':'Results save as you tap. All rounds must finish for overall points.'}</p></section>`:''}</div>${primary&&(big||!overlay.open)||scoreboard?`<div class="live-action-dock${scoreboard?' has-scoreboard':''}">${big||!overlay.open?primary:''}${scoreboard}</div>`:''}<div class="live-bottom-actions">${!big?'<button class="secondary" data-live-action="expand">Big screen ↗</button>':''}${ctx.game?'<button class="text-button" data-live-action="sheet">Score sheet →</button>':''}${editable?`<details class="reset-menu"><summary>Reset…</summary><button class="text-button" data-live-action="reset-round">Reset ${ctx.game==='basket'?'attempt':ctx.game==='tug'?'match':'round'}</button>${ctx.game?'<button class="text-button" data-live-action="reset-game">Reset whole game</button>':''}</details>`:''}</div></div>`;
     return big?markup.replaceAll(' · ',' — '):markup;
   }
   function syncLabel(){
@@ -112,6 +113,7 @@ export function createLiveDesk(api) {
   }
   function open(index,match){context(index);if(match){choices[index].match=match;markManual(index);}if(!overlay.open){overlayOpener=document.activeElement;popup.resetOverlay();}overlayEvent=index;renderOverlay();if(!overlay.open){overlay.showModal();document.querySelector('#live-body').scrollTop=0;}refresh();document.querySelector('#close-live').focus({preventScroll:true});}
   function refreshViews(){refresh();if(overlay.open)renderOverlay();tick();}
+  function presentSavedRound(ctx){if(ctx.game&&!ctx.done&&roundDone(getState(),ctx.key))api.showScoreboard?.(ctx);}
   function showReadyClock(ctx,c){
     document.querySelectorAll(`[data-live-key="${ctx.key}"]`).forEach(desk=>{
       const status=desk.querySelector('[data-clock-status]');if(status)status.textContent='Ready';
@@ -164,6 +166,7 @@ export function createLiveDesk(api) {
       const action=control.dataset.liveAction;
       if(action==='follow-live'){choices[ctx.eventIndex].review=false;choices[ctx.eventIndex].manual=false;refreshViews();return;}
       if(action==='expand'){open(ctx.eventIndex);return;}
+      if(action==='scoreboard'){if(ctx.game)api.showScoreboard?.(ctx);return;}
       if(action==='overview'){if(overlay.open)overlay.close();api.openPanel('results');return;}
       if(action==='sync'){if(overlay.open)overlay.close();api.openPanel('sync');return;}
       if(action==='sheet'||action==='bracket'){if(overlay.open)overlay.close();api.openPanel('event:'+ctx.eventIndex,action==='sheet'?'scores':'play');return;}
@@ -187,7 +190,7 @@ export function createLiveDesk(api) {
         if(!await recordWinner(ctx.match,control.dataset.liveWinner)||!canEdit())return;
         const current=getState();
         if(roundDone(current,ctx.key)){if(current.timers[ctx.key])pauseClock(current.timers[ctx.key],now());if(current.activeKey===ctx.key){current.activeKey=null;save();}}
-        refreshViews();return;
+        refreshViews();presentSavedRound(ctx);return;
       }
       let c=s.timers[ctx.key];
       if(control.dataset.liveArrival||control.dataset.liveFail){
@@ -211,7 +214,7 @@ export function createLiveDesk(api) {
         default:return;
       }
       if(roundDone(s,ctx.key)){if(c)pauseClock(c,now());if(s.activeKey===ctx.key)s.activeKey=null;}
-      save();refreshViews();
+      save();refreshViews();presentSavedRound(ctx);
     }catch(error){toast(error.message);}
   });
   document.addEventListener('change',e=>{
