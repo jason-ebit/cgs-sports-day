@@ -26,9 +26,10 @@ const initial = JSON.parse(source.match(/initial := '([\s\S]*?)'::jsonb;/)[1]);
 let passed = 0;
 function test(name, run) { run(); passed++; console.log(`✓ ${name}`); }
 
-test('SQL initial state matches the application public snapshot and validates', () => {
-  assert.deepEqual(publicSnapshot(mergePublicState(initial)), publicSnapshot(defaultState()));
-  assert.deepEqual(mergePublicState(initial), defaultState());
+test('Historical SQL initial state preserves its six-round plan while validating in the current app', () => {
+  const historical=defaultState();historical.borrow.rounds=6;
+  assert.deepEqual(publicSnapshot(mergePublicState(initial)), publicSnapshot(historical));
+  assert.deepEqual(mergePublicState(initial), historical);
 });
 
 test('Historical SQL roster defaults retain their slot contract and normalize into the current application',()=>{

@@ -7,8 +7,9 @@ const event = JSON.parse(readFileSync(new URL('../schedule.json', import.meta.ur
 const test = (name, run) => { run(); console.log(`PASS ${name}`); };
 const seconds = time => time.split(':').reduce((sum, value, index) => sum + Number(value) * [3600, 60, 1][index], 0);
 
-test('Borrow keeps one crew for each pair and keeps its two handovers inside twenty minutes', () => {
+test('Legacy six-round Borrow keeps one crew for each pair and its two handovers inside twenty minutes', () => {
   const state = defaultState();
+  state.borrow.rounds = 6;
   const intervals = [0, 1, 2, 3, 4, 5].map(round => rotationInterval(state, `borrow:${round}`, event.schedule));
   for (const first of [0, 2, 4]) assert.deepEqual(intervals[first], intervals[first + 1]);
   assert.deepEqual(intervals.filter((_, index) => index % 2 === 0).map(({ label, start, end, handoverSeconds }) => ({ label, start, end, handoverSeconds })), [
@@ -19,15 +20,20 @@ test('Borrow keeps one crew for each pair and keeps its two handovers inside twe
   assert.equal(rotationInterval(state, 'borrow:6', event), null);
 });
 
-test('The optional Borrow round gets its own block without adding event time', () => {
+test('The same-card race gets its own seventh-round block without adding event time', () => {
   const state = defaultState();
   state.borrow.rounds = 7;
-  const optional = rotationInterval(state, 'borrow:6', event);
-  assert.equal(optional.groupKey, 'borrow:pair:3');
-  assert.equal(optional.label, 'Round 7 · optional');
-  assert.equal(optional.end, '13:03');
-  assert.equal(optional.handoverSeconds, 0);
-  assert.match(optional.note, /only if time allows/);
+  const intervals = [0, 2, 4, 6].map(round => rotationInterval(state, `borrow:${round}`, event));
+  const race = intervals.at(-1);
+  assert.equal(race.groupKey, 'borrow:pair:3');
+  assert.deepEqual(intervals.map(({ label, start, end, handoverSeconds }) => ({ label, start, end, handoverSeconds })), [
+    { label: 'Rounds 1–2', start: '12:44', end: '12:48', handoverSeconds: 60 },
+    { label: 'Rounds 3–4', start: '12:49', end: '12:54', handoverSeconds: 60 },
+    { label: 'Rounds 5–6', start: '12:55', end: '13:00', handoverSeconds: 60 },
+    { label: 'Round 7 · Same-card race', start: '13:01', end: '13:03', handoverSeconds: 0 },
+  ]);
+  assert.equal(race.note, 'Give every team the same card. Start together; confirm the duty crew before the race.');
+  assert.doesNotMatch(renderRotationInterval(state, 'borrow:6', event), /optional|only if time allows/);
 });
 
 test('Basket holds the same crew for both attempts and then allows ninety seconds to swap', () => {

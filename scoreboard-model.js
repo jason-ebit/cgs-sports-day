@@ -1,8 +1,8 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, gameDone, gamePlaces, matchTeams, validSlots } from './model.js?v=62';
-import { GAME_NAMES } from './content.js?v=62';
-import { roundDone, cavalryPoints } from './rounds.js?v=62';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, formatTime } from './timer-model.js?v=62';
-import { activeRoundKey } from './flow-model.js?v=62';
+import { TEAM_IDS, COLOURS, GAME_IDS, gameDone, gamePlaces, matchTeams, validSlots } from './model.js?v=63';
+import { GAME_NAMES } from './content.js?v=63';
+import { roundDone, cavalryPoints } from './rounds.js?v=63';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, formatTime } from './timer-model.js?v=63';
+import { activeRoundKey } from './flow-model.js?v=63';
 
 const DIVISIONS = ['women', 'men'];
 const present = value => Number.isFinite(value);
@@ -150,7 +150,7 @@ export function buildGameScoreboard(state, context = {}) {
   let finalScope = false;
   if (game === 'borrow' || game === 'relay') {
     const { round, count } = scope;
-    board.stageLabel = `Round ${round + 1} / ${count}`;
+    board.stageLabel = `Round ${round + 1} / ${count}${game === 'borrow' && round === 6 ? ' · Same-card race' : ''}`;
     board.summaryLabel = `Points through round ${round + 1}`;
     board.rows = board.rows.map((row, i) => {
       const scores = state[game].scores[i].slice(0, round + 1);

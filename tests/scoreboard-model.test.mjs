@@ -223,7 +223,7 @@ test('Keys identify the selected match or attempt without accepting another game
   assert.equal(buildGameScoreboard(s, { game: 'basket', key: 'basket:blue:1' }).stageLabel, 'Blue · attempt 2 / 2');
   assert.equal(buildGameScoreboard(s, { game: 'relay', key: 'borrow:5', round: 1 }).key, 'relay:1');
   assert.equal(buildGameScoreboard(s, { key: 'cavalry:men' }).stageLabel, 'Round 2 / 2 · Men');
-  assert.equal(buildGameScoreboard(s, { game: 'borrow', round: 99 }).key, 'borrow:5');
+  assert.equal(buildGameScoreboard(s, { game: 'borrow', round: 99 }).key, 'borrow:6');
   assert.equal(buildGameScoreboard(s, { key: 'event:1' }), null);
 });
 
@@ -281,8 +281,9 @@ test('Following never crosses into another active game', () => {
   assert.equal(followGameScoreboardContext(s, context).key, 'relay:1');
 });
 
-test('Disabled contingency Borrow round is excluded from both active and completed catch-up', () => {
+test('Disabled seventh Borrow round in a saved six-round game is excluded from active and completed catch-up', () => {
   const s = defaultState();
+  s.borrow.rounds = 6;
   setColumn(s, 'borrow', 4, [5, 4, 3, 2, 2]);
   setColumn(s, 'borrow', 6, [5, 4, 3, 2, 2]);
   s.timers['borrow:6'] = makeClock(90);
@@ -457,9 +458,10 @@ test('Completed selected rounds override running or expired clocks without chang
   assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 1000).status, 'round-complete');
   assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 50000).statusLabel, 'Round complete');
   assert.deepEqual(s, before);
-  for (let round = 1; round < 6; round++) setColumn(s, 'borrow', round, [5, 4, 3, 2, 2]);
+  for (let round = 1; round < s.borrow.rounds; round++) setColumn(s, 'borrow', round, [5, 4, 3, 2, 2]);
   assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 1000).status, 'round-complete');
-  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:5' }, 1000).statusLabel, 'Game complete');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:5' }, 1000).statusLabel, 'Round complete');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:6' }, 1000).statusLabel, 'Game complete');
 });
 
 test('Timer completion scope agrees with all five game scoreboards and historical rounds', () => {

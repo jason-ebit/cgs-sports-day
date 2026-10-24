@@ -63,13 +63,13 @@ Suggested implementation details, not prior settled decisions:
 
 ### 1. Borrow-a-Thing — 20 minutes
 - All five teams participate simultaneously with one runner each round. No elimination bracket.
-- Six rounds normally; seventh contingency round for teams of seven, within the same 20-minute allocation. Smaller teams can rotate; equal scoring opportunities across teams.
-- R1 Easy: 90 seconds; R2 Easy: 90 seconds; R3 Medium: 120 seconds; R4 Borrow-a-Person: 120 seconds; R5 Medium: 120 seconds; R6 Funny/Chaos: 120 seconds; R7 contingency: 90 seconds.
-- Prepare about 45 cards; only 30–35 are used. Each round draws five cards from one category; don't return used cards to the deck.
+- Seven rounds within the same 20-minute allocation. Round 7 is a same-card race: give all five teams an identical card and start them together. Smaller teams can rotate; equal scoring opportunities across teams.
+- R1 Easy: 90 seconds; R2 Easy: 90 seconds; R3 Medium: 120 seconds; R4 Borrow-a-Person: 120 seconds; R5 Medium: 120 seconds; R6 Funny/Chaos: 120 seconds; R7 Same-card race: 90 seconds.
+- Prepare about 45 cards including spares. Rounds 1–6 use 30 cards drawn from their categories; round 7 uses five matching copies of one new card. Keep used cards out.
 - Different runner until everyone willing has had a turn.
 - Valid finish points: 5, 4, 3, 2, 2; invalid/timeout: 0. Sum rounds, rank, then convert to championship placement points.
 - Borrow with consent; no sensitive/expensive objects, medication or removing active first-aid personnel from duty.
-- Time budget with 7 rounds: 2 min explanation + 12.5 min action + 1.5 min transitions + 4 min scoring/buffer = 20 min.
+- Planned budget: 1 min instructions + 12.5 min action + 3 min between paired rounds + 3 min duty handovers + 30 seconds spare = 20 min.
 
 ### 2. Ball Basket — 25 minutes
 - Display name is Ball Basket, not Tamaire; inspired by Japanese tamaire.

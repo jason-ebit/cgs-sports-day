@@ -1,6 +1,6 @@
-import { DEPARTMENTS, GAME_NAMES } from './content.js?v=62';
-import { TEAM_IDS, COLOURS } from './model.js?v=62';
-import { renderRotationInterval } from './rota-intervals.js?v=62';
+import { DEPARTMENTS, GAME_NAMES } from './content.js?v=63';
+import { TEAM_IDS, COLOURS } from './model.js?v=63';
+import { renderRotationInterval } from './rota-intervals.js?v=63';
 
 const escapeHTML=value=>String(value).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const e=escapeHTML;

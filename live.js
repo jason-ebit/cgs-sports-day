@@ -1,10 +1,10 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=62';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=62';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=62';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=62';
-import { activeRoundKey, nextTarget } from './flow-model.js?v=62';
-import { createTimerPopup } from './timer-popup.js?v=62';
-import { captureView } from './view-state.js?v=62';
+import { TEAM_IDS, matchTeams } from './model.js?v=63';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=63';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=63';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=63';
+import { activeRoundKey, nextTarget } from './flow-model.js?v=63';
+import { createTimerPopup } from './timer-popup.js?v=63';
+import { captureView } from './view-state.js?v=63';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -31,7 +31,7 @@ export function createLiveDesk(api) {
     if(ch.editing!==editable){ch.review=false;ch.manual=false;ch.editing=editable;}
     if(!editable&&!ch.review){const key=activeRoundKey(s);if(key?.startsWith(game+':'))setChoiceKey(ch,key);}
     if(game==='tug'){const pair=matchTeams(s.tug,ch.match);ctx={key:'tug:'+ch.match,seconds:60,title:MATCH_NAMES[ch.match],teams:pair,match:ch.match,ready:ready(ch.match),signature:pair.join('|'),hint:'60-second limit · tied pull: use a 30s rematch'};}
-    else if(game==='borrow'){ch.round=Math.min(ch.round,s.borrow.rounds-1);ctx={key:'borrow:'+ch.round,seconds:[90,90,120,120,120,120,90][ch.round],title:`Round ${ch.round+1} · ${['Easy','Easy','Medium','Borrow-a-Person','Medium','Funny / Chaos','Contingency'][ch.round]}`,round:ch.round,teams:TEAM_IDS,hint:'Success order: 5 / 4 / 3 / 2 / 2 · fail: 0'};}
+    else if(game==='borrow'){ch.round=Math.min(ch.round,s.borrow.rounds-1);ctx={key:'borrow:'+ch.round,seconds:[90,90,120,120,120,120,90][ch.round],title:`Round ${ch.round+1} · ${['Easy','Easy','Medium','Borrow-a-Person','Medium','Funny / Chaos','Same-card race'][ch.round]}`,round:ch.round,teams:TEAM_IDS,hint:(ch.round===6?'All five teams get the same card. Start together. ':'')+'Success order: 5 / 4 / 3 / 2 / 2 · fail: 0'};}
     else if(game==='basket')ctx={key:`basket:${ch.team}:${ch.attempt}`,seconds:30,title:`${name(ch.team)} · attempt ${ch.attempt+1} / 2`,team:ch.team,round:ch.attempt,teams:[ch.team],hint:'Count balls, then finish attempt · best of two counts'};
     else if(game==='relay')ctx={key:'relay:'+ch.round,seconds:[480,600,480][ch.round],title:['Baton Relay','Three-Legged Relay','Spoon & Ball Relay'][ch.round],round:ch.round,teams:TEAM_IDS,hint:'Tap Finish in arrival order · places convert to 5 / 4 / 3 / 2 / 1'};
     else if(game==='cavalry'){const division=ch.division,d=s.cavalry.divisions[division];ctx={key:'cavalry:'+division,seconds:s.cavalry.cap||300,title:division==='women'?'Round 1 · Women':'Round 2 · Men',division,teams:d.active,ready:d.active.length>=2,signature:d.active.join('|'),hint:'Select teams → play → tap each horse as it goes out. Last horse wins.'};}
@@ -54,7 +54,7 @@ export function createLiveDesk(api) {
     if(ctx.game==='tug'){field='match';selected=ch.match;items=MATCH_KEYS.map((k,i)=>({value:k,label:String(i+1),title:MATCH_NAMES[k],key:'tug:'+k}));}
     else if(ctx.game==='basket'){field='attempt';selected=ch.attempt;items=[0,1].map(i=>({value:i,label:String(i+1),title:'Attempt '+(i+1),key:`basket:${ch.team}:${i}`}));}
     else if(ctx.game==='cavalry'){field='division';selected=ctx.division;items=['women','men'].map((d,i)=>({value:d,label:String(i+1),title:d==='women'?'Women':'Men',key:'cavalry:'+d}));}
-    else if(['borrow','relay'].includes(ctx.game))items=Array.from({length:ctx.game==='borrow'?s.borrow.rounds:3},(_,i)=>({value:i,label:String(i+1),title:'Round '+(i+1),key:ctx.game+':'+i}));
+    else if(['borrow','relay'].includes(ctx.game))items=Array.from({length:ctx.game==='borrow'?s.borrow.rounds:3},(_,i)=>({value:i,label:String(i+1),title:'Round '+(i+1)+(ctx.game==='borrow'&&i===6?' · Same-card race':''),key:ctx.game+':'+i}));
     return items.length?`<nav class="round-strip" aria-label="${ctx.game==='basket'?'Attempts':'Rounds'}"><span>${ctx.game==='basket'?'ATTEMPT':ctx.game==='tug'?'MATCH':'ROUND'}</span>${items.map(i=>`<button class="round-button ${selected===i.value?'selected':''} ${roundDone(s,i.key)?'done':''} ${s.timers[i.key]?.deadline&&timeLeft(s.timers[i.key])>0?'running':''}" data-live-choice="${field}" data-value="${i.value}" aria-pressed="${selected===i.value}" aria-label="${i.title}${roundDone(s,i.key)?', completed':''}" title="${i.title}">${i.label}${roundDone(s,i.key)?'<small>✓</small>':''}</button>`).join('')}</nav>`:'';
   }
   function rounds(index){const ctx=context(index);return `<div data-live-event="${index}">${roundButtons(ctx)}${followControls(ctx)}</div>`;}

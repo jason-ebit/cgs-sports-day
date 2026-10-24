@@ -416,16 +416,16 @@ test('The normal board follows new completed rounds while an explicit review rem
     const f = fixture();
     setColumn(f.state, 0, [5, 4, 3, 2, 0]);
     f.board.open({ game: 'borrow', key: 'borrow:0', round: 0, ...(review ? { review: true } : {}) });
-    assert.match(f.body.innerHTML, /Round 1 \/ 6/);
+    assert.match(f.body.innerHTML, /Round 1 \/ 7/);
     setColumn(f.state, 1, [0, 5, 3, 2, 4]);
     const before = structuredClone(f.state);
     f.board.refresh();
     if (review) {
-      assert.match(f.body.innerHTML, /Round 1 \/ 6/);
+      assert.match(f.body.innerHTML, /Round 1 \/ 7/);
       assert.deepEqual(rows(f).map(row => row.team), ['red', 'blue', 'yellow', 'green', 'white']);
       assert.equal(rows(f)[0].score, '5');
     } else {
-      assert.match(f.body.innerHTML, /Round 2 \/ 6/);
+      assert.match(f.body.innerHTML, /Round 2 \/ 7/);
       assert.equal(rows(f)[0].team, 'blue');
       assert.equal(rows(f)[0].score, '9');
     }
@@ -442,7 +442,7 @@ test('The normal board follows the ongoing same-game round without stopping its 
   f.state.activeKey = 'borrow:1';
   const before = structuredClone(f.state);
   f.board.refresh();
-  assert.match(f.body.innerHTML, /Round 2 \/ 6/);
+  assert.match(f.body.innerHTML, /Round 2 \/ 7/);
   assert.match(f.body.innerHTML, /Live standings/);
   assert.deepEqual(f.state, before);
 });
@@ -514,10 +514,10 @@ test('Following moves the standings and timer together while historical review k
     f.state.timers['borrow:1']=makeClock(120);startClock(f.state.timers,'borrow:1',1000);f.state.activeKey='borrow:1';
     const before=structuredClone(f.state);f.advance(5000);f.board.tick();
     if(review){
-      assert.match(f.body.innerHTML,/Round 1 \/ 6/);assert.equal(timerSurface(f).dataset.timerKey,'borrow:0');
+      assert.match(f.body.innerHTML,/Round 1 \/ 7/);assert.equal(timerSurface(f).dataset.timerKey,'borrow:0');
       assert.equal(countdown(f).textContent,'01:20');assert.equal(clockStatus(f).textContent,'Round complete');
     }else{
-      assert.match(f.body.innerHTML,/Round 2 \/ 6/);assert.equal(timerSurface(f).dataset.timerKey,'borrow:1');
+      assert.match(f.body.innerHTML,/Round 2 \/ 7/);assert.equal(timerSurface(f).dataset.timerKey,'borrow:1');
       assert.equal(countdown(f).textContent,'01:55');assert.equal(clockStatus(f).textContent,'LIVE');
     }
     assert.deepEqual(f.state,before);

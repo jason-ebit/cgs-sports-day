@@ -1,4 +1,4 @@
-const VERSION = '62';
+const VERSION = '63';
 const CACHE = `cg-sports-day-v${VERSION}`;
 const scopeURL = new URL('./', self.location.href);
 const homeURL = new URL('./index.html', scopeURL).href;

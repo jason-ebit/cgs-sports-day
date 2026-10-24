@@ -286,6 +286,31 @@ await test('Next from a completed last Borrow round names and returns to earlier
   assert.equal(saves(),0);assert.deepEqual(state.timers,{});
 });
 
+await test('The seventh Borrow race uses one shared card, a 90-second start gate and the same finish-order points',async({state,live,emit,control,boards})=>{
+  assert.equal(state.borrow.rounds,7);
+  await emit('click',control(4,{liveChoice:'round',value:'6'}));
+  const ready=live.panel(4);
+  assert.match(ready,/Round 7 · Same-card race/);
+  assert.match(ready,/All five teams get the same card\. Start together\./);
+  assert.match(ready,/>01:30<\/output>/);
+  await emit('click',control(4,{liveArrival:'red'}));
+  assert.deepEqual(state.borrow.scores.map(row=>row[6]),[null,null,null,null,null]);
+  await emit('click',control(4,{liveAction:'toggle'}));
+  assert.equal(state.timers['borrow:6'].duration,90000);
+  assert.equal(state.timers['borrow:6'].started,true);
+  for(const id of TEAM_IDS)await emit('click',control(4,{liveArrival:id}));
+  assert.deepEqual(state.borrow.scores.map(row=>row[6]),[5,4,3,2,2]);
+  assert.equal(boards.length,1);assert.equal(boards[0].key,'borrow:6');
+});
+
+await test('Failure in the seventh Borrow race stays zero and does not consume a successful finish award',async({state,emit,control,start})=>{
+  await emit('click',control(4,{liveChoice:'round',value:'6'}));
+  start('borrow:6',90);
+  await emit('click',control(4,{liveFail:'white'}));
+  for(const id of TEAM_IDS.slice(0,4))await emit('click',control(4,{liveArrival:id}));
+  assert.deepEqual(state.borrow.scores.map(row=>row[6]),[5,4,3,2,0]);
+});
+
 await test('Next from the last Relay round wraps instead of staying on completed work',async({state,live,emit,control})=>{
   state.relay.scores.forEach((row,i)=>{row[1]=i+1;row[2]=i+1;});
   await emit('click',control(9,{liveChoice:'round',value:'2'}));

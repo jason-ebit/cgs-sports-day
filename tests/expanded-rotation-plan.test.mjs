@@ -12,6 +12,8 @@ const assignment = (status, coverFor = null) => ({ status, coverFor });
 const departmentOf = id => id.slice(0, id.lastIndexOf(':'));
 function expandedCrew() {
   const state = defaultState();
+  // Preserve the published 25-round crew as a historical fixture.
+  state.borrow.rounds = 6;
   Object.assign(state.committeeMembers, {
     director: ['Jason'], judges: [''], 'first-aid': ['Lanny', ''],
     equipment: ['Rina', 'Timothy', 'Trishya', 'Darren'], warmup: ['Leti'],

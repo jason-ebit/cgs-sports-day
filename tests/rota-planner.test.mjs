@@ -9,6 +9,8 @@ const departmentOf = id => id.slice(0, id.lastIndexOf(':'));
 const assignment = (status, coverFor = null) => ({ status, coverFor });
 function namedState() {
   const state = defaultState();
+  // These planner fairness fixtures describe the original six-round format.
+  state.borrow.rounds = 6;
   for (const [department, members] of Object.entries(state.committeeMembers)) state.committeeMembers[department] = members.map((_, slot) => `${department} person ${slot + 1}`);
   return state;
 }
@@ -165,7 +167,7 @@ test('Replace mode changes planned rounds but leaves all started, scored and fin
   assert.equal(rotationRoundLocked(state, 'unrecognized:0'), true);
 });
 
-test('Inactive optional round stays untouched and is planned only after being enabled', () => {
+test('An inactive seventh round in a saved six-round plan stays untouched until enabled', () => {
   const state = namedState();
   state.committeeRotation['borrow:6'] = { 'warmup:0': assignment('playing') };
   const plan = planCommitteeRotation(state, { replace: true });

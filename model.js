@@ -1,6 +1,6 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=62';
-import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=62';
-export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=62';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=63';
+import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=63';
+export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=63';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
@@ -18,7 +18,7 @@ export function defaultState() {
     version: 1,
     teams: TEAM_IDS.map((id, i) => ({ id, name: id[0].toUpperCase() + id.slice(1), leader: '', participants: null, seed: i + 1 })),
     tug: { slots: Array(5).fill(null), locked: false, winners: { prelim: null, semi1: null, semi2: null, final: null } },
-    borrow: { rounds: 6, scores: TEAM_IDS.map(() => Array(7).fill(null)) },
+    borrow: { rounds: 7, scores: TEAM_IDS.map(() => Array(7).fill(null)) },
     basket: { scores: TEAM_IDS.map(() => [null, null]) },
     relay: { scores: TEAM_IDS.map(() => [null, null, null]) },
     cavalry: { division: 'women', cap: null, rule: '', divisions: Object.fromEntries(['women', 'men'].map(d => [d, { counts: Array(5).fill(null), active: [], eliminated: [], started: false }])) },

@@ -1,32 +1,32 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=62';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=62';
-import { createLiveDesk } from './live.js?v=62';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=62';
-import { icon } from './icons.js?v=62';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=62';
-import { renderMedia, downloadBlob } from './media.js?v=62';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=62';
-import { captureView } from './view-state.js?v=62';
-import { createDeviceStore } from './device-store.js?v=62';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=62';
-import { createBeforeSyncBackup } from './before-sync.js?v=62';
-import { SYNC_CONFIG } from './sync-config.js?v=62';
-import { renderLiveConnection } from './connection-badge.js?v=62';
-import { createGameTimeline } from './game-timeline.js?v=62';
-import { createPanelNavigation } from './panel-navigation.js?v=62';
-import { renderLocationGuide } from './location-guide.js?v=62';
-import { createAppInstall } from './app-install.js?v=62';
-import { renderInstallGuide } from './install-guide.js?v=62';
-import { googleCalendarLink } from './calendar-link.js?v=62';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=62';
-import { renderFirstAidKit } from './first-aid-kit.js?v=62';
-import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=62';
-import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=62';
-import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=62';
-import { renderRotationPlanner } from './rota-planner-ui.js?v=62';
-import { createScoreboard } from './scoreboard-controller.js?v=62';
-import { buildDutyOverview } from './rota-overview-model.js?v=62';
-import { renderDutyOverview } from './rota-overview-view.js?v=62';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=63';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=63';
+import { createLiveDesk } from './live.js?v=63';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=63';
+import { icon } from './icons.js?v=63';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=63';
+import { renderMedia, downloadBlob } from './media.js?v=63';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=63';
+import { captureView } from './view-state.js?v=63';
+import { createDeviceStore } from './device-store.js?v=63';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=63';
+import { createBeforeSyncBackup } from './before-sync.js?v=63';
+import { SYNC_CONFIG } from './sync-config.js?v=63';
+import { renderLiveConnection } from './connection-badge.js?v=63';
+import { createGameTimeline } from './game-timeline.js?v=63';
+import { createPanelNavigation } from './panel-navigation.js?v=63';
+import { renderLocationGuide } from './location-guide.js?v=63';
+import { createAppInstall } from './app-install.js?v=63';
+import { renderInstallGuide } from './install-guide.js?v=63';
+import { googleCalendarLink } from './calendar-link.js?v=63';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=63';
+import { renderFirstAidKit } from './first-aid-kit.js?v=63';
+import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=63';
+import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=63';
+import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=63';
+import { renderRotationPlanner } from './rota-planner-ui.js?v=63';
+import { createScoreboard } from './scoreboard-controller.js?v=63';
+import { buildDutyOverview } from './rota-overview-model.js?v=63';
+import { renderDutyOverview } from './rota-overview-view.js?v=63';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -59,7 +59,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=62', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=63', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -128,7 +128,7 @@ function renderPoster() {
   }).join('');
   const head = (g, n) => `<div class="game-head"><span class="game-number">${n}</span>${icon(g)}<h3>${GAME_NAMES[g]}</h3></div>`;
   const gameCards = `
-    <button class="game-card" data-open="event:4">${head('borrow',1)}<p class="game-kicker">ALL FIVE TEAMS TOGETHER</p><div class="game-team-row">${teamDots()}</div><p class="game-copy">6–7 rounds · cumulative points</p><div class="game-bottom">Total points → placing</div></button>
+    <button class="game-card" data-open="event:4">${head('borrow',1)}<p class="game-kicker">ALL FIVE TEAMS TOGETHER</p><div class="game-team-row">${teamDots()}</div><p class="game-copy">${state.borrow.rounds} rounds · cumulative points</p><div class="game-bottom">Total points → placing</div></button>
     <button class="game-card" data-open="event:5">${head('basket',2)}<p class="game-kicker">TEAMS TAKE TURNS</p><div class="game-team-row">${teamDots(['yellow','white','red','green','blue'])}</div><p class="game-copy">2 attempts per team</p><div class="game-bottom">Best score → placing</div></button>
     <button class="game-card" data-open="event:7">${head('cavalry',3)}<p class="game-kicker">ALL-IN BATTLE</p><div class="cavalry-arena"><div class="arena-ring">${TEAM_IDS.map(dot).join('')}<span>ALL TEAMS</span></div></div><p class="game-copy">Same-gender rounds · last horse wins</p><div class="game-bottom">Elimination order → points</div></button>
     <button class="game-card" data-open="event:8">${head('tug',4)}<p class="game-kicker">DRAWN TOURNAMENT BRACKET</p>${miniBracket()}<p class="game-copy">1 preliminary · 2 semis · final</p><div class="game-bottom">${state.tug.locked ? 'Draw locked · view bracket' : 'Draw opponents → bracket'}</div></button>
@@ -322,7 +322,7 @@ function scorePanel(game) {
   const done=gameDone(state,game),labels=game==='borrow'?Array.from({length:state.borrow.rounds},(_,i)=>'R'+(i+1)):game==='basket'?['Attempt 1','Attempt 2']:game==='cavalry'?['R1 · Women','R2 · Men']:['Baton','3-legged','Spoon'];
   const values=totals(state,game),places=gamePlaces(state,game);
   const rows=game==='cavalry'?TEAM_IDS.map((_,i)=>['women','men'].map(d=>cavalryPoints(state,d)[i])):state[game].scores;
-  return `<div class="section-label">SCORE SHEET <span class="badge">${done?'Game complete · points sent':'Auto-saved from match desk'}</span></div>${game==='borrow'&&canEdit()?`<div class="button-row"><button class="${state.borrow.rounds===6?'primary':'secondary'}" data-borrow-rounds="6" ${done?'disabled':''}>6 rounds</button><button class="${state.borrow.rounds===7?'primary':'secondary'}" data-borrow-rounds="7" ${done?'disabled':''}>7 · contingency</button></div>`:''}<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th>${labels.map(l=>`<th>${l}</th>`).join('')}<th>${game==='basket'?'Best':'Total'}</th></tr></thead><tbody>${state.teams.map((t,i)=>`<tr><td>${teamLabel(t.id)}</td>${labels.map((label,j)=>`<td>${rows[i][j]===null?'—':game==='relay'?'#'+rows[i][j]:rows[i][j]}</td>`).join('')}<td><strong>${values[i]??'—'}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Start each timer before scoring. Finished rounds are locked; use Reset in Timer & scoring to correct a result.</p><div class="button-row"><button class="secondary" data-tab="timer">Timer & scoring →</button>${done?'<button class="primary" data-open="results">Main Scores →</button>':''}</div><div class="section-label">GAME PLACING</div>${places?state.teams.map((t,i)=>({id:t.id,place:places[i]})).sort((a,b)=>a.place-b.place).map(t=>`<div class="result-line">${teamLabel(t.id)}<span>#${t.place} · ${6-t.place} championship pts</span></div>`).join(''):note('Game in progress','Finish every round or attempt to send points to the main Scores overview.',true)}`;
+  return `<div class="section-label">SCORE SHEET <span class="badge">${done?'Game complete · points sent':'Auto-saved from match desk'}</span></div>${game==='borrow'&&canEdit()?`<div class="button-row"><button class="${state.borrow.rounds===6?'primary':'secondary'}" data-borrow-rounds="6" ${done?'disabled':''}>6 · without race</button><button class="${state.borrow.rounds===7?'primary':'secondary'}" data-borrow-rounds="7" ${done?'disabled':''}>7 · same-card race</button></div>`:''}<div class="score-table-wrap"><table class="score-table"><thead><tr><th>Team</th>${labels.map(l=>`<th>${l}</th>`).join('')}<th>${game==='basket'?'Best':'Total'}</th></tr></thead><tbody>${state.teams.map((t,i)=>`<tr><td>${teamLabel(t.id)}</td>${labels.map((label,j)=>`<td>${rows[i][j]===null?'—':game==='relay'?'#'+rows[i][j]:rows[i][j]}</td>`).join('')}<td><strong>${values[i]??'—'}</strong></td></tr>`).join('')}</tbody></table></div><p class="help">Start each timer before scoring. Finished rounds are locked; use Reset in Timer & scoring to correct a result.</p><div class="button-row"><button class="secondary" data-tab="timer">Timer & scoring →</button>${done?'<button class="primary" data-open="results">Main Scores →</button>':''}</div><div class="section-label">GAME PLACING</div>${places?state.teams.map((t,i)=>({id:t.id,place:places[i]})).sort((a,b)=>a.place-b.place).map(t=>`<div class="result-line">${teamLabel(t.id)}<span>#${t.place} · ${6-t.place} championship pts</span></div>`).join(''):note('Game in progress','Finish every round or attempt to send points to the main Scores overview.',true)}`;
 }
 function resultsPanel() {
   const c=championship(state),leaders=leadersFor(c);

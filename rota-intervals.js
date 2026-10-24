@@ -1,5 +1,5 @@
-import { GAME_EVENTS, GAME_NAMES } from './content.js?v=62';
-import { TEAM_IDS } from './model.js?v=62';
+import { GAME_EVENTS, GAME_NAMES } from './content.js?v=63';
+import { TEAM_IDS } from './model.js?v=63';
 
 // These are the existing match presets. Duty windows are only a plan; starting
 // or changing a match clock never starts or changes a separate rota timer.
@@ -22,7 +22,7 @@ function blocksFor(state, game) {
       const first = index * 2, last = Math.min(first + 1, count - 1);
       const keys = Array.from({ length: last - first + 1 }, (_, offset) => `borrow:${first + offset}`);
       return { groupKey: `borrow:pair:${index}`, keys,
-        label: first === last ? `Round ${first + 1} · optional` : `Rounds ${first + 1}–${last + 1}`,
+        label: first === last ? `Round ${first + 1} · Same-card race` : `Rounds ${first + 1}–${last + 1}`,
         minimumSeconds: keys.reduce((sum, key, offset) => sum + clockSeconds(state, key, BORROW_SECONDS[first + offset]), 0) + (keys.length - 1) * 60,
         swapSeconds: 60,
         note: 'Keep the same crew for both rounds. Check each player’s team before they join.' };
@@ -104,7 +104,7 @@ export function rotationInterval(state, key, schedule) {
   const block = blocks[index];
   return { label: block.label, handoverSeconds: index < blocks.length - 1 ? block.swapSeconds : 0,
     groupKey: block.groupKey, start: windows[index]?.start || null, end: windows[index]?.end || null,
-    note: block.keys.length === 1 && game === 'borrow' ? 'Use the optional round only if time allows. Confirm the crew before starting.' : block.note,
+    note: block.keys.length === 1 && game === 'borrow' ? 'Give every team the same card. Start together; confirm the duty crew before the race.' : block.note,
     reason };
 }
 

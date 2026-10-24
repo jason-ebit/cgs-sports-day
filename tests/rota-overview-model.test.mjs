@@ -7,10 +7,12 @@ import { buildDutyOverview } from '../rota-overview-model.js';
 const schedule = JSON.parse(readFileSync(new URL('../schedule.json', import.meta.url), 'utf8'));
 const test = (name, run) => { run(); console.log(`PASS ${name}`); };
 const assignment = (status, coverFor = null) => ({ status, coverFor });
-const finalCrew = () => {
+const finalCrew = (rounds = 6) => {
   const state = defaultState();
+  // Preserve the historical six-round plan unless a test requests the new race.
+  state.borrow.rounds = rounds;
   Object.assign(state.committeeMembers, { director: ['Jason'], judges: [''], 'first-aid': ['Lanny', ''], equipment: ['Rina', 'Timothy', 'Trishya', 'Darren'], warmup: ['Leti'], 'food-water': ['Cindy', 'Vin', 'Maria', ''], comms: ['Jenni', 'Mario', 'Grace', ''] });
-  state.committeeRotation = planCommitteeRotation(state, { capacity: true, grouped: true }).rotation;
+  state.committeeRotation = planCommitteeRotation(state, { capacity: true, grouped: true, replace: true }).rotation;
   return state;
 };
 const shift = (overview, id) => overview.games.flatMap(game => game.shifts).find(item => item.roundKeys.includes(id));
@@ -68,16 +70,34 @@ test('Manual divergent Borrow rounds and Basket tries stay separate with explici
   assert.match(shift(overview, 'basket:red:1').label, /Try 2$/);
 });
 
-test('Assignments compare independent of JSON key order and optional round 7 is never hidden', () => {
+test('Assignments compare independent of JSON key order and an unassigned same-card race is never hidden', () => {
   const state = finalCrew();
   state.committeeRotation['borrow:1'] = Object.fromEntries(Object.entries(state.committeeRotation['borrow:0']).reverse());
   assert.deepEqual(shift(buildDutyOverview(state), 'borrow:0').roundKeys, ['borrow:0', 'borrow:1']);
   state.borrow.rounds = 7;
   const overview = buildDutyOverview(state, { schedule });
-  const optional = shift(overview, 'borrow:6');
-  assert.equal(optional.label, 'Round 7 · optional'); assert.equal(optional.unassigned.length, 13);
-  assert.equal(optional.freeToPlay.length, 0); assert.equal(overview.fixedPosts.length, 0);
+  const race = shift(overview, 'borrow:6');
+  assert.equal(race.label, 'Round 7 · Same-card race'); assert.equal(race.unassigned.length, 13);
+  assert.equal(race.freeToPlay.length, 0); assert.equal(overview.fixedPosts.length, 0);
   assert.equal(overview.games.flatMap(game => game.shifts.flatMap(item => item.roundKeys)).length, 26);
+});
+
+test('A planned same-card race is separate, fully staffed and leaves nine current helpers free to play', () => {
+  const state = finalCrew(7);
+  state.committeeMembers['food-water'][3] = 'Olin';
+  state.committeeMembers.comms[3] = 'Jesslyn';
+  state.committeeRotation = planCommitteeRotation(state, { capacity: true, grouped: true, replace: true }).rotation;
+  const overview = buildDutyOverview(state, { schedule }), race = shift(overview, 'borrow:6');
+  assert.equal(overview.games[0].shifts.length, 4);
+  assert.deepEqual(race.roundKeys, ['borrow:6']);
+  assert.equal(race.label, 'Round 7 · Same-card race');
+  assert.equal(race.plannedStart, '13:01'); assert.equal(race.plannedEnd, '13:03');
+  assert.equal(race.freeToPlay.length, 9); assert.equal(race.unassigned.length, 0);
+  assert.equal(race.warnings.length, 0);
+  assert.equal(station(race, 'equipment').staff.length, 2);
+  assert.equal(station(race, 'food-water').staff.length, 1);
+  assert.equal(station(race, 'comms').staff.length, 1);
+  assert.deepEqual(overview.fixedPosts.map(post => post.staff.map(person => person.name)), [['Jason'], ['Lanny']]);
 });
 
 test('Missing plans stay unassigned; renames follow stable slots and TBA assignments cannot staff a post', () => {
