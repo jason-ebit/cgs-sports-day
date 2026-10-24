@@ -127,15 +127,15 @@ export const DEPARTMENTS=[
   [],
   [],
  ]},
- {id:'first-aid',name:'First aid',members:[{name:'TBA',role:'At the first-aid kit'},{name:'TBA',role:'Beside the field'}],general:[
+ {id:'first-aid',name:'First aid',members:[{name:'TBA',role:'At the first-aid kit'},{name:'TBA',role:'Trained relief',optional:true}],general:[
   "At least one first-aid team member must know how to do CPR.",
-  "One stays at the kit; one watches the field. Stay until cleanup ends.",
+  "Stay by the kit with a clear view of the field. Keep first aid available until cleanup ends.",
   "Ask someone to take over before a break or taking a person for help.",
   "Ask in private about heart disease, asthma, allergies, diabetes, seizures, fainting or current injuries. Answering is optional.",
   "Check that players can reach their own emergency medicine. Keep names and health details private.",
   "Check that trained first-aid help and emergency contacts are ready. Agree the help signal and keep the emergency route clear.",
  ],notes:[
-  ["Confirm at least one first-aid team member knows CPR.","Choose who stays at the kit and who watches the field. Check trained first-aid help and emergency contacts.","Agree the help signal with the judges. Check the park entrance and emergency route."],
+  ["Confirm at least one first-aid team member knows CPR.","Confirm who stays on first aid. Check trained relief and emergency contacts.","Agree the help signal with the judges. Check the park entrance and emergency route."],
   ["Ask in private about heart disease, asthma, allergies, diabetes, seizures, fainting or current injuries.","People can choose not to answer. Share names and health details only with first aid.","Check that players can reach their own emergency medicine before play."],
   ["Point out first aid and the help signal."],
   [],
@@ -148,11 +148,11 @@ export const DEPARTMENTS=[
   ["Check on anyone who still needs help."],
   [],
   [],
-  ["Keep one person at the kit and one watching the field until cleanup ends."],
+  ["Keep first aid available until cleanup ends."],
   ["Tell the person taking over about anyone who still needs help before leaving."],
   [],
  ]},
- {id:'equipment',name:'Equipment',members:[{name:'TBA',role:'Cones and field lines'},{name:'TBA',role:'Game equipment'},{name:'TBA',role:'Packing and returns'}],general:[
+ {id:'equipment',name:'Equipment',members:[{name:'TBA',role:'Cones and field lines'},{name:'TBA',role:'Game equipment'},{name:'TBA',role:'Packing and returns'},{name:'TBA',role:'Field reset and handovers'}],general:[
   "Mark the playing area. Check the field, basket, rope and anchor.",
   "Put out game equipment. Keep spare equipment off the field.",
   "Put equipment back in place between rounds. Get the next game’s equipment ready.",
@@ -175,7 +175,7 @@ export const DEPARTMENTS=[
   ["Check the field and equipment one last time."],
   ["Keep game equipment out of the CG-IN gathering area."],
  ]},
- {id:'food-water',name:'Food & water',members:[{name:'TBA',role:'Cooler and water'},{name:'TBA',role:'Serving'},{name:'TBA',role:'Setup and break helper',optional:true}],general:[
+ {id:'food-water',name:'Food & water',members:[{name:'TBA',role:'Cooler and water'},{name:'TBA',role:'Serving'},{name:'TBA',role:'Setup and break helper'}],general:[
   "Ask about food needs and allergies in private. Label ingredients and say if any are unknown.",
   "Check there is enough food and water for everyone. Refill before the break.",
   "Keep someone at the food and water table. Ask someone to take over before leaving.",
@@ -198,7 +198,7 @@ export const DEPARTMENTS=[
   [],
   ["Keep water available during CG-IN."],
  ]},
- {id:'comms',name:'Comm',members:[{name:'Cindy',role:'Comm'},{name:'Mario',role:'Comm'}],general:[
+ {id:'comms',name:'Comm',members:[{name:'Cindy',role:'Photos'},{name:'Mario',role:'Videos'},{name:'TBA',role:'Team and group shots'}],general:[
   "Take photos and videos of the day.",
   "Ask before close-up photos or videos. Do not include anyone who says no.",
   "Stay outside the playing area. Keep paths clear.",

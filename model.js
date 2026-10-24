@@ -1,6 +1,6 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=57';
-import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=57';
-export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=57';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=58';
+import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=58';
+export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=58';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
@@ -11,7 +11,7 @@ export function defaultEquipmentReady() {
   return Object.fromEntries(EQUIPMENT_IDS.map(id=>[id,false]));
 }
 export function defaultCommitteeMembers() {
-  return Object.fromEntries(DEPARTMENT_IDS.map(id=>[id,id==='comms'?['Cindy','Mario']:Array(COMMITTEE_SLOTS[id]).fill('')]));
+  return Object.fromEntries(DEPARTMENT_IDS.map(id=>[id,id==='comms'?['Cindy','Mario','']:Array(COMMITTEE_SLOTS[id]).fill('')]));
 }
 export function defaultState() {
   return {
@@ -139,7 +139,14 @@ export function validateState(input) {
   if(input.committeeMembers!==undefined){
     const members=object(input.committeeMembers);
     if(Object.keys(members).length!==DEPARTMENT_IDS.length||Object.keys(members).some(id=>!DEPARTMENT_IDS.includes(id)))fail();
-    s.committeeMembers=Object.fromEntries(DEPARTMENT_IDS.map(id=>[id,Array.from(list(members[id],COMMITTEE_SLOTS[id]),name=>text(name,60))]));
+    // Only the complete former shape can gain the two appended slots. Existing
+    // person IDs and saved rotation assignments retain their original meaning.
+    const legacy=Array.isArray(members.equipment)&&members.equipment.length===3&&Array.isArray(members.comms)&&members.comms.length===2;
+    s.committeeMembers=Object.fromEntries(DEPARTMENT_IDS.map(id=>{
+      const count=legacy&&id==='equipment'?3:legacy&&id==='comms'?2:COMMITTEE_SLOTS[id];
+      const names=Array.from(list(members[id],count),name=>text(name,60));
+      return [id,[...names,...Array(COMMITTEE_SLOTS[id]-count).fill('')]];
+    }));
   }
   if(input.committeeRotation!==undefined){
     try{s.committeeRotation=validateCommitteeRotation(input.committeeRotation);}catch{fail();}

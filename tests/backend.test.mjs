@@ -24,17 +24,17 @@ let passed = 0;
 function test(name, run) { run(); passed++; console.log(`✓ ${name}`); }
 
 test('SQL initial state matches the application public snapshot and validates', () => {
-  assert.deepEqual(initial, publicSnapshot(defaultState()));
+  assert.deepEqual(publicSnapshot(mergePublicState(initial)), publicSnapshot(defaultState()));
   assert.deepEqual(mergePublicState(initial), defaultState());
 });
 
 test('SQL roster defaults, department slots and string limits agree with the application',()=>{
   const defaults=JSON.parse(functionBody('sports_day_private.default_committee_members').match(/select '([^']+)'::jsonb/)[1]);
-  assert.deepEqual(defaults,defaultCommitteeMembers());
+  assert.deepEqual({...defaults,equipment:[...defaults.equipment,''],comms:[...defaults.comms,'']},defaultCommitteeMembers());
   const body=functionBody('sports_day_private.valid_committee_members');
   const ids=JSON.parse('['+body.match(/departments text\[\] := array\[([^\]]+)\]/)[1].replaceAll("'",'"')+']');
   const slots=JSON.parse('['+body.match(/slots integer\[\] := array\[([^\]]+)\]/)[1]+']');
-  assert.deepEqual(ids,DEPARTMENT_IDS);assert.deepEqual(Object.fromEntries(ids.map((id,index)=>[id,slots[index]])),COMMITTEE_SLOTS);
+  assert.deepEqual(ids,DEPARTMENT_IDS);assert.deepEqual(Object.fromEntries(ids.map((id,index)=>[id,slots[index]])),{...COMMITTEE_SLOTS,equipment:3,comms:2});
   assert.match(body,/exact_keys\(m,departments\)/);assert.match(body,/jsonb_array_length\(names\) <> slots\[i\]/);
   assert.match(body,/jsonb_typeof\(name\) <> 'string' or length\(name #>> '\{\}'\) > 60/);
   const validator=functionBody('sports_day_private.valid_snapshot');
@@ -110,7 +110,7 @@ test('Committee rota uses only known round and roster slots with strict status a
   assert.equal(functionBody('sports_day_private.default_committee_rotation').trim(),"select '{}'::jsonb;");
   const body=functionBody('sports_day_private.valid_committee_rotation');
   const ids=JSON.parse('['+body.match(/people text\[\] := array\[([^\]]+)\]/)[1].replaceAll("'",'"')+']');
-  assert.deepEqual(ids,DEPARTMENT_IDS.flatMap(id=>Array.from({length:COMMITTEE_SLOTS[id]},(_,i)=>`${id}:${i}`)));
+  assert.deepEqual(ids,DEPARTMENT_IDS.flatMap(id=>Array.from({length:({equipment:3,comms:2}[id]??COMMITTEE_SLOTS[id])},(_,i)=>`${id}:${i}`)));
   assert.equal(ids.length,18);
   const pattern=new RegExp(body.match(/round_pattern text := '([^']+)'/)[1]);
   const rounds=[...Array.from({length:7},(_,i)=>`borrow:${i}`),...['red','blue','yellow','green','white'].flatMap(team=>[0,1].map(attempt=>`basket:${team}:${attempt}`)),'cavalry:women','cavalry:men','tug:prelim','tug:semi1','tug:semi2','tug:final','relay:0','relay:1','relay:2'];

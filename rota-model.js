@@ -1,5 +1,5 @@
 // Stable slot IDs keep the rota attached to committee members when names change.
-export const COMMITTEE_SLOT_COUNTS = Object.freeze({director:1,judges:1,'first-aid':2,equipment:3,'food-water':3,comms:2,'team-leaders':5,warmup:1});
+export const COMMITTEE_SLOT_COUNTS = Object.freeze({director:1,judges:1,'first-aid':2,equipment:4,'food-water':3,comms:3,'team-leaders':5,warmup:1});
 export const COMMITTEE_PERSON_IDS = Object.freeze(Object.entries(COMMITTEE_SLOT_COUNTS).flatMap(([department,count])=>
   Array.from({length:count},(_,slot)=>`${department}:${slot}`)));
 export const ROTATION_ROUND_KEYS = Object.freeze([

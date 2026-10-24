@@ -189,7 +189,7 @@ test('Duplicate names, Unicode variants and TBA placeholders never become two au
 
 test('Missing critical names are not invented or reported as covered', () => {
   const state = defaultState(), plan = planCommitteeRotation(state);
-  assert.ok(plan.warnings.some(text => text.includes('Add the main judge, assistant judge and both First aid names')));
+  assert.ok(plan.warnings.some(text => text.includes('Main judge is not assigned')));
   for (const round of Object.values(plan.rotation)) for (const id of ['director:0', 'judges:0', 'first-aid:0', 'first-aid:1']) assert.ok(!Object.hasOwn(round, id));
   assert.deepEqual(Object.keys(plan.rotation['borrow:0']), ['comms:0', 'comms:1']);
   assert.ok(plan.summary.people.every(person => person.playingTurns > 0));
@@ -214,7 +214,7 @@ test('Planner rejects invalid settings and unknown or critical relief', () => {
   const state = namedState();
   for (const firstAidRelief of ['director:0', 'judges:0', 'first-aid:0', 'unknown:0', '', false]) assert.throws(() => planCommitteeRotation(state, { firstAidRelief }), /named support member/);
   assert.throws(() => planCommitteeRotation(state, { replace: 'yes' }), /keep or replace/);
-  assert.deepEqual(COMMITTEE_PERSON_IDS.length, 18);
+  assert.deepEqual(COMMITTEE_PERSON_IDS.length, 20);
 });
 
 test('Empty roster produces no invented assignments and no applicable plan', () => {

@@ -1,8 +1,8 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, gameDone, gamePlaces, matchTeams, validSlots } from './model.js?v=57';
-import { GAME_NAMES } from './content.js?v=57';
-import { roundDone, cavalryPoints } from './rounds.js?v=57';
-import { MATCH_KEYS, MATCH_NAMES } from './timer-model.js?v=57';
-import { activeRoundKey } from './flow-model.js?v=57';
+import { TEAM_IDS, COLOURS, GAME_IDS, gameDone, gamePlaces, matchTeams, validSlots } from './model.js?v=58';
+import { GAME_NAMES } from './content.js?v=58';
+import { roundDone, cavalryPoints } from './rounds.js?v=58';
+import { MATCH_KEYS, MATCH_NAMES } from './timer-model.js?v=58';
+import { activeRoundKey } from './flow-model.js?v=58';
 
 const DIVISIONS = ['women', 'men'];
 const present = value => Number.isFinite(value);

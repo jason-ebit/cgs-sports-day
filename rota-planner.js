@@ -1,6 +1,7 @@
-import { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, validateCommitteeRotation } from './rota-model.js?v=57';
-import { gameDone } from './model.js?v=57';
-import { roundDone } from './rounds.js?v=57';
+import { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, validateCommitteeRotation } from './rota-model.js?v=58';
+import { gameDone } from './model.js?v=58';
+import { roundDone } from './rounds.js?v=58';
+import { rotationInterval } from './rota-intervals.js?v=58';
 
 const PROTECTED = new Set(['director', 'judges', 'first-aid']);
 const STAFFED = ['equipment', 'food-water', 'comms'];
@@ -47,7 +48,7 @@ function workingCounts(people, assignments) {
   return counts;
 }
 
-function allocateRound(people, playing, minimum, relief, coverCounts) {
+function allocateRound(people, playing, minimum, relief, coverCounts, keepStations = false) {
   const byId = new Map(people.map(person => [person.id, person]));
   const assignments = Object.fromEntries(people.map(person => [person.id, { status: playing.has(person.id) ? 'playing' : 'duty', coverFor: null }]));
   const firstAidPlaying = people.filter(person => person.department === 'first-aid' && playing.has(person.id));
@@ -64,6 +65,8 @@ function allocateRound(people, playing, minimum, relief, coverCounts) {
     if (!donor || playing.has(donorId) || assignments[donorId].status !== 'duty') return null;
     assignments[donorId] = { status: 'cover', coverFor: target };
   }
+  // Capacity mode rotates within each committee, so photos stay with Comm.
+  if(keepStations&&STAFFED.some(department=>people.filter(person=>person.department===department&&!playing.has(person.id)&&assignments[person.id].status==='duty').length<minimum[department]))return null;
   // A qualified relief cannot leave their own essential station short staffed.
   let counts = workingCounts(people, assignments);
   for (const [, donorId] of critical) {
@@ -113,8 +116,8 @@ function countRound(counts, key, assignments) {
 }
 
 /** Returns a reviewable draft; never changes the state or any saved manual round. */
-export function planCommitteeRotation(state, { firstAidRelief = null, judgeRelief = null, replace = false } = {}) {
-  if (typeof replace !== 'boolean') throw Error('Choose whether to keep or replace existing rounds.');
+export function planCommitteeRotation(state, { firstAidRelief = null, judgeRelief = null, replace = false, capacity = false, grouped = false } = {}) {
+  if ([replace,capacity,grouped].some(value=>typeof value!=='boolean')) throw Error('Choose whether to keep or replace existing rounds.');
   const roster = plannerRoster(state), people = roster.filter(person => !person.ambiguous);
   const availableRelief = new Set(reliefCandidates(state).map(person => person.id));
   for (const [label, id] of [['First-aid', firstAidRelief], ['Judge', judgeRelief]]) {
@@ -132,15 +135,16 @@ export function planCommitteeRotation(state, { firstAidRelief = null, judgeRelie
   if (preserved.length) warnings.push('Existing manual rounds are kept. Check their cover and handover before play.');
   const duplicates = roster.filter(person => person.ambiguous);
   if (duplicates.length) warnings.push(`Repeated names were left out of new rounds: ${[...new Set(duplicates.map(person => person.name))].join(', ')}. Give each person one committee slot, or use distinct names.`);
-  const criticalIds = ['director:0', 'judges:0', 'first-aid:0', 'first-aid:1'];
-  if (criticalIds.some(id => !people.some(person => person.id === id))) warnings.push('Add the main judge, assistant judge and both First aid names before using the rota. Missing or repeated names are not covered.');
+  if (!people.some(person=>person.id==='director:0')) warnings.push('Main judge is not assigned. Confirm the judge before play.');
+  if (!people.some(person=>person.id==='judges:0')) warnings.push('Assistant judge is unassigned. The main judge confirms results.');
+  if (people.filter(person=>person.department==='first-aid').length<2) warnings.push('Only one First aid person is named. Keep them on duty. Confirm CPR skills and trained cover before any swap.');
   const namedIn = department => people.filter(person => person.department === department).length;
   const minimum = { equipment: Math.min(2, namedIn('equipment')), 'food-water': Math.min(1, namedIn('food-water')), comms: Math.min(1, namedIn('comms')) };
   if (namedIn('equipment') < 2) warnings.push('Equipment needs at least two named people on duty. The current named staff stay covered; add the missing people.');
   if (!namedIn('food-water')) warnings.push('Add at least one Food and water name to staff the water station.');
   if (!namedIn('comms')) warnings.push('Add at least one Comm name for photos and videos.');
   if (!firstAidRelief) warnings.push('In new auto-filled rounds, First aid stays on duty until trained relief with CPR skills is confirmed.');
-  if (!judgeRelief) warnings.push('In new auto-filled rounds, both judges stay on duty until an appointed neutral replacement is confirmed.');
+  if (!judgeRelief) warnings.push('In new auto-filled rounds, named judges stay on duty until an appointed neutral replacement is confirmed.');
   warnings.push('Playing means a planned turn. Check each person’s team, the round and the women’s or men’s division before play.');
   const counts = counters(roster), plannedSet = new Set(planned);
   // Saved rounds, including completed ones, inform fairness but are never rewritten by default.
@@ -148,23 +152,28 @@ export function planCommitteeRotation(state, { firstAidRelief = null, judgeRelie
   const gameRoundCounts = {};
   for (const key of roundKeys) gameRoundCounts[key.split(':')[0]] = (gameRoundCounts[key.split(':')[0]] || 0) + 1;
   const weightedTurns = id => Object.entries(counts[id].byGame).reduce((sum, [game, value]) => sum + value / gameRoundCounts[game], 0);
-  const budget = Math.max(1, Math.min(5, Math.floor(people.length / 3)));
+  const fixedPosts=people.filter(person=>PROTECTED.has(person.department)).length;
+  const budget = capacity ? Math.max(0,people.length-fixedPosts-Object.values(minimum).reduce((sum,n)=>sum+n,0)) : Math.max(1, Math.min(5, Math.floor(people.length / 3)));
+  const dutyGroups=new Map();
   const eligible = people.filter(person => (person.department !== 'equipment' || namedIn('equipment') >= 2) && (!['director', 'judges'].includes(person.department) || judgeRelief) && (person.department !== 'first-aid' || firstAidRelief));
   const applied = [];
   for (const [index, key] of planned.entries()) {
     if (!people.length) continue;
+    const groupKey=grouped?rotationInterval(state,key)?.groupKey:null;
+    if(groupKey&&dutyGroups.has(groupKey)){rotation[key]=copy(dutyGroups.get(groupKey));applied.push(key);countRound(counts,key,rotation[key]);continue;}
     const game = key.split(':')[0], playing = new Set();
     const offset = index % Math.max(1, people.length);
     const rank = person => (people.indexOf(person) - offset + people.length) % people.length;
     const candidates = [...eligible].sort((a, b) => (counts[a.id].byGame[game] || 0) - (counts[b.id].byGame[game] || 0) || weightedTurns(a.id) - weightedTurns(b.id) || counts[a.id].playingTurns - counts[b.id].playingTurns || rank(a) - rank(b));
-    let assignments = allocateRound(people, playing, minimum, { firstAidRelief, judgeRelief }, Object.fromEntries(people.map(person => [person.id, counts[person.id].coverTurns])));
+    let assignments = allocateRound(people, playing, minimum, { firstAidRelief, judgeRelief }, Object.fromEntries(people.map(person => [person.id, counts[person.id].coverTurns])),capacity);
     for (const candidate of candidates) {
       if (playing.size >= budget) break;
       const proposed = new Set([...playing, candidate.id]);
-      const result = allocateRound(people, proposed, minimum, { firstAidRelief, judgeRelief }, Object.fromEntries(people.map(person => [person.id, counts[person.id].coverTurns])));
+      const result = allocateRound(people, proposed, minimum, { firstAidRelief, judgeRelief }, Object.fromEntries(people.map(person => [person.id, counts[person.id].coverTurns])),capacity);
       if (result) { playing.add(candidate.id); assignments = result; }
     }
     rotation[key] = assignments;
+    if(groupKey)dutyGroups.set(groupKey,assignments);
     applied.push(key);
     countRound(counts, key, assignments);
   }

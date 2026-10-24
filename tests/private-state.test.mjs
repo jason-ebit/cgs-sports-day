@@ -72,7 +72,7 @@ test('Shared committee names replace the local roster without exposing or changi
   const local=defaultState();local.committeeMembers.director[0]='Local old name';
   local.committeeNotes.warmup={general:'Private warm-up reminder'};local.preferences.department='warmup';
   local.committeeChecklist['equipment:general:legacy']=true;local.teams[0].leader='Private team leader';
-  const remote=defaultState();remote.committeeMembers.director[0]='Shared director';remote.committeeMembers.comms=['Cindy','New announcer'];
+  const remote=defaultState();remote.committeeMembers.director[0]='Shared director';remote.committeeMembers.comms=['Cindy','New announcer',''];
   const snapshot=publicSnapshot(remote),merged=mergePublicState(snapshot,local);
   assert.deepEqual(snapshot.committeeMembers,remote.committeeMembers);
   assert.deepEqual(merged.committeeMembers,remote.committeeMembers);

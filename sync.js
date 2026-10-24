@@ -1,5 +1,5 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=57';
-import { changedScoreUnits, scoreUnits, rebaseScoreSnapshot, reanchorScoreIntent, replaceScoreUnits, sameScoreValue } from './sync-merge.js?v=57';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=58';
+import { changedScoreUnits, scoreUnits, rebaseScoreSnapshot, reanchorScoreIntent, replaceScoreUnits, sameScoreValue } from './sync-merge.js?v=58';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
@@ -119,6 +119,17 @@ export function createSyncService({
     if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).length > 2000 || Object.values(value).some(version => !validRevision(version))) throw Error('The shared unit revisions are invalid.');
     return { ...value };
   }
+  function normalizeSavedSnapshot(snapshot) {
+    const normalized = canonical(snapshot), supported = clone(snapshot);
+    // A saved intent can acquire only the two new blank roster slots. Its
+    // immutable attempted request stays untouched so a lost receipt can retry.
+    if (supported.committeeMembers?.equipment?.length === 3 && supported.committeeMembers?.comms?.length === 2) {
+      supported.committeeMembers.equipment.push('');
+      supported.committeeMembers.comms.push('');
+    }
+    if (!sameScoreValue(normalized, supported)) throw Error('The pending update contains unsupported fields.');
+    return normalized;
+  }
   try {
     const raw = getStorage().getItem(storageKey);
     if (raw !== null) {
@@ -134,11 +145,11 @@ export function createSyncService({
         editingMode = saved.editingMode === 'shared-v1' ? 'shared-v1' : null;
         outbox = saved.outbox.map((item, index) => {
           if (!item || !uuidPattern.test(item.operationId) || !validRevision(item.baseRevision) || typeof item.attempted !== 'boolean' || typeof item.barrier !== 'boolean' || index > 0 && item.attempted) throw Error('Invalid pending update.');
-          if (!sameScoreValue(canonical(item.baseSnapshot), item.baseSnapshot) || !sameScoreValue(canonical(item.snapshot), item.snapshot)) throw Error('The pending update contains unsupported fields.');
+          const baseSnapshot = normalizeSavedSnapshot(item.baseSnapshot), snapshot = normalizeSavedSnapshot(item.snapshot);
           if (revision === null || item.baseRevision > revision) throw Error('Invalid pending base revision.');
-          if (item.attempted && (!item.request || item.request.p_operation_id !== item.operationId || item.request.p_device_id !== writerId || item.request.p_event_id !== eventId || item.request.p_expected_revision !== item.baseRevision || item.request.p_barrier !== item.barrier || !sameScoreValue(item.request.p_snapshot, item.snapshot))) throw Error('Invalid attempted request.');
+          if (item.attempted && (!item.request || item.request.p_operation_id !== item.operationId || item.request.p_device_id !== writerId || item.request.p_event_id !== eventId || item.request.p_expected_revision !== item.baseRevision || item.request.p_barrier !== item.barrier || !sameScoreValue(normalizeSavedSnapshot(item.request.p_snapshot), snapshot))) throw Error('Invalid attempted request.');
           if (item.attempted && Object.keys(item.request).sort().join(',') !== ['p_event_id', 'p_device_id', 'p_expected_revision', 'p_operation_id', 'p_snapshot', 'p_barrier'].sort().join(',')) throw Error('Invalid attempted request fields.');
-          return clone(item);
+          return { ...clone(item), baseSnapshot, snapshot };
         });
         legacyOutbox = Array.isArray(saved.legacyOutbox) ? saved.legacyOutbox : [];
         if (legacyOutbox.length > 2) throw Error('Invalid older pending updates.');
@@ -290,7 +301,7 @@ export function createSyncService({
     if (authorizing) return authorizing;
     authorizing = (async () => {
       try {
-        const data = await request('/rest/v1/rpc/authorize_sports_day_editor', { auth: true, body: { p_event_id: eventId, p_device_id: writerId } });
+        const data = await request('/rest/v1/rpc/authorize_sports_day_editor', { auth: true, body: { p_event_id: eventId, p_device_id: writerId, p_roster_version: 2 } });
         if (data.status !== 'authorized' || data.editing_mode !== 'shared-v1') { role = 'viewer'; persist(); emit('watching', 'Shared editing needs the latest server setup.'); return false; }
         record(data); editingMode = 'shared-v1'; role = 'writer'; wantsWriter = true;
         if (adoptRemote || outbox.length) projection({ force: true });

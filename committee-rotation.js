@@ -1,5 +1,6 @@
-import { DEPARTMENTS, GAME_NAMES } from './content.js?v=57';
-import { TEAM_IDS, COLOURS } from './model.js?v=57';
+import { DEPARTMENTS, GAME_NAMES } from './content.js?v=58';
+import { TEAM_IDS, COLOURS } from './model.js?v=58';
+import { renderRotationInterval } from './rota-intervals.js?v=58';
 
 const escapeHTML=value=>String(value).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const e=escapeHTML;
@@ -36,7 +37,7 @@ function roster(state) {
   }));
 }
 
-export function renderCommitteeRotation(state,{editable=false,game='borrow',round=null,filter='all'}={}) {
+export function renderCommitteeRotation(state,{editable=false,game='borrow',round=null,filter='all',schedule=null}={}) {
   if(!ROTATION_GAMES.some(item=>item.id===game))game='borrow';
   if(!['all','playing','duty','cover','unset'].includes(filter))filter='all';
   const roundKey=resolveRotationRound(game,round,state),rounds=rotationRounds(state,game,roundKey);
@@ -49,17 +50,20 @@ export function renderCommitteeRotation(state,{editable=false,game='borrow',roun
   const counts=Object.fromEntries(Object.keys(STATUS_LABELS).map(status=>[status,named.filter(person=>(assignments[person.id]?.status||'unset')===status).length]));
   const status=person=>assignments[person.id]?.status||'unset';
   const linkNames=(members)=>members.map(person=>person.name).join(', ');
-  const uncovered=named.filter(person=>!['warmup','team-leaders'].includes(person.department)&&status(person)==='playing'&&!coversFor(person.id).length);
+  const minimum={equipment:2,'food-water':1,comms:1};
+  const stationStaff=department=>named.filter(person=>status(person)==='duty'&&person.department===department||status(person)==='cover'&&byId.get(assignments[person.id]?.coverFor)?.department===department);
+  const uncovered=named.filter(person=>!['warmup','team-leaders'].includes(person.department)&&status(person)==='playing'&&!coversFor(person.id).length&&(!minimum[person.department]||stationStaff(person.department).length<minimum[person.department]));
   const unnamedAssigned=people.filter(person=>!person.name&&assignments[person.id]);
   const hasAssignments=Object.keys(assignments).length>0;
-  const hint=editable?'Changes save for everyone. Tap a selected status again to clear it.':'Everyone sees the same rota. Only the scorekeeper can change it.';
+  const hint=editable?'Playing means available when your team is called. Changes save for everyone.':'Playing means available when your team is called. Only the scorekeeper can change the rota.';
 
   const row=person=>{
     const assignment=assignments[person.id],current=status(person),covering=coversFor(person.id);
     const target=assignment?.coverFor?byId.get(assignment.coverFor):null;
     const duplicate=target?.name&&coversFor(target.id).length>1;
     let detail='';
-    if(current==='playing')detail=covering.length?`<p class="rota-relation">${person.department==='first-aid'?`Cover planned: ${e(linkNames(covering))} — confirm trained relief before play.`:person.department==='director'?`Cover planned: ${e(linkNames(covering))} — confirm an appointed neutral replacement before play.`:`Covered by ${e(linkNames(covering))}`}</p>`:['warmup','team-leaders'].includes(person.department)?'':`<p class="rota-relation rota-attention">No cover set${['first-aid','director'].includes(person.department)?' — arrange relief before playing':''}.</p>`;
+    const station=stationStaff(person.department),stationCovered=minimum[person.department]&&station.length>=minimum[person.department];
+    if(current==='playing')detail=covering.length?`<p class="rota-relation">${person.department==='first-aid'?`Cover planned: ${e(linkNames(covering))} — confirm trained relief before play.`:person.department==='director'?`Cover planned: ${e(linkNames(covering))} — confirm an appointed neutral replacement before play.`:`Covered by ${e(linkNames(covering))}`}</p>`:['warmup','team-leaders'].includes(person.department)?'':stationCovered?`<p class="rota-relation">Station covered by ${e(linkNames(station))}</p>`:`<p class="rota-relation rota-attention">No cover set${['first-aid','director'].includes(person.department)?' — arrange relief before playing':''}.</p>`;
     if(current==='cover'){
       if(editable&&person.name){
         const options=named.filter(other=>other.id!==person.id);
@@ -73,7 +77,7 @@ export function renderCommitteeRotation(state,{editable=false,game='borrow',roun
     return `<li class="rota-person${person.name?'':' unnamed'}" data-rota-row="${e(person.id)}"><div class="rota-person-top"><div class="rota-person-name"><strong>${e(person.name||'TBA')}</strong><small>${e(person.role)}${person.optional?' · optional':''}</small></div>${controls}</div>${detail}</li>`;
   };
   const groups=DEPARTMENTS.map(department=>{
-    const members=people.filter(person=>person.department===department.id&&(filter==='all'||(!person.name&&assignments[person.id])||(filter==='unset'?!person.name||status(person)==='unset':person.name&&status(person)===filter)));
+    const members=people.filter(person=>person.department===department.id&&(person.name||assignments[person.id])&&(filter==='all'||(!person.name&&assignments[person.id])||(filter==='unset'?!person.name||status(person)==='unset':person.name&&status(person)===filter)));
     return members.length?`<section class="rota-department"><h3>${e(department.name)}</h3><ul>${members.map(row).join('')}</ul></section>`:'';
   }).join('');
 
@@ -81,13 +85,14 @@ export function renderCommitteeRotation(state,{editable=false,game='borrow',roun
     <header class="rota-header"><p>${hint}</p><div class="rota-header-actions">${editable?'<button class="secondary" data-open="rotation-plan">Auto-fill rota</button>':''}<button class="text-button" data-open="committee">${editable?'Edit committee names':'Committee names'} <span aria-hidden="true">↗</span></button></div></header>
     <nav class="rota-games" aria-label="Rotation game">${ROTATION_GAMES.map(item=>`<button type="button" data-rota-game="${item.id}" class="${game===item.id?'selected':''}" aria-pressed="${game===item.id}">${e(item.label)}</button>`).join('')}</nav>
     ${basketTeams}
+    ${renderRotationInterval(state,roundKey,schedule)}
     <nav class="rota-rounds" aria-label="Rotation round">${rounds.map(item=>`<button type="button" data-rota-round="${item.key}" class="${roundKey===item.key?'selected':''}" aria-pressed="${roundKey===item.key}">${e(item.label)}</button>`).join('')}</nav>
     <div class="rota-overview"><p>${named.length} named ${named.length===1?'person':'people'} · counts exclude TBA</p><nav class="rota-filters" aria-label="Filter committee assignments"><button type="button" data-rota-filter="all" aria-pressed="${filter==='all'}" class="${filter==='all'?'selected':''}">All <b>${named.length}</b></button>${Object.entries(STATUS_LABELS).map(([key,label])=>`<button type="button" data-rota-filter="${key}" aria-pressed="${filter===key}" class="${filter===key?'selected':''}">${label} <b>${counts[key]}</b></button>`).join('')}</nav></div>
     ${uncovered.length?`<p class="rota-coverage-note">${uncovered.length} playing ${uncovered.length===1?'person has':'people have'} no named cover. Check their duties before the round.</p>`:''}
     ${unnamedAssigned.length?`<p class="rota-coverage-note">${unnamedAssigned.length} assigned ${unnamedAssigned.length===1?'slot needs':'slots need'} names. Saved assignments are shown below as TBA.</p>`:''}
-    ${named.length<people.length?`<p class="rota-name-hint">Add names in Committee before assigning TBA slots.</p>`:''}
+
     <div class="rota-departments">${groups||'<p class="rota-empty">No named people in this group.</p>'}</div>
-    <aside class="rota-safety"><h3>Before swapping</h3><ul><li>Hand over between rounds. Confirm the cover is ready before leaving.</li><li>First aid needs trained relief and a CPR-capable person on duty. Keep both first-aid positions covered.</li><li>The main judge needs an appointed neutral replacement. The assistant still watches and confirms.</li></ul></aside>
+    <aside class="rota-safety"><h3>Before swapping</h3><ul><li>Hand over between rounds. Confirm the cover is ready before leaving.</li><li>First aid stays on duty during play. Confirm CPR skills and trained relief before a swap.</li><li>The main judge stays on duty. An empty assistant slot is not counted as cover.</li></ul></aside>
     ${editable?`<div class="rota-actions">${previous?`<button class="secondary" data-action="copy-committee-round" data-rota-round-key="${roundKey}" data-rota-previous="${previous.key}" ${Object.keys(state.committeeRotation?.[previous.key]||{}).length?'':'disabled'}>Copy previous round</button>`:''}<button class="text-button" data-action="reset-committee-round" data-rota-round-key="${roundKey}" ${hasAssignments?'':'disabled'}>Clear this round</button></div>`:''}
   </section>`;
 }

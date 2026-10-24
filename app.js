@@ -1,30 +1,30 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=57';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=57';
-import { createLiveDesk } from './live.js?v=57';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=57';
-import { icon } from './icons.js?v=57';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=57';
-import { renderMedia, downloadBlob } from './media.js?v=57';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=57';
-import { captureView } from './view-state.js?v=57';
-import { createDeviceStore } from './device-store.js?v=57';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=57';
-import { createBeforeSyncBackup } from './before-sync.js?v=57';
-import { SYNC_CONFIG } from './sync-config.js?v=57';
-import { renderLiveConnection } from './connection-badge.js?v=57';
-import { createGameTimeline } from './game-timeline.js?v=57';
-import { createPanelNavigation } from './panel-navigation.js?v=57';
-import { renderLocationGuide } from './location-guide.js?v=57';
-import { createAppInstall } from './app-install.js?v=57';
-import { renderInstallGuide } from './install-guide.js?v=57';
-import { googleCalendarLink } from './calendar-link.js?v=57';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=57';
-import { renderFirstAidKit } from './first-aid-kit.js?v=57';
-import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=57';
-import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=57';
-import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=57';
-import { renderRotationPlanner } from './rota-planner-ui.js?v=57';
-import { createScoreboard } from './scoreboard-controller.js?v=57';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=58';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=58';
+import { createLiveDesk } from './live.js?v=58';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=58';
+import { icon } from './icons.js?v=58';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=58';
+import { renderMedia, downloadBlob } from './media.js?v=58';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=58';
+import { captureView } from './view-state.js?v=58';
+import { createDeviceStore } from './device-store.js?v=58';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=58';
+import { createBeforeSyncBackup } from './before-sync.js?v=58';
+import { SYNC_CONFIG } from './sync-config.js?v=58';
+import { renderLiveConnection } from './connection-badge.js?v=58';
+import { createGameTimeline } from './game-timeline.js?v=58';
+import { createPanelNavigation } from './panel-navigation.js?v=58';
+import { renderLocationGuide } from './location-guide.js?v=58';
+import { createAppInstall } from './app-install.js?v=58';
+import { renderInstallGuide } from './install-guide.js?v=58';
+import { googleCalendarLink } from './calendar-link.js?v=58';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=58';
+import { renderFirstAidKit } from './first-aid-kit.js?v=58';
+import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=58';
+import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=58';
+import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=58';
+import { renderRotationPlanner } from './rota-planner-ui.js?v=58';
+import { createScoreboard } from './scoreboard-controller.js?v=58';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -36,7 +36,7 @@ const mediaShare = createMediaShare({});
 let revealLinkedPoster = false;
 let department = state.preferences.department;
 let rotaGame = 'borrow', rotaRound = 'borrow:0', rotaFilter = 'all';
-const rotaPlanSettings={firstAidRelief:null,judgeRelief:null,firstAidReliefConfirmed:false,judgeReliefConfirmed:false,replace:false};
+const rotaPlanSettings={firstAidRelief:null,judgeRelief:null,firstAidReliefConfirmed:false,judgeReliefConfirmed:false,replace:false,capacity:true,grouped:true};
 let rotaPlanDraft=null,rotaPlanBaseline=null;
 let rotaPlanRosterBaseline=JSON.stringify(state.committeeMembers);
 const navigation=createPanelNavigation();
@@ -57,7 +57,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=57', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=58', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -243,7 +243,7 @@ function previewRotationPlan(){
   for(const key of ['firstAidRelief','judgeRelief']){
     if(rotaPlanSettings[key]&&!rotaPlanSettings[`${key}Confirmed`])throw Error(`Confirm ${key==='firstAidRelief'?'first-aid':'judge'} relief, or choose Keep the team on duty.`);
   }
-  rotaPlanDraft=planCommitteeRotation(state,{firstAidRelief:rotaPlanSettings.firstAidRelief,judgeRelief:rotaPlanSettings.judgeRelief,replace:rotaPlanSettings.replace});
+  rotaPlanDraft=planCommitteeRotation(state,{firstAidRelief:rotaPlanSettings.firstAidRelief,judgeRelief:rotaPlanSettings.judgeRelief,replace:rotaPlanSettings.replace,capacity:rotaPlanSettings.capacity,grouped:rotaPlanSettings.grouped});
   rotaPlanBaseline=currentPlanBaseline();renderPanel();
 }
 function gameSheet(game) {
@@ -280,7 +280,7 @@ function renderPanel() {
   else if(current==='committee') body.innerHTML=committeePanel();
   else if(current==='rotation') {
     rotaRound=resolveRotationRound(rotaGame,rotaRound,state);
-    body.innerHTML=renderCommitteeRotation(state,{editable:canEdit(),game:rotaGame,round:rotaRound,filter:rotaFilter});
+    body.innerHTML=renderCommitteeRotation(state,{editable:canEdit(),game:rotaGame,round:rotaRound,filter:rotaFilter,schedule});
   }
   else if(current==='rotation-plan') {
     syncPlannerRoster();

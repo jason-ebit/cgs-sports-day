@@ -13,6 +13,7 @@ const files = [
   'committee-rotation.js',
   'rota-model.js',
   'rota-planner.js',
+  'rota-intervals.js',
   'rota-planner-ui.js',
   'icons.js',
   'live.js',

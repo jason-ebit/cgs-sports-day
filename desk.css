@@ -2139,3 +2139,15 @@ input:focus,select:focus,textarea:focus {
   .rota-plan-counts th,.rota-plan-counts td {padding-inline: 3px;}
   .rota-plan-counts th:first-child {width: 48%;}
 }
+
+/* Planned handovers stay within each game; match clocks remain independent. */
+.rota-interval {min-width:0;margin:12px 0;padding:12px 14px;border:1px solid var(--line);border-radius:var(--radius-card);background:var(--surface-soft);}
+.rota-interval-heading {display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;min-width:0;}
+.rota-interval-heading h3,.rota-interval-heading strong {margin:0;font-size:12px;line-height:1.5;color:var(--brand-strong);overflow-wrap:anywhere;}
+.rota-interval p,.rota-interval li {margin:6px 0 0;color:var(--muted);font-size:11px;line-height:1.6;overflow-wrap:anywhere;}
+.rota-interval ul {margin:0;padding-left:16px;}
+.rota-interval-handover {font-variant-numeric:tabular-nums;}
+.rota-interval-review {color:var(--warning)!important;}
+.rota-plan-pacing {margin-top:12px;}
+
+.rota-interval-heading > span {min-width:0;color:var(--muted);font-size:11px;line-height:1.6;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}

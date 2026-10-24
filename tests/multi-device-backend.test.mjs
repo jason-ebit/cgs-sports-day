@@ -83,12 +83,18 @@ if (!process.env.CGS_PGLITE_MODULE) {
     });
     await test('SQL consistency units match browser units including exact ordered arrays and locked-attempt flags', async () => {
       const snapshot = publicSnapshot(defaultState());
+      // Exercise the historical migration with its original roster contract.
+      // The final-roster suite separately checks the expanded client/SQL shape.
+      snapshot.committeeMembers.equipment = snapshot.committeeMembers.equipment.slice(0, 3);
+      snapshot.committeeMembers.comms = snapshot.committeeMembers.comms.slice(0, 2);
       snapshot.committeeRotation = { 'borrow:0': { 'equipment:0': { status: 'cover', coverFor: 'equipment:1' } } };
       snapshot.basket.scores[0][0] = 0;
       snapshot.finished = ['basket:red:0'];
       snapshot.equipmentColdPacksReady = true;
+      assert.equal(await queryValue('select sports_day_private.valid_snapshot($1::jsonb)', [JSON.stringify(snapshot)]), true);
       const actual = await queryValue('select sports_day_private.shared_units($1::jsonb)', [JSON.stringify(snapshot)]);
-      const expected = Object.fromEntries(Object.entries(scoreUnits(snapshot)).filter(([key, value]) => !key.startsWith('rota:') || value !== null));
+      const appended = new Set(['roster:equipment:3', 'roster:comms:2']);
+      const expected = Object.fromEntries(Object.entries(scoreUnits(snapshot)).filter(([key, value]) => !appended.has(key) && (!key.startsWith('rota:') || value !== null)));
       assert.deepEqual(actual, expected);
       assert.equal(actual['basket:red:0'].score, 0);
       assert.equal(actual['basket:red:0'].finished, true);
