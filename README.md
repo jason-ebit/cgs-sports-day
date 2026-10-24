@@ -213,3 +213,12 @@ The applied plan covers all 25 standard game rounds and attempts. Capacity mode 
 All 28 automated suites and the static build passed, including actual PostgreSQL tests for the migration, safe old-client handling and saved-request compatibility, plus final-crew staffing, grouped duty and interval-fit checks. Production verification used rolled-back isolated data. The real setup changed only committee names and round assignments; scores and timers were preserved.
 
 Safari inspection confirmed the saved 13-person roster and within-committee covers, shared paired-attempt timing, no empty-role clutter, and no unintended overflow at 320px and 1280px. Role and time guidance remains compact within the existing panel.
+
+
+## October 24 named crews by game
+
+Release 59 opens Committee → Duty plan in a game overview. Each game lists its actual named Equipment, Food & water and Comm crew by shift, people available to play, planned times, and the incoming/outgoing names for the next handover. Fixed judge/first-aid posts appear once when they are consistently staffed across every saved game shift. The Warm-up lead and scheduled warm-up slot appear separately before the games.
+
+Names come from the existing shared roster and assignments. Paired Borrow rounds or Basket tries are combined only when their saved crews match; manual differences stay separate with honest shared-block timing. Invalid covers, missing assignments and unconfirmed protected-role replacements stay visible as warnings. The last shift points to the next game without inventing a timed swap across a break. By round retains the existing editor; scorekeepers can open the exact saved round from each shift. Current panel and expanded-game state survive ordinary live refreshes.
+
+All 30 automated suites and the static build passed. New coverage includes actual station staffing, available players, handover changes, divergent pairs, optional rounds, missing/invalid names, protected roles, warm-up timing and safe rendering. Safari checks covered the named live roster, phone and desktop spacing, and switching back to round review without changing shared data. This release changes the display, not the saved duty plan, results or backend permissions.
