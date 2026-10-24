@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
-import { COMMITTEE_PERSON_IDS } from '../rota-model.js';
-import { defaultCommitteeMembers } from '../model.js';
 import { scoreUnits } from '../sync-merge.js';
+
+// This suite checks the release-58 migration independently of newer browser slots.
+const historicalSlots={director:1,judges:1,'first-aid':2,equipment:4,'food-water':3,comms:3,'team-leaders':5,warmup:1};
+const historicalPeople=Object.entries(historicalSlots).flatMap(([department,count])=>Array.from({length:count},(_,slot)=>`${department}:${slot}`));
 
 const migration = readFileSync(new URL('../supabase/final-roster.sql', import.meta.url), 'utf8');
 const verification = readFileSync(new URL('../supabase/final-roster-verify.sql', import.meta.url), 'utf8');
@@ -16,12 +18,13 @@ const body = name => {
 let passed = 0;
 const test = async (name, run) => { await run(); passed++; console.log('PASS ' + name); };
 
-await test('Expanded SQL defaults and stable rota IDs match the browser without shrinking any department', () => {
+await test('Release-58 SQL defaults and stable rota IDs retain their historical shape', () => {
   const defaults = JSON.parse(body('sports_day_private.default_committee_members').match(/select '([^']+)'::jsonb/)[1]);
-  assert.deepEqual(defaults, defaultCommitteeMembers());
+  assert.deepEqual(Object.fromEntries(Object.entries(defaults).map(([id,names])=>[id,names.length])),historicalSlots);
+  assert.deepEqual(defaults.comms,['Cindy','Mario','']);
   const people = body('sports_day_private.valid_committee_rotation').match(/people text\[\] := array\[([^\]]+)\]/)[1];
-  assert.deepEqual(JSON.parse('[' + people.replaceAll("'", '"') + ']'), COMMITTEE_PERSON_IDS);
-  assert.equal(COMMITTEE_PERSON_IDS.length, 20);
+  assert.deepEqual(JSON.parse('[' + people.replaceAll("'", '"') + ']'), historicalPeople);
+  assert.equal(historicalPeople.length, 20);
   assert.equal(defaults['first-aid'].length, 2);
   assert.equal(defaults.warmup.length, 1);
   assert.match(body('sports_day_private.valid_committee_rotation'), /jsonb_object_keys\(assignments\)\) > 20/);
@@ -133,7 +136,8 @@ if (!process.env.CGS_PGLITE_MODULE) {
       assert.equal(padded.committeeMembers.comms[2], 'Grace');
       assert.deepEqual(padded.committeeMembers.equipment.slice(0, 3), old.committeeMembers.equipment);
       assert.deepEqual(padded.committeeMembers.comms.slice(0, 2), old.committeeMembers.comms);
-      const expected = Object.fromEntries(Object.entries(scoreUnits(expanded)).filter(([key, item]) => !key.startsWith('rota:') || item !== null));
+      const expected = Object.fromEntries(Object.entries(scoreUnits(expanded)).filter(([key, item]) =>
+        !['roster:food-water:3','roster:comms:3'].includes(key) && (!key.startsWith('rota:') || item !== null)));
       assert.deepEqual(await value('select sports_day_private.shared_units($1::jsonb)', [JSON.stringify(expanded)]), expected);
       assert.equal(await value('select sports_day_private.valid_snapshot($1::jsonb)', [JSON.stringify(expanded)]), true);
       const half = structuredClone(expanded); half.committeeMembers.comms.pop();

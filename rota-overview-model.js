@@ -1,6 +1,6 @@
-import { DEPARTMENTS, GAME_NAMES } from './content.js?v=59';
-import { TEAM_IDS } from './model.js?v=59';
-import { rotationInterval } from './rota-intervals.js?v=59';
+import { DEPARTMENTS, GAME_NAMES } from './content.js?v=60';
+import { TEAM_IDS } from './model.js?v=60';
+import { rotationInterval } from './rota-intervals.js?v=60';
 
 const GAME_ORDER = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
 const CORE_STATIONS = ['director', 'judges', 'first-aid', 'equipment', 'food-water', 'comms'];

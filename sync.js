@@ -1,5 +1,5 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=59';
-import { changedScoreUnits, scoreUnits, rebaseScoreSnapshot, reanchorScoreIntent, replaceScoreUnits, sameScoreValue } from './sync-merge.js?v=59';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=60';
+import { changedScoreUnits, scoreUnits, rebaseScoreSnapshot, reanchorScoreIntent, replaceScoreUnits, sameScoreValue } from './sync-merge.js?v=60';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.
@@ -121,12 +121,11 @@ export function createSyncService({
   }
   function normalizeSavedSnapshot(snapshot) {
     const normalized = canonical(snapshot), supported = clone(snapshot);
-    // A saved intent can acquire only the two new blank roster slots. Its
+    // A saved intent can acquire only blank appended roster slots. Its
     // immutable attempted request stays untouched so a lost receipt can retry.
-    if (supported.committeeMembers?.equipment?.length === 3 && supported.committeeMembers?.comms?.length === 2) {
-      supported.committeeMembers.equipment.push('');
-      supported.committeeMembers.comms.push('');
-    }
+    // Canonical validation already checked the exact published roster shape,
+    // every department and every name before this one permitted normalization.
+    if (supported.committeeMembers) supported.committeeMembers = clone(normalized.committeeMembers);
     if (!sameScoreValue(normalized, supported)) throw Error('The pending update contains unsupported fields.');
     return normalized;
   }
@@ -301,7 +300,7 @@ export function createSyncService({
     if (authorizing) return authorizing;
     authorizing = (async () => {
       try {
-        const data = await request('/rest/v1/rpc/authorize_sports_day_editor', { auth: true, body: { p_event_id: eventId, p_device_id: writerId, p_roster_version: 2 } });
+        const data = await request('/rest/v1/rpc/authorize_sports_day_editor', { auth: true, body: { p_event_id: eventId, p_device_id: writerId, p_roster_version: 3 } });
         if (data.status !== 'authorized' || data.editing_mode !== 'shared-v1') { role = 'viewer'; persist(); emit('watching', 'Shared editing needs the latest server setup.'); return false; }
         record(data); editingMode = 'shared-v1'; role = 'writer'; wantsWriter = true;
         if (adoptRemote || outbox.length) projection({ force: true });

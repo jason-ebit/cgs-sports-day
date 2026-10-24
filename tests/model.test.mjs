@@ -43,36 +43,46 @@ test('Older backups without department reminders remain readable',()=>{const s=m
 test('Prayer reminders restore without moving existing game or saved note indices',()=>{equal(EVENT_GAMES,{4:'borrow',5:'basket',7:'cavalry',8:'tug',9:'relay'});equal(GAME_EVENTS,{borrow:4,basket:5,cavalry:7,tug:8,relay:9});const s=m.defaultState();s.notes=Object.fromEntries(Array.from({length:15},(_,i)=>[i,'Saved event '+i]));s.notes[15]='Prayer leader ready';s.committeeNotes={comms:{2:'Safety announcement',4:'Call the next runner',15:'Gather teams for prayer'}};const restored=m.validateState(clone(s));equal(restored.notes,s.notes);equal(restored.committeeNotes,s.committeeNotes);});
 test('Department backups reject unknown teams and oversized or invalid notes',()=>{const s=m.defaultState();s.committeeNotes={unknown:{4:'Test'}};throws(()=>m.validateState(s));s.committeeNotes={director:{16:'Invalid event'}};throws(()=>m.validateState(s));s.committeeNotes={director:{general:'x'.repeat(2001)}};throws(()=>m.validateState(s));s.committeeNotes={};s.notes={16:'Invalid event'};throws(()=>m.validateState(s));});
 test('Committee rosters have stable slots, named communications defaults and independent copies',()=>{
-  equal(m.COMMITTEE_SLOTS,{director:1,judges:1,'first-aid':2,equipment:4,'food-water':3,comms:3,'team-leaders':5,warmup:1});
+  equal(m.COMMITTEE_SLOTS,{director:1,judges:1,'first-aid':2,equipment:4,'food-water':4,comms:4,'team-leaders':5,warmup:1});
   const members=m.defaultCommitteeMembers(),next=m.defaultCommitteeMembers();
-  equal(Object.keys(members),m.DEPARTMENT_IDS);equal(members.comms,['Cindy','Mario','']);
+  equal(Object.keys(members),m.DEPARTMENT_IDS);equal(members.comms,['Cindy','Mario','','']);
   for(const [id,count] of Object.entries(m.COMMITTEE_SLOTS))equal(members[id].length,count);
-  members.comms[0]='Changed';equal(next.comms,['Cindy','Mario','']);equal(m.defaultState().committeeMembers,next);
+  members.comms[0]='Changed';equal(next.comms,['Cindy','Mario','','']);equal(m.defaultState().committeeMembers,next);
 });
 test('Old v1 backups gain roster defaults while edited names and blank optional slots round trip',()=>{
   const old=m.defaultState();delete old.committeeMembers;old.notes[4]='Private note';
   equal(m.validateState(old).committeeMembers,m.defaultCommitteeMembers());equal(m.validateState(old).notes,old.notes);
   const current=m.defaultState();current.committeeMembers.director[0]='A'.repeat(60);current.committeeMembers['first-aid']=['지수','Min'];
-  current.committeeMembers['food-water']=['','',''];current.committeeMembers.comms=['','Mario',''];
+  current.committeeMembers['food-water']=['','','',''];current.committeeMembers.comms=['','Mario','',''];
   equal(m.validateState(clone(current)),current);
 });
 test('Exact former roster shape gains blank appended slots without changing names or saved rotations',()=>{
-  const old=m.defaultState();old.committeeMembers.equipment=['Rina','Timothy','Trishya'];old.committeeMembers.comms=['Jenni','Mario'];
+  const old=m.defaultState();old.committeeMembers.equipment=['Rina','Timothy','Trishya'];old.committeeMembers['food-water']=['Cindy','Vin','Maria'];old.committeeMembers.comms=['Jenni','Mario'];
   old.committeeMembers.director=['Jason'];old.committeeRotation={'borrow:0':{'equipment:2':{status:'duty',coverFor:null},'comms:1':{status:'playing',coverFor:null}}};
   const before=clone(old),restored=m.validateState(old);
-  equal(restored.committeeMembers.equipment,['Rina','Timothy','Trishya','']);equal(restored.committeeMembers.comms,['Jenni','Mario','']);
+  equal(restored.committeeMembers.equipment,['Rina','Timothy','Trishya','']);equal(restored.committeeMembers['food-water'],['Cindy','Vin','Maria','']);equal(restored.committeeMembers.comms,['Jenni','Mario','','']);
   equal(restored.committeeMembers.director,['Jason']);equal(restored.committeeRotation,old.committeeRotation);equal(old,before);
   equal(m.validateState(clone(restored)),restored);
 });
 test('Expanded roster names and new stable person IDs round trip without renumbering',()=>{
-  const state=m.defaultState();state.committeeMembers.equipment=['Rina','Timothy','Trishya','Darren'];state.committeeMembers.comms=['Jenni','Mario','Grace'];
-  state.committeeRotation={'relay:0':{'equipment:3':{status:'cover',coverFor:'comms:2'},'comms:2':{status:'playing',coverFor:null}}};
+  const state=m.defaultState();state.committeeMembers.equipment=['Rina','Timothy','Trishya','Darren'];state.committeeMembers['food-water']=['Cindy','Vin','Maria','Olin'];state.committeeMembers.comms=['Jenni','Mario','Grace','Jesslyn'];
+  state.committeeRotation={'relay:0':{'equipment:3':{status:'cover',coverFor:'comms:2'},'food-water:3':{status:'playing',coverFor:null},'comms:2':{status:'playing',coverFor:null},'comms:3':{status:'duty',coverFor:null}}};
   equal(m.validateState(clone(state)),state);
+});
+test('The complete second roster shape gains only the food and communications slots',()=>{
+  const state=m.defaultState();state.committeeMembers.equipment=['Rina','Timothy','Trishya','Darren'];state.committeeMembers['food-water']=['Cindy','Vin','Maria'];state.committeeMembers.comms=['Jenni','Mario','Grace'];
+  state.committeeRotation={'relay:0':{'equipment:3':{status:'duty',coverFor:null},'comms:2':{status:'playing',coverFor:null}}};
+  const before=clone(state),restored=m.validateState(state);
+  equal(restored.committeeMembers.equipment,state.committeeMembers.equipment);equal(restored.committeeMembers['food-water'],['Cindy','Vin','Maria','']);equal(restored.committeeMembers.comms,['Jenni','Mario','Grace','']);
+  equal(restored.committeeRotation,state.committeeRotation);equal(state,before);
 });
 test('Roster expansion rejects partial shapes, unsupported lengths and malformed historical names',()=>{
   const shapes=[{equipment:['','',''],comms:['','','']},{equipment:['','','',''],comms:['','']},{equipment:['',''],comms:['','']},
     {equipment:['','','','',''],comms:['','','']},{equipment:['','',''],comms:['']},{equipment:['','',''],comms:['','',null]},
-    {equipment:['','',''],comms:['',null]},{equipment:['','',''],comms:['','x'.repeat(61)]},{equipment:Array(3),comms:['','']}];
+    {equipment:['','',''],comms:['',null]},{equipment:['','',''],comms:['','x'.repeat(61)]},{equipment:Array(3),comms:['','']},
+    {'food-water':['','',''],comms:['','','','']},{'food-water':['','','',''],comms:['','','']},
+    {equipment:['','',''], 'food-water':['','',''],comms:['','','','']},
+    {'food-water':['','',''],comms:['','','x'.repeat(61)]},{'food-water':['','',''],comms:['','',null]}];
   for(const shape of shapes){const state=m.defaultState();Object.assign(state.committeeMembers,shape);const before=clone(state);throws(()=>m.validateState(state));equal(state,before);}
 });
 test('Committee roster imports reject unknown departments, incomplete slots and invalid names without mutation',()=>{
@@ -109,11 +119,11 @@ test('Equipment readiness rejects missing, unknown or non-boolean entries withou
     const state=m.defaultState();state.equipmentReady=ready;const before=clone(state);throws(()=>m.validateState(state));equal(state,before);
   }
 });
-test('Committee rotation has 26 fixed rounds and 20 people, with independent empty defaults for older backups',()=>{
+test('Committee rotation has 26 fixed rounds and 22 people, with independent empty defaults for older backups',()=>{
   equal(m.ROTATION_ROUND_KEYS,['borrow:0','borrow:1','borrow:2','borrow:3','borrow:4','borrow:5','borrow:6','basket:red:0','basket:red:1','basket:blue:0','basket:blue:1','basket:yellow:0','basket:yellow:1','basket:green:0','basket:green:1','basket:white:0','basket:white:1','cavalry:women','cavalry:men','tug:prelim','tug:semi1','tug:semi2','tug:final','relay:0','relay:1','relay:2']);
   equal(m.ROTATION_ROUND_KEYS.length,26);equal(new Set(m.ROTATION_ROUND_KEYS).size,26);
   equal(m.COMMITTEE_PERSON_IDS,Object.entries(m.COMMITTEE_SLOTS).flatMap(([department,count])=>Array.from({length:count},(_,slot)=>`${department}:${slot}`)));
-  equal(m.COMMITTEE_PERSON_IDS.length,20);equal(new Set(m.COMMITTEE_PERSON_IDS).size,20);
+  equal(m.COMMITTEE_PERSON_IDS.length,22);equal(new Set(m.COMMITTEE_PERSON_IDS).size,22);
   const old=m.defaultState();delete old.committeeRotation;equal(m.validateState(old).committeeRotation,{});
   const fresh=m.defaultState(),other=m.defaultState();fresh.committeeRotation['borrow:0']={};equal(other.committeeRotation,{});
 });
@@ -145,7 +155,7 @@ test('Basket rota keeps separate playing and duty plans for each team and attemp
 test('Rota imports reject free text, unknown rounds or people, extra fields and invalid cover links without mutation',()=>{
   const assignment={status:'duty',coverFor:null},malformed=[null,[],42,'anything',
     {'borrow:7':{}},{'borrow:00':{}},{'cavalry:0':{}},{'basket:red:0':null},{'basket:red:0':[]},
-    {'basket:red:0':{'comms:3':assignment}},{'basket:red:0':{'equipment:00':assignment}},
+    {'basket:red:0':{'comms:4':assignment}},{'basket:red:0':{'equipment:00':assignment}},
     {'basket:red:0':{'comms:0':null}},{'basket:red:0':{'comms:0':[]}},{'basket:red:0':{'comms:0':{status:'rest',coverFor:null}}},
     {'basket:red:0':{'comms:0':{status:'duty'}}},{'basket:red:0':{'comms:0':{status:'duty',coverFor:null,note:'Private health note'}}},
     {'basket:red:0':{'comms:0':{status:'duty',coverFor:'comms:1'}}},{'basket:red:0':{'comms:0':{status:'playing',coverFor:'comms:1'}}},

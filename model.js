@@ -1,6 +1,6 @@
-import { MATCH_KEYS, validateClocks } from './timer-model.js?v=59';
-import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=59';
-export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=59';
+import { MATCH_KEYS, validateClocks } from './timer-model.js?v=60';
+import { COMMITTEE_SLOT_COUNTS, validateCommitteeRotation } from './rota-model.js?v=60';
+export { COMMITTEE_PERSON_IDS, ROTATION_ROUND_KEYS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=60';
 export const TEAM_IDS = ['red', 'blue', 'yellow', 'green', 'white'];
 export const COLOURS = ['#ed1639', '#2867a7', '#ffc622', '#0cab54', '#ffffff'];
 export const GAME_IDS = ['borrow', 'basket', 'cavalry', 'tug', 'relay'];
@@ -11,7 +11,7 @@ export function defaultEquipmentReady() {
   return Object.fromEntries(EQUIPMENT_IDS.map(id=>[id,false]));
 }
 export function defaultCommitteeMembers() {
-  return Object.fromEntries(DEPARTMENT_IDS.map(id=>[id,id==='comms'?['Cindy','Mario','']:Array(COMMITTEE_SLOTS[id]).fill('')]));
+  return Object.fromEntries(DEPARTMENT_IDS.map(id=>[id,id==='comms'?['Cindy','Mario','','']:Array(COMMITTEE_SLOTS[id]).fill('')]));
 }
 export function defaultState() {
   return {
@@ -139,11 +139,13 @@ export function validateState(input) {
   if(input.committeeMembers!==undefined){
     const members=object(input.committeeMembers);
     if(Object.keys(members).length!==DEPARTMENT_IDS.length||Object.keys(members).some(id=>!DEPARTMENT_IDS.includes(id)))fail();
-    // Only the complete former shape can gain the two appended slots. Existing
+    // Only complete published roster shapes gain blank appended slots. Existing
     // person IDs and saved rotation assignments retain their original meaning.
-    const legacy=Array.isArray(members.equipment)&&members.equipment.length===3&&Array.isArray(members.comms)&&members.comms.length===2;
+    const shape=[members.equipment,members['food-water'],members.comms].map(names=>Array.isArray(names)?names.length:0).join('/');
+    const counts=({'3/3/2':{equipment:3,'food-water':3,comms:2},'4/3/3':{equipment:4,'food-water':3,comms:3},'4/4/4':{equipment:4,'food-water':4,comms:4}})[shape];
+    if(!counts)fail();
     s.committeeMembers=Object.fromEntries(DEPARTMENT_IDS.map(id=>{
-      const count=legacy&&id==='equipment'?3:legacy&&id==='comms'?2:COMMITTEE_SLOTS[id];
+      const count=counts[id]??COMMITTEE_SLOTS[id];
       const names=Array.from(list(members[id],count),name=>text(name,60));
       return [id,[...names,...Array(COMMITTEE_SLOTS[id]-count).fill('')]];
     }));

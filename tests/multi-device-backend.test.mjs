@@ -84,8 +84,9 @@ if (!process.env.CGS_PGLITE_MODULE) {
     await test('SQL consistency units match browser units including exact ordered arrays and locked-attempt flags', async () => {
       const snapshot = publicSnapshot(defaultState());
       // Exercise the historical migration with its original roster contract.
-      // The final-roster suite separately checks the expanded client/SQL shape.
+      // The expanded-volunteers suite separately checks the current client/SQL shape.
       snapshot.committeeMembers.equipment = snapshot.committeeMembers.equipment.slice(0, 3);
+      snapshot.committeeMembers['food-water'] = snapshot.committeeMembers['food-water'].slice(0, 3);
       snapshot.committeeMembers.comms = snapshot.committeeMembers.comms.slice(0, 2);
       snapshot.committeeRotation = { 'borrow:0': { 'equipment:0': { status: 'cover', coverFor: 'equipment:1' } } };
       snapshot.basket.scores[0][0] = 0;
@@ -93,7 +94,7 @@ if (!process.env.CGS_PGLITE_MODULE) {
       snapshot.equipmentColdPacksReady = true;
       assert.equal(await queryValue('select sports_day_private.valid_snapshot($1::jsonb)', [JSON.stringify(snapshot)]), true);
       const actual = await queryValue('select sports_day_private.shared_units($1::jsonb)', [JSON.stringify(snapshot)]);
-      const appended = new Set(['roster:equipment:3', 'roster:comms:2']);
+      const appended = new Set(['roster:equipment:3', 'roster:food-water:3', 'roster:comms:2', 'roster:comms:3']);
       const expected = Object.fromEntries(Object.entries(scoreUnits(snapshot)).filter(([key, value]) => !appended.has(key) && (!key.startsWith('rota:') || value !== null)));
       assert.deepEqual(actual, expected);
       assert.equal(actual['basket:red:0'].score, 0);

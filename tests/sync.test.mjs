@@ -287,6 +287,24 @@ await test('Concurrent distinct roster names merge without losing either phoneâ€
   for(const d of [a,b]){assert.equal(d.sync.pending,0);assert.equal(d.state.committeeMembers.director[0],'Main judge');assert.equal(d.state.committeeMembers.equipment[0],'Rina');}
 });
 
+await test('The appended food and communications slots sync independently across scorekeeper devices',async()=>{
+  const f=fixture(),a=await editor(f),b=await editor(f);
+  edit(a,s=>s.committeeMembers['food-water'][3]='Olin');edit(b,s=>s.committeeMembers.comms[3]='Jesslyn');
+  await settle(a,b);
+  for(const d of [a,b]){assert.equal(d.sync.pending,0);assert.equal(d.state.committeeMembers['food-water'][3],'Olin');assert.equal(d.state.committeeMembers.comms[3],'Jesslyn');}
+  assert.equal(f.shared.committeeMembers['food-water'][3],'Olin');assert.equal(f.shared.committeeMembers.comms[3],'Jesslyn');
+  assert.ok(applyCalls(f).every(call=>call.body.p_snapshot.committeeMembers['food-water'].length===4&&call.body.p_snapshot.committeeMembers.comms.length===4));
+});
+
+await test('Appended volunteers keep separate stable rotation IDs when devices edit the same round',async()=>{
+  const initial=defaultState();initial.committeeMembers['food-water'][3]='Olin';initial.committeeMembers.comms[3]='Jesslyn';
+  const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);
+  edit(a,s=>s.committeeRotation['borrow:0']={'food-water:3':{status:'playing',coverFor:null}});
+  edit(b,s=>s.committeeRotation['borrow:0']={'comms:3':{status:'duty',coverFor:null}});
+  await settle(a,b);
+  for(const d of [a,b]){assert.equal(d.sync.pending,0);assert.deepEqual(d.state.committeeRotation['borrow:0'],{'food-water:3':{status:'playing',coverFor:null},'comms:3':{status:'duty',coverFor:null}});}
+});
+
 await test('Concurrent different equipment checks include cold packs and unchecked values',async()=>{
   const initial=defaultState();initial.equipmentReady.rope=true;
   const f=fixture({snapshot:publicSnapshot(initial)}),a=await editor(f),b=await editor(f);

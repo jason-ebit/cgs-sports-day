@@ -1,7 +1,7 @@
-import { defaultState, validateState, TEAM_IDS, GAME_IDS, matchTeams } from './model.js?v=59';
-import { COMMITTEE_SLOT_COUNTS, ROTATION_ROUND_KEYS, COMMITTEE_PERSON_IDS } from './rota-model.js?v=59';
-import { recordSuccess, eliminate, recordWinner, roundDone } from './rounds.js?v=59';
-import { startClock, pauseClock, addTime, remainingMs } from './timer-model.js?v=59';
+import { defaultState, validateState, TEAM_IDS, GAME_IDS, matchTeams } from './model.js?v=60';
+import { COMMITTEE_SLOT_COUNTS, ROTATION_ROUND_KEYS, COMMITTEE_PERSON_IDS } from './rota-model.js?v=60';
+import { recordSuccess, eliminate, recordWinner, roundDone } from './rounds.js?v=60';
+import { startClock, pauseClock, addTime, remainingMs } from './timer-model.js?v=60';
 
 const copy = value => structuredClone(value);
 const stable = value => JSON.stringify(value, (_, nested) => nested && typeof nested === 'object' && !Array.isArray(nested)

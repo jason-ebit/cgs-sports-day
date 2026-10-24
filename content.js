@@ -175,13 +175,13 @@ export const DEPARTMENTS=[
   ["Check the field and equipment one last time."],
   ["Keep game equipment out of the CG-IN gathering area."],
  ]},
- {id:'food-water',name:'Food & water',members:[{name:'TBA',role:'Cooler and water'},{name:'TBA',role:'Serving'},{name:'TBA',role:'Setup and break helper'}],general:[
+ {id:'food-water',name:'Food & water',members:[{name:'TBA',role:'Cooler and water'},{name:'TBA',role:'Serving'},{name:'TBA',role:'Setup and bins'},{name:'TBA',role:'Table cover'}],general:[
   "Ask about food needs and allergies in private. Label ingredients and say if any are unknown.",
   "Check there is enough food and water for everyone. Refill before the break.",
   "Keep someone at the food and water table. Ask someone to take over before leaving.",
   "Pick up food rubbish, pack leftovers and clear the table.",
  ],notes:[
-  ["Set up the cooler and food table away from play. Count supplies and check ingredient labels.","An optional third helper can help with setup, bins and breaks."],
+  ["Set up the cooler and food table away from play. Count supplies and check ingredient labels.","Share setup, bins and table cover between helpers."],
   ["Ask about food needs and allergies in private before serving."],
   ["Open the water station before games."],
   [],
@@ -198,7 +198,7 @@ export const DEPARTMENTS=[
   [],
   ["Keep water available during CG-IN."],
  ]},
- {id:'comms',name:'Comm',members:[{name:'Cindy',role:'Photos'},{name:'Mario',role:'Videos'},{name:'TBA',role:'Team and group shots'}],general:[
+ {id:'comms',name:'Comm',members:[{name:'Cindy',role:'Photos'},{name:'Mario',role:'Videos'},{name:'TBA',role:'Team and group shots'},{name:'TBA',role:'Game coverage'}],general:[
   "Take photos and videos of the day.",
   "Ask before close-up photos or videos. Do not include anyone who says no.",
   "Stay outside the playing area. Keep paths clear.",

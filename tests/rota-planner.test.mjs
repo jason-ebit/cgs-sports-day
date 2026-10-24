@@ -214,7 +214,7 @@ test('Planner rejects invalid settings and unknown or critical relief', () => {
   const state = namedState();
   for (const firstAidRelief of ['director:0', 'judges:0', 'first-aid:0', 'unknown:0', '', false]) assert.throws(() => planCommitteeRotation(state, { firstAidRelief }), /named support member/);
   assert.throws(() => planCommitteeRotation(state, { replace: 'yes' }), /keep or replace/);
-  assert.deepEqual(COMMITTEE_PERSON_IDS.length, 20);
+  assert.deepEqual(COMMITTEE_PERSON_IDS.length, 22);
 });
 
 test('Empty roster produces no invented assignments and no applicable plan', () => {

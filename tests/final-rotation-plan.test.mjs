@@ -4,7 +4,7 @@ import {planCommitteeRotation} from '../rota-planner.js';
 import {rotationInterval} from '../rota-intervals.js';
 
 const state=defaultState();
-Object.assign(state.committeeMembers,{director:['Jason'],judges:[''],'first-aid':['Lanny',''],equipment:['Rina','Timothy','Trishya','Darren'],warmup:['Leti'],'food-water':['Cindy','Vin','Maria'],comms:['Jenni','Mario','Grace']});
+Object.assign(state.committeeMembers,{director:['Jason'],judges:[''],'first-aid':['Lanny',''],equipment:['Rina','Timothy','Trishya','Darren'],warmup:['Leti'],'food-water':['Cindy','Vin','Maria',''],comms:['Jenni','Mario','Grace','']});
 const before=structuredClone(state), plan=planCommitteeRotation(state,{capacity:true,grouped:true});
 assert.deepEqual(state,before);assert.equal(plan.summary.people.length,13);assert.equal(plan.summary.playingLimit,7);assert.equal(plan.summary.plannedRounds,25);
 const groups=new Map();

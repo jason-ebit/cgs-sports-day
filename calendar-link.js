@@ -1,5 +1,5 @@
-import { LOCATION } from './location-guide.js?v=59';
-import { orderedSchedule, scheduleBounds } from './content.js?v=59';
+import { LOCATION } from './location-guide.js?v=60';
+import { orderedSchedule, scheduleBounds } from './content.js?v=60';
 
 export function googleCalendarLink(event) {
   const {start,end}=scheduleBounds(event.schedule);

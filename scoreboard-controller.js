@@ -1,5 +1,5 @@
-import { buildGameScoreboard, followGameScoreboardContext } from './scoreboard-model.js?v=59';
-import { renderGameScoreboard } from './scoreboard-view.js?v=59';
+import { buildGameScoreboard, followGameScoreboardContext } from './scoreboard-model.js?v=60';
+import { renderGameScoreboard } from './scoreboard-view.js?v=60';
 
 // Presentation state stays on this screen. Opening a board never edits results or clocks.
 export function createScoreboard({getState,getStatus=()=>null,toast=()=>{},document:doc=globalThis.document}={}) {

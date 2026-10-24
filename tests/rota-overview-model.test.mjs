@@ -9,7 +9,7 @@ const test = (name, run) => { run(); console.log(`PASS ${name}`); };
 const assignment = (status, coverFor = null) => ({ status, coverFor });
 const finalCrew = () => {
   const state = defaultState();
-  Object.assign(state.committeeMembers, { director: ['Jason'], judges: [''], 'first-aid': ['Lanny', ''], equipment: ['Rina', 'Timothy', 'Trishya', 'Darren'], warmup: ['Leti'], 'food-water': ['Cindy', 'Vin', 'Maria'], comms: ['Jenni', 'Mario', 'Grace'] });
+  Object.assign(state.committeeMembers, { director: ['Jason'], judges: [''], 'first-aid': ['Lanny', ''], equipment: ['Rina', 'Timothy', 'Trishya', 'Darren'], warmup: ['Leti'], 'food-water': ['Cindy', 'Vin', 'Maria', ''], comms: ['Jenni', 'Mario', 'Grace', ''] });
   state.committeeRotation = planCommitteeRotation(state, { capacity: true, grouped: true }).rotation;
   return state;
 };
