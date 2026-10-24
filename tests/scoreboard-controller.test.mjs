@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import { createScoreboard } from '../scoreboard-controller.js';
 import { defaultState } from '../model.js';
-import { makeClock, startClock } from '../timer-model.js';
+import { makeClock, startClock, pauseClock, addTime } from '../timer-model.js';
+import { publicSnapshot, mergePublicState } from '../sync.js';
 
 // These doubles provide only the dialog, focus and Fullscreen API used by the
 // controller. Standings and rendered controls come from the real model/view.
@@ -48,6 +49,7 @@ class ScoreboardBody extends Element {
   constructor(document, options) {
     super(document, options);
     this.controls = new Map();
+    this.timerNodes = new Map();
     this.writes = 0;
     this.markup = '';
   }
@@ -56,6 +58,14 @@ class ScoreboardBody extends Element {
     this.controls.clear();
     this.markup = value;
     this.writes++;
+    this.timerNodes.clear();
+    for(const name of ['timer','clock','clock-status']){
+      const selector=`[data-scoreboard-${name}]`;
+      if(!value.includes(`data-scoreboard-${name}`))continue;
+      const node=new Element(this.ownerDocument,{parent:this});
+      node.textContent=name==='clock'?'00:00':name==='clock-status'?'Ready':'';
+      this.timerNodes.set(selector,node);
+    }
     for (const match of value.matchAll(/<button\b([^>]*)>/g)) {
       const action = match[1].match(/data-scoreboard-action="([^"]+)"/)?.[1];
       if (!action) continue;
@@ -66,6 +76,7 @@ class ScoreboardBody extends Element {
   }
   get innerHTML() { return this.markup; }
   querySelector(selector) {
+    if(this.timerNodes.has(selector))return this.timerNodes.get(selector);
     const action = selector.match(/^\[data-scoreboard-action="([^"]+)"\]$/)?.[1];
     return this.controls.get(action) || null;
   }
@@ -92,7 +103,7 @@ function fixture({ fullscreen = true } = {}) {
   ]);
   document.querySelector = selector => nodes.get(selector) || null;
   let state = defaultState(), status = { connected: true, phase: 'watching', pending: 0 };
-  let stateReads = 0, fullscreenRequests = 0, fullscreenExits = 0;
+  let stateReads = 0, fullscreenRequests = 0, fullscreenExits = 0, now = 1000;
   body.requestFullscreen = async () => {
     fullscreenRequests++;
     document.fullscreenElement = body;
@@ -108,6 +119,7 @@ function fixture({ fullscreen = true } = {}) {
     document,
     getState: () => { stateReads++; return state; },
     getStatus: () => status,
+    now: () => now,
     toast: message => messages.push(message),
   });
   return {
@@ -117,6 +129,8 @@ function fixture({ fullscreen = true } = {}) {
     get stateReads() { return stateReads; },
     get fullscreenRequests() { return fullscreenRequests; },
     get fullscreenExits() { return fullscreenExits; },
+    advance: ms => now += ms,
+    setNow: value => now = value,
     click(action) {
       const control = body.controls.get(action);
       assert.ok(control, `Expected a ${action} control`);
@@ -431,6 +445,113 @@ test('The normal board follows the ongoing same-game round without stopping its 
   assert.match(f.body.innerHTML, /Round 2 \/ 6/);
   assert.match(f.body.innerHTML, /Live standings/);
   assert.deepEqual(f.state, before);
+});
+
+const countdown=f=>f.body.querySelector('[data-scoreboard-clock]');
+const clockStatus=f=>f.body.querySelector('[data-scoreboard-clock-status]');
+const timerSurface=f=>f.body.querySelector('[data-scoreboard-timer]');
+
+test('A running audience countdown updates in place without rebuilding rows, moving focus or changing its clock', async () => {
+  const f=fixture();
+  f.state.timers['borrow:0']=makeClock(90);
+  startClock(f.state.timers,'borrow:0',1000);f.state.activeKey='borrow:0';
+  f.board.open({game:'borrow',key:'borrow:0'});
+  assert.equal(countdown(f).textContent,'01:30');
+  assert.equal(clockStatus(f).textContent,'LIVE');
+  assert.equal(timerSurface(f).dataset.timerKey,'borrow:0');
+  f.click('fullscreen');await flush();
+  const focused=control(f,'close');focused.focus();
+  const writes=f.body.writes,before=structuredClone(f.state),digits=countdown(f);
+  f.advance(10250);f.board.tick();
+  assert.equal(digits.textContent,'01:20');
+  assert.equal(countdown(f),digits);
+  assert.equal(f.body.writes,writes);
+  assert.equal(f.document.activeElement,focused);
+  assert.equal(f.document.fullscreenElement,f.body);
+  f.board.refresh();
+  assert.equal(f.body.writes,writes,'Ordinary live refresh must not rebuild just because seconds changed');
+  assert.deepEqual(f.state,before);
+});
+
+test('Pause, added time, resume and replacement shared clocks all reach the open scoreboard', () => {
+  const f=fixture();
+  f.state.timers['borrow:0']=makeClock(90);
+  startClock(f.state.timers,'borrow:0',1000);f.state.activeKey='borrow:0';
+  f.board.open({game:'borrow',key:'borrow:0'});
+  f.advance(10000);pauseClock(f.state.timers['borrow:0'],11000);f.board.refresh();
+  assert.equal(countdown(f).textContent,'01:20');assert.equal(clockStatus(f).textContent,'Paused');
+  const writes=f.body.writes;
+  f.advance(30000);f.board.tick();assert.equal(countdown(f).textContent,'01:20');
+  addTime(f.state.timers['borrow:0'],30,41000);f.board.refresh();
+  assert.equal(countdown(f).textContent,'01:50');assert.equal(clockStatus(f).textContent,'Paused');
+  startClock(f.state.timers,'borrow:0',41000);f.advance(2000);f.board.tick();
+  assert.equal(countdown(f).textContent,'01:48');assert.equal(clockStatus(f).textContent,'LIVE');
+  const replacement=structuredClone(f.state);pauseClock(replacement.timers['borrow:0'],43000);
+  replacement.timers['borrow:0'].remaining=45000;f.state=replacement;
+  const before=structuredClone(replacement);f.board.refresh();
+  assert.equal(countdown(f).textContent,'00:45');assert.equal(clockStatus(f).textContent,'Paused');
+  assert.equal(f.body.writes,writes);assert.deepEqual(f.state,before);
+});
+
+test('A foreground tick catches up after a long gap and clamps expiry without writing viewer state', () => {
+  const f=fixture();f.state.timers['basket:red:0']=makeClock(30);
+  startClock(f.state.timers,'basket:red:0',1000);f.state.activeKey='basket:red:0';
+  f.board.open({game:'basket',key:'basket:red:0'});
+  const before=structuredClone(f.state),writes=f.body.writes;
+  f.advance(180000);f.board.tick();
+  assert.equal(countdown(f).textContent,'00:00');assert.equal(clockStatus(f).textContent,'Time up');
+  assert.equal(timerSurface(f).dataset.timerState,'expired');assert.equal(f.body.writes,writes);
+  assert.deepEqual(f.state,before,'The viewer never pauses or saves an expired remote clock');
+});
+
+test('Following moves the standings and timer together while historical review keeps its own clock', () => {
+  for(const review of [false,true]){
+    const f=fixture();f.state.timers['borrow:0']=makeClock(90);
+    startClock(f.state.timers,'borrow:0',1000);pauseClock(f.state.timers['borrow:0'],11000);
+    setColumn(f.state,0,[5,4,3,2,0]);
+    f.board.open({game:'borrow',key:'borrow:0',review});
+    assert.equal(countdown(f).textContent,'01:20');
+    f.state.timers['borrow:1']=makeClock(120);startClock(f.state.timers,'borrow:1',1000);f.state.activeKey='borrow:1';
+    const before=structuredClone(f.state);f.advance(5000);f.board.tick();
+    if(review){
+      assert.match(f.body.innerHTML,/Round 1 \/ 6/);assert.equal(timerSurface(f).dataset.timerKey,'borrow:0');
+      assert.equal(countdown(f).textContent,'01:20');assert.equal(clockStatus(f).textContent,'Round complete');
+    }else{
+      assert.match(f.body.innerHTML,/Round 2 \/ 6/);assert.equal(timerSurface(f).dataset.timerKey,'borrow:1');
+      assert.equal(countdown(f).textContent,'01:55');assert.equal(clockStatus(f).textContent,'LIVE');
+    }
+    assert.deepEqual(f.state,before);
+  }
+});
+
+test('A different game clock never takes over the selected game scoreboard', () => {
+  const f=fixture();f.state.timers['borrow:0']=makeClock(90);
+  startClock(f.state.timers,'borrow:0',1000);f.state.activeKey='borrow:0';
+  f.board.open({game:'borrow',key:'borrow:0'});
+  f.state.timers['relay:0']=makeClock(480);startClock(f.state.timers,'relay:0',11000);f.state.activeKey='relay:0';
+  f.advance(10000);const before=structuredClone(f.state);f.board.tick();
+  assert.equal(timerSurface(f).dataset.timerKey,'borrow:0');assert.equal(countdown(f).textContent,'01:20');
+  assert.equal(clockStatus(f).textContent,'Paused');assert.deepEqual(f.state,before);
+});
+
+test('Synced devices with different local clocks show the same shared remaining time without a second offset', () => {
+  const keeper=fixture(),viewer=fixture();
+  keeper.state.timers['relay:0']=makeClock(480);startClock(keeper.state.timers,'relay:0',1000);keeper.state.activeKey='relay:0';
+  const snapshot=publicSnapshot(keeper.state,{offsetMs:60000});
+  viewer.setNow(500000);viewer.state=mergePublicState(snapshot,defaultState(),{offsetMs:-439000});
+  keeper.board.open({game:'relay',key:'relay:0'});viewer.board.open({game:'relay',key:'relay:0'});
+  assert.equal(countdown(keeper).textContent,'08:00');assert.equal(countdown(viewer).textContent,'08:00');
+  keeper.advance(11234);viewer.advance(11234);keeper.board.tick();viewer.board.tick();
+  assert.equal(countdown(keeper).textContent,countdown(viewer).textContent);assert.equal(countdown(viewer).textContent,'07:49');
+});
+
+test('Closed scoreboards do no ticking work and reopening uses the current deadline', () => {
+  const f=fixture();f.state.timers['relay:0']=makeClock(480);startClock(f.state.timers,'relay:0',1000);f.state.activeKey='relay:0';
+  const initial=f.stateReads;f.board.tick();assert.equal(f.stateReads,initial);
+  f.board.open({game:'relay',key:'relay:0'});f.board.close();
+  const reads=f.stateReads,writes=f.body.writes;f.advance(65000);f.board.tick();
+  assert.equal(f.stateReads,reads);assert.equal(f.body.writes,writes);
+  f.board.open({game:'relay',key:'relay:0'});assert.equal(countdown(f).textContent,'06:55');
 });
 
 let failures = 0;

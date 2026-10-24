@@ -1,10 +1,10 @@
-import { TEAM_IDS, matchTeams } from './model.js?v=61';
-import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=61';
-import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=61';
-import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=61';
-import { activeRoundKey, nextTarget } from './flow-model.js?v=61';
-import { createTimerPopup } from './timer-popup.js?v=61';
-import { captureView } from './view-state.js?v=61';
+import { TEAM_IDS, matchTeams } from './model.js?v=62';
+import { EVENT_GAMES, GAME_EVENTS, GAME_NAMES } from './content.js?v=62';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, pauseClock, startClock, addTime, resetClock, formatTime } from './timer-model.js?v=62';
+import { roundDone, gameDone, timerStarted, recordSuccess, eliminate, cavalryPoints, setBasketScore, finishBasketAttempt, resetRound, resetGame, captureResultToken, canUndoResult, undoResult } from './rounds.js?v=62';
+import { activeRoundKey, nextTarget } from './flow-model.js?v=62';
+import { createTimerPopup } from './timer-popup.js?v=62';
+import { captureView } from './view-state.js?v=62';
 
 export function createLiveDesk(api) {
   const {getState,schedule,esc,dot,teamLabel,save,refresh,toast,recordWinner}=api;
@@ -264,6 +264,7 @@ export function createLiveDesk(api) {
     document.querySelectorAll('.schedule-row').forEach(row=>{const game=EVENT_GAMES[Number(row.dataset.open.split(':')[1])];row.classList.toggle('completed',Boolean(game&&gameDone(s,game)));});
     document.querySelectorAll('[data-match-card]').forEach(card=>card.classList.toggle('ongoing',Boolean(active&&active[0]==='tug:'+card.dataset.matchCard)));
     updateStatus();
+    api.onTick?.();
   }
   document.querySelector('#active-timer').addEventListener('click',e=>{const key=e.currentTarget.dataset.key;if(!key)return;const index=selectKey(key);choices[index].review=false;choices[index].manual=false;api.openPanel('event:'+index,'timer');if(matchMedia('(max-width:760px)').matches)open(index);});
   document.querySelector('#close-live').addEventListener('click',()=>overlay.close());

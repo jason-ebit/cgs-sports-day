@@ -1,5 +1,5 @@
-import { GAME_EVENTS, GAME_NAMES } from './content.js?v=61';
-import { TEAM_IDS } from './model.js?v=61';
+import { GAME_EVENTS, GAME_NAMES } from './content.js?v=62';
+import { TEAM_IDS } from './model.js?v=62';
 
 // These are the existing match presets. Duty windows are only a plan; starting
 // or changing a match clock never starts or changes a separate rota timer.

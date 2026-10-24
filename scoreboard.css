@@ -77,12 +77,28 @@
 .scoreboard-screen .scoreboard-back {background:#e7efdf;color:#23332a;border-color:#e7efdf;}
 .scoreboard-screen .scoreboard-back:hover {background:#ffffff;}
 .scoreboard-control svg {width:17px;height:17px;flex:none;}
-.scoreboard-heading {grid-column:1/-1;min-width:0;display:flex;align-items:flex-end;justify-content:space-between;gap:12px 24px;}
+.scoreboard-heading {grid-column:1/-1;min-width:0;display:flex;align-items:center;justify-content:space-between;gap:12px 24px;}
+.scoreboard-heading-copy {flex:1;min-width:0;}
 .scoreboard-heading h2 {min-width:0;margin:0;color:var(--scoreboard-ink);font-size:clamp(28px,4.5vw,58px);font-weight:900;line-height:1.03;letter-spacing:-.035em;overflow-wrap:anywhere;}
-.scoreboard-stage {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:8px 12px;min-width:0;color:#e4e9e0;font-size:clamp(12px,1.5vw,16px);font-weight:700;line-height:1.3;}
+.scoreboard-stage {display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px 12px;min-width:0;margin-top:9px;color:#e4e9e0;font-size:clamp(12px,1.5vw,16px);font-weight:700;line-height:1.3;}
 .scoreboard-stage > :first-child {min-width:0;overflow-wrap:anywhere;}
 .scoreboard-status {display:inline-flex;align-items:center;min-height:25px;padding:4px 8px;border:1px solid #829c8755;border-radius:5px;color:#b7d0bc;font-size:10px;font-weight:800;letter-spacing:.09em;line-height:1.15;text-transform:uppercase;white-space:nowrap;}
 .scoreboard-status.is-complete {color:#e8dba5;border-color:#e8dba555;background:#e8dba509;}
+.scoreboard-timer {display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 10px;flex:none;width:clamp(180px,23vw,250px);min-width:0;padding:10px 16px 12px;border:1px solid #a5cbb649;border-radius:12px;background:linear-gradient(125deg,#b6e1c211,#b6e1c203);}
+.scoreboard-timer-label {min-width:0;color:#bdcfc2;font-size:9px;font-weight:700;line-height:1.1;letter-spacing:.08em;text-transform:uppercase;}
+.scoreboard-clock-status {max-width:9ch;color:#d4dfd5;font-size:10px;font-weight:700;line-height:1.1;text-align:right;}
+.scoreboard-clock {grid-column:1/-1;display:block;min-width:0;width:100%;margin:0;padding:0;color:#eff7e7;font-size:clamp(52px,6vw,80px);font-weight:800;line-height:.98;letter-spacing:-.045em;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
+.scoreboard-clock[data-clock-length="6"] {font-size:clamp(44px,5.4vw,68px);}
+.scoreboard-clock[data-clock-length="7"] {font-size:clamp(38px,4.8vw,58px);}
+.scoreboard-timer[data-timer-state="running"] {border-color:#a1d8b077;background:linear-gradient(125deg,#b6e1c219,#b6e1c206);}
+.scoreboard-timer[data-timer-state="running"] .scoreboard-clock-status {color:#a9e4b9;}
+.scoreboard-timer[data-timer-state="paused"] .scoreboard-clock {color:#bac8be;}
+.scoreboard-timer[data-timer-state="paused"] .scoreboard-clock-status {color:#d5cfac;}
+.scoreboard-timer[data-timer-state="expired"] {border-color:#d3917888;background:#cb755411;}
+.scoreboard-timer[data-timer-state="expired"] .scoreboard-clock,.scoreboard-timer[data-timer-state="expired"] .scoreboard-clock-status {color:#f4b69e;}
+.scoreboard-timer:is([data-timer-state="round-complete"],[data-timer-state="game-complete"]) {border-color:#a6b8a737;}
+.scoreboard-timer:is([data-timer-state="round-complete"],[data-timer-state="game-complete"]) .scoreboard-clock {color:#bdcdbd;}
+.scoreboard-timer:is([data-timer-state="round-complete"],[data-timer-state="game-complete"]) .scoreboard-clock-status {color:#d7ddc4;}
 .scoreboard-table {flex:1;min-height:0;display:flex;flex-direction:column;gap:7px;}
 .scoreboard-column-head {flex:none;display:grid;grid-template-columns:64px minmax(0,1fr) minmax(140px,24%);gap:18px;padding:0 24px 0 18px;color:var(--scoreboard-muted);font-size:10px;font-weight:700;line-height:1.2;letter-spacing:.12em;text-transform:uppercase;}
 .scoreboard-column-head>:last-child {text-align:right;}
@@ -118,10 +134,16 @@
   .scoreboard-screen .scoreboard-fullscreen {flex:none;width:44px;padding:8px;}
   .scoreboard-fullscreen span {display:none;}
   .scoreboard-control svg {width:15px;height:15px;}
-  .scoreboard-heading {display:block;}
-  .scoreboard-heading h2 {font-size:clamp(27px,7.5vw,42px);line-height:1.05;}
-  .scoreboard-stage {justify-content:space-between;margin-top:9px;gap:5px 8px;font-size:12px;}
+  .scoreboard-heading {gap:12px;}
+  .scoreboard-heading h2 {font-size:clamp(25px,6.5vw,38px);line-height:1.05;}
+  .scoreboard-stage {justify-content:flex-start;margin-top:9px;gap:5px 8px;font-size:12px;}
   .scoreboard-status {min-height:22px;padding:3px 6px;font-size:8px;}
+  .scoreboard-timer {width:126px;padding:8px 9px 9px;gap:5px 5px;border-radius:9px;}
+  .scoreboard-timer-label {font-size:7px;letter-spacing:.05em;}
+  .scoreboard-clock-status {font-size:8px;}
+  .scoreboard-clock {font-size:42px;}
+  .scoreboard-clock[data-clock-length="6"] {font-size:34px;}
+  .scoreboard-clock[data-clock-length="7"] {font-size:29px;}
   .scoreboard-column-head {grid-template-columns:30px minmax(0,1fr) 86px;gap:8px;padding:0 11px 0 12px;font-size:8px;letter-spacing:.08em;}
   .scoreboard-rows {gap:7px;}
   .scoreboard-row {grid-template-columns:30px minmax(0,1fr) 86px;gap:8px;padding:5px 11px 5px 12px;border-radius:9px;}
@@ -143,11 +165,20 @@
   .scoreboard-header {gap:8px 12px;}
   .scoreboard-heading h2 {font-size:clamp(25px,4vw,36px);}
   .scoreboard-stage {margin-top:6px;gap:5px 8px;font-size:11px;}
+  .scoreboard-timer {padding-block:7px;gap:4px 6px;}
+  .scoreboard-clock {font-size:46px;}
+  .scoreboard-clock[data-clock-length="6"] {font-size:40px;}
+  .scoreboard-clock[data-clock-length="7"] {font-size:34px;}
   .scoreboard-row {padding-block:3px;}
   .scoreboard-team {gap:2px;}
   .scoreboard-team-name {font-size:clamp(18px,2.8vw,28px);line-height:1.05;-webkit-line-clamp:1;max-height:1.1em;}
   .scoreboard-team-detail {font-size:9px;}
   .scoreboard-score,.scoreboard-score.has-three-digits {font-size:clamp(32px,7vh,42px);}
+}
+@media (min-height:481px) and (max-height:600px) and (max-width:600px) {
+  .scoreboard-clock {font-size:42px;}
+  .scoreboard-clock[data-clock-length="6"] {font-size:34px;}
+  .scoreboard-clock[data-clock-length="7"] {font-size:29px;}
 }
 @media (max-height:480px) and (min-width:480px) {
   .scoreboard-screen {gap:5px;padding:max(7px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(6px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));}
@@ -160,6 +191,14 @@
   .scoreboard-heading h2 {font-size:25px;}
   .scoreboard-stage {justify-content:flex-end;margin-top:0;gap:5px 9px;font-size:10px;}
   .scoreboard-status {min-height:19px;padding:3px 6px;font-size:8px;}
+  .scoreboard-heading-copy {display:flex;align-items:center;gap:14px;}
+  .scoreboard-stage {justify-content:flex-start;gap:4px 8px;}
+  .scoreboard-timer {width:128px;padding:5px 8px 6px;gap:3px 5px;border-radius:7px;}
+  .scoreboard-timer-label {font-size:6px;letter-spacing:.03em;}
+  .scoreboard-clock-status {max-width:none;font-size:7px;white-space:nowrap;}
+  .scoreboard-clock {font-size:30px;line-height:.92;}
+  .scoreboard-clock[data-clock-length="6"] {font-size:28px;}
+  .scoreboard-clock[data-clock-length="7"] {font-size:26px;}
   .scoreboard-table {gap:4px;}
   .scoreboard-column-head {grid-template-columns:44px minmax(0,1fr) minmax(110px,24%);padding:0 14px 0 12px;gap:12px;font-size:8px;}
   .scoreboard-rows {gap:4px;}
@@ -171,8 +210,8 @@
   .scoreboard-team-name {font-size:19px;line-height:1.05;-webkit-line-clamp:1;max-height:1.1em;}
   .scoreboard-team-detail {font-size:8px;line-height:1.1;}
   .scoreboard-result {gap:0;}
-  .scoreboard-score {font-size:26px;line-height:1;}
-  .scoreboard-score.has-three-digits {font-size:26px;}
+  .scoreboard-score {font-size:24px;line-height:1;}
+  .scoreboard-score.has-three-digits {font-size:24px;}
   .scoreboard-round-score {font-size:7px;line-height:1.1;}
   .scoreboard-footer {font-size:8px;}
   .scoreboard-footer>:last-child {font-size:8px;}
@@ -182,15 +221,17 @@
   .scoreboard-header {gap:6px;}
   .scoreboard-heading h2 {font-size:24px;}
   .scoreboard-stage {margin-top:5px;}
+  .scoreboard-timer {width:108px;padding:7px;gap:4px;}
+  .scoreboard-timer-label {font-size:6px;letter-spacing:.02em;}
+  .scoreboard-clock-status {font-size:7px;}
+  .scoreboard-clock {font-size:35px;}
+  .scoreboard-clock[data-clock-length="6"] {font-size:29px;}
+  .scoreboard-clock[data-clock-length="7"] {font-size:25px;}
   .scoreboard-rows {gap:4px;}
-  .scoreboard-team-name {font-size:17px;}
+  .scoreboard-team-name {font-size:17px;-webkit-line-clamp:1;max-height:1.1em;}
   .scoreboard-team-detail {font-size:8px;}
   .scoreboard-score,.scoreboard-score.has-three-digits {font-size:32px;}
   .scoreboard-round-score {font-size:7px;}
   .scoreboard-crown svg {display:none;}
-}
-@media (prefers-reduced-motion:no-preference) {
-  .scoreboard-dialog[open] .scoreboard-heading,.scoreboard-dialog[open] .scoreboard-table {animation:scoreboard-arrive 180ms ease-out;}
-  @keyframes scoreboard-arrive {from{opacity:.3;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 }
 @media print {.scoreboard-dialog {display:none!important;}}

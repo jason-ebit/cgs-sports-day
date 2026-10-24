@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { defaultState, TEAM_IDS, setWinner } from '../model.js';
 import { resetRound, resetGame } from '../rounds.js';
-import { buildGameScoreboard, followGameScoreboardContext } from '../scoreboard-model.js';
-import { makeClock, startClock } from '../timer-model.js';
+import { buildGameScoreboard, buildGameScoreboardTimer, followGameScoreboardContext } from '../scoreboard-model.js';
+import { makeClock, startClock, pauseClock, addTime } from '../timer-model.js';
 
 const tests = [];
 const test = (name, run) => { run(); tests.push(name); console.log('PASS ' + name); };
@@ -350,6 +350,147 @@ test('Resetting a game leaves the copied selection but yields an empty truthful 
   const board = buildGameScoreboard(s, next);
   assert.equal(board.status, 'ready');
   assert.ok(board.rows.every(row => row.score === null && row.rank === null));
+});
+
+test('Scoreboard clocks mirror all live game defaults without creating saved timers', () => {
+  const s = defaultState();
+  s.borrow.rounds = 7;
+  const expected = {
+    'borrow:0': 90, 'borrow:1': 90, 'borrow:2': 120, 'borrow:3': 120, 'borrow:4': 120, 'borrow:5': 120, 'borrow:6': 90,
+    'basket:red:0': 30, 'basket:white:1': 30,
+    'relay:0': 480, 'relay:1': 600, 'relay:2': 480,
+    'cavalry:women': 300, 'cavalry:men': 300,
+    'tug:prelim': 60, 'tug:semi1': 60, 'tug:semi2': 60, 'tug:final': 60,
+  };
+  const before = structuredClone(s);
+  for (const [key, seconds] of Object.entries(expected)) {
+    const timer = buildGameScoreboardTimer(s, { key }, 1000);
+    assert.equal(timer.key, key);
+    assert.equal(timer.remainingMs, seconds * 1000, key);
+    assert.equal(timer.status, 'ready', key);
+    assert.equal(timer.statusLabel, 'Ready', key);
+  }
+  assert.deepEqual(s, before);
+  s.cavalry.cap = 180;
+  assert.equal(buildGameScoreboardTimer(s, { key: 'cavalry:men' }).text, '03:00');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'event:4' }), null);
+  assert.equal(buildGameScoreboardTimer(s), null);
+});
+
+test('Scoreboard time follows the real pause, resume, extension and expiry clock operations', () => {
+  const s = defaultState(), key = 'borrow:0', ctx = { key };
+  s.timers[key] = makeClock(90);
+  startClock(s.timers, key, 1000);
+  assert.deepEqual(buildGameScoreboardTimer(s, ctx, 2250), { key, text: '01:29', status: 'running', statusLabel: 'LIVE', remainingMs: 88750 });
+  pauseClock(s.timers[key], 11000);
+  assert.equal(buildGameScoreboardTimer(s, ctx, 41000).remainingMs, 80000);
+  assert.equal(buildGameScoreboardTimer(s, ctx, 41000).status, 'paused');
+  startClock(s.timers, key, 41000);
+  addTime(s.timers[key], 30, 51000);
+  assert.equal(buildGameScoreboardTimer(s, ctx, 51000).text, '01:40');
+  assert.equal(buildGameScoreboardTimer(s, ctx, 151000).status, 'expired');
+  assert.equal(buildGameScoreboardTimer(s, ctx, 151000).text, '00:00');
+  pauseClock(s.timers[key], 151000);
+  assert.equal(buildGameScoreboardTimer(s, ctx, 160000).status, 'expired');
+  addTime(s.timers[key], 30, 160000);
+  assert.equal(buildGameScoreboardTimer(s, ctx, 160000).status, 'paused');
+  assert.equal(buildGameScoreboardTimer(s, ctx, 160000).statusLabel, 'Paused');
+});
+
+test('Scoreboard clock reads replacement remote snapshots and locally adjusted deadlines directly', () => {
+  let s = defaultState();
+  s.timers['relay:1'] = makeClock(600);
+  startClock(s.timers, 'relay:1', 1000);
+  assert.equal(buildGameScoreboardTimer(s, { key: 'relay:1' }, 2000).remainingMs, 599000);
+  const remote = structuredClone(s);
+  remote.timers['relay:1'] = { ...makeClock(700), started: true, deadline: 32000 };
+  s = remote;
+  const before = structuredClone(s);
+  assert.equal(buildGameScoreboardTimer(s, { key: 'relay:1' }, 2000).remainingMs, 30000);
+  pauseClock(s.timers['relay:1'], 3000);
+  assert.equal(buildGameScoreboardTimer(s, { key: 'relay:1' }, 20000).remainingMs, 29000);
+  assert.equal(before.timers['relay:1'].deadline, 32000);
+  const paused = structuredClone(s);
+  buildGameScoreboardTimer(s, { key: 'relay:1' }, 20000);
+  assert.deepEqual(s, paused);
+});
+
+test('An active other game never leaks into a selected or historical scoreboard timer', () => {
+  const s = defaultState();
+  s.timers['borrow:2'] = makeClock(120);
+  startClock(s.timers, 'borrow:2', 1000);
+  s.activeKey = 'borrow:2';
+  assert.equal(buildGameScoreboardTimer(s, { game: 'relay', key: 'borrow:2', round: 1 }, 2000).text, '10:00');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 2000).text, '01:30');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 2000).status, 'ready');
+  s.timers['borrow:0'] = { ...makeClock(90), started: true, remaining: 12345 };
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 2000).text, '00:13');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 2000).status, 'paused');
+});
+
+test('Changed unstarted Tug draws and Cavalry selections discard stale timer signatures only for display', () => {
+  const s = defaultState(); draw(s);
+  s.timers['tug:prelim'] = makeClock(35, 'yellow|green');
+  s.cavalry.divisions.women.active = ['red', 'blue'];
+  s.timers['cavalry:women'] = makeClock(45, 'red|yellow');
+  const before = structuredClone(s);
+  assert.equal(buildGameScoreboardTimer(s, { key: 'tug:prelim' }).text, '01:00');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'cavalry:women' }).text, '05:00');
+  assert.deepEqual(s, before);
+  s.timers['tug:prelim'].signature = 'red|blue';
+  s.timers['cavalry:women'].signature = 'red|blue';
+  assert.equal(buildGameScoreboardTimer(s, { key: 'tug:prelim' }).text, '00:35');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'cavalry:women' }).text, '00:45');
+  s.timers['tug:prelim'].signature = 'old|draw';
+  s.timers['cavalry:women'].signature = 'old|arena';
+  s.timers['tug:prelim'].started = true;
+  s.timers['cavalry:women'].started = true;
+  assert.equal(buildGameScoreboardTimer(s, { key: 'tug:prelim' }).text, '00:35');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'cavalry:women' }).text, '00:45');
+});
+
+test('Completed selected rounds override running or expired clocks without changing them', () => {
+  const s = defaultState();
+  setColumn(s, 'borrow', 0, [5, 4, 3, 2, 2]);
+  s.timers['borrow:0'] = { ...makeClock(90), started: true, deadline: 50000 };
+  const before = structuredClone(s);
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 1000).status, 'round-complete');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 50000).statusLabel, 'Round complete');
+  assert.deepEqual(s, before);
+  for (let round = 1; round < 6; round++) setColumn(s, 'borrow', round, [5, 4, 3, 2, 2]);
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 1000).status, 'round-complete');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:5' }, 1000).statusLabel, 'Game complete');
+});
+
+test('Timer completion scope agrees with all five game scoreboards and historical rounds', () => {
+  const s = defaultState();
+  for (let round = 0; round < 3; round++) setColumn(s, 'relay', round, [1, 2, 3, 4, 5]);
+  arena(s, 'women', ['red', 'blue'], ['red']);
+  arena(s, 'men', ['red', 'blue'], ['blue']);
+  for (const [i, id] of TEAM_IDS.entries()) for (const attempt of [0, 1]) {
+    s.basket.scores[i][attempt] = i;
+    s.finished.push(`basket:${id}:${attempt}`);
+  }
+  draw(s);
+  for (const [match, id] of [['prelim', 'red'], ['semi1', 'red'], ['semi2', 'white'], ['final', 'white']]) setWinner(s.tug, match, id);
+  for (const key of ['relay:0', 'relay:2', 'cavalry:women', 'cavalry:men', 'basket:red:0', 'tug:prelim', 'tug:final']) {
+    assert.equal(buildGameScoreboardTimer(s, { key }).status, buildGameScoreboard(s, { key }).status, key);
+  }
+  resetGame(s, 'relay');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'relay:2' }).status, 'ready');
+});
+
+test('Imported completed results do not invent an original remaining time', () => {
+  const s = defaultState();
+  setColumn(s, 'borrow', 0, [5, 4, 3, 2, 2]);
+  assert.deepEqual(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 1000), {
+    key: 'borrow:0', text: '—', status: 'round-complete', statusLabel: 'Round complete', remainingMs: null,
+  });
+  s.timers['borrow:0'] = { ...makeClock(90), started: true, remaining: 27500 };
+  const before = structuredClone(s);
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 1000).text, '00:28');
+  assert.equal(buildGameScoreboardTimer(s, { key: 'borrow:0' }, 60000).remainingMs, 27500);
+  assert.deepEqual(s, before);
 });
 
 console.log(`${tests.length} scoreboard model tests passed.`);

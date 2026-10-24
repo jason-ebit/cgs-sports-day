@@ -1,8 +1,8 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, gameDone, gamePlaces, matchTeams, validSlots } from './model.js?v=61';
-import { GAME_NAMES } from './content.js?v=61';
-import { roundDone, cavalryPoints } from './rounds.js?v=61';
-import { MATCH_KEYS, MATCH_NAMES } from './timer-model.js?v=61';
-import { activeRoundKey } from './flow-model.js?v=61';
+import { TEAM_IDS, COLOURS, GAME_IDS, gameDone, gamePlaces, matchTeams, validSlots } from './model.js?v=62';
+import { GAME_NAMES } from './content.js?v=62';
+import { roundDone, cavalryPoints } from './rounds.js?v=62';
+import { MATCH_KEYS, MATCH_NAMES, makeClock, remainingMs, formatTime } from './timer-model.js?v=62';
+import { activeRoundKey } from './flow-model.js?v=62';
 
 const DIVISIONS = ['women', 'men'];
 const present = value => Number.isFinite(value);
@@ -30,6 +30,42 @@ function scopeFor(state, context) {
   }
   const match = MATCH_KEYS.includes(keyPart) ? keyPart : MATCH_KEYS.includes(context.match) ? context.match : 'prelim';
   return { game, key: `tug:${match}`, match };
+}
+
+/** A read-only view of this scoreboard's clock, using the live desk's defaults.
+ * Clock deadlines have already been adjusted to local time by shared sync.
+ * Resolving a display never creates, starts, pauses or changes a saved clock.
+ */
+export function buildGameScoreboardTimer(state, context = {}, now = Date.now()) {
+  const scope = scopeFor(state, context);
+  if (!scope) return null;
+  const { game, key, round } = scope;
+  let seconds, signature = '';
+  if (game === 'borrow') seconds = [90, 90, 120, 120, 120, 120, 90][round];
+  else if (game === 'relay') seconds = [480, 600, 480][round];
+  else if (game === 'basket') seconds = 30;
+  else if (game === 'cavalry') {
+    seconds = state.cavalry.cap || 300;
+    signature = state.cavalry.divisions[scope.division].active.join('|');
+  } else {
+    seconds = 60;
+    signature = matchTeams(state.tug, scope.match).join('|');
+  }
+  const saved = state.timers[key];
+  const usableSaved = saved && (saved.signature === signature || saved.started);
+  const clock = usableSaved ? saved : makeClock(seconds, signature);
+  const ms = remainingMs(clock, now);
+  const finalScope = game === 'borrow' || game === 'relay' ? round === scope.count - 1 : game === 'cavalry' ? round === 1 : true;
+  const status = gameDone(state, game) && finalScope ? 'game-complete'
+    : roundDone(state, key) ? 'round-complete'
+    : ms === 0 ? 'expired'
+    : clock.deadline !== null ? 'running'
+    : clock.started ? 'paused' : 'ready';
+  const statusLabel = { ready: 'Ready', running: 'LIVE', paused: 'Paused', expired: 'Time up', 'round-complete': 'Round complete', 'game-complete': 'Game complete' }[status];
+  // Imported results can be complete without a recorded clock. Their original
+  // remaining time is unknown; a default limit would look like a real result.
+  if (!usableSaved && (status === 'round-complete' || status === 'game-complete')) return { key, text: '—', status, statusLabel, remainingMs: null };
+  return { key, text: formatTime(ms), status, statusLabel, remainingMs: ms };
 }
 
 /** Follow this game's active stage, or catch up to its latest saved stage.

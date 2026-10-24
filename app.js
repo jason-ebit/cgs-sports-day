@@ -1,32 +1,32 @@
-import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=61';
-import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=61';
-import { createLiveDesk } from './live.js?v=61';
-import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=61';
-import { icon } from './icons.js?v=61';
-import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=61';
-import { renderMedia, downloadBlob } from './media.js?v=61';
-import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=61';
-import { captureView } from './view-state.js?v=61';
-import { createDeviceStore } from './device-store.js?v=61';
-import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=61';
-import { createBeforeSyncBackup } from './before-sync.js?v=61';
-import { SYNC_CONFIG } from './sync-config.js?v=61';
-import { renderLiveConnection } from './connection-badge.js?v=61';
-import { createGameTimeline } from './game-timeline.js?v=61';
-import { createPanelNavigation } from './panel-navigation.js?v=61';
-import { renderLocationGuide } from './location-guide.js?v=61';
-import { createAppInstall } from './app-install.js?v=61';
-import { renderInstallGuide } from './install-guide.js?v=61';
-import { googleCalendarLink } from './calendar-link.js?v=61';
-import { VIEWING_URL, renderViewingShare } from './share-link.js?v=61';
-import { renderFirstAidKit } from './first-aid-kit.js?v=61';
-import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=61';
-import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=61';
-import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=61';
-import { renderRotationPlanner } from './rota-planner-ui.js?v=61';
-import { createScoreboard } from './scoreboard-controller.js?v=61';
-import { buildDutyOverview } from './rota-overview-model.js?v=61';
-import { renderDutyOverview } from './rota-overview-view.js?v=61';
+import { TEAM_IDS, COLOURS, GAME_IDS, defaultState, shuffled, seededSlots, validSlots, clearTug, matchTeams, assignSlot, totals, gamePlaces, championship, validateState } from './model.js?v=62';
+import { roundDone, gameDone, timerStarted, recordWinner as saveMatchWinner, cavalryPoints } from './rounds.js?v=62';
+import { createLiveDesk } from './live.js?v=62';
+import { MATCH_KEYS, MATCH_NAMES, pauseClock } from './timer-model.js?v=62';
+import { icon } from './icons.js?v=62';
+import { EVENT_ICONS, EVENT_GAMES, GAME_EVENTS, GAME_NAMES, NOTES, COMMITTEE, DEPARTMENTS, SUPPLIES, orderedSchedule, scheduleBounds } from './content.js?v=62';
+import { renderMedia, downloadBlob } from './media.js?v=62';
+import { createMediaExport, createMediaShare, posterURL, posterSizeFromSearch } from './media-share.js?v=62';
+import { captureView } from './view-state.js?v=62';
+import { createDeviceStore } from './device-store.js?v=62';
+import { createSyncService, mergePublicState, publicSnapshot } from './sync.js?v=62';
+import { createBeforeSyncBackup } from './before-sync.js?v=62';
+import { SYNC_CONFIG } from './sync-config.js?v=62';
+import { renderLiveConnection } from './connection-badge.js?v=62';
+import { createGameTimeline } from './game-timeline.js?v=62';
+import { createPanelNavigation } from './panel-navigation.js?v=62';
+import { renderLocationGuide } from './location-guide.js?v=62';
+import { createAppInstall } from './app-install.js?v=62';
+import { renderInstallGuide } from './install-guide.js?v=62';
+import { googleCalendarLink } from './calendar-link.js?v=62';
+import { VIEWING_URL, renderViewingShare } from './share-link.js?v=62';
+import { renderFirstAidKit } from './first-aid-kit.js?v=62';
+import { renderCommitteeRotation, ROTATION_GAMES, resolveRotationRound } from './committee-rotation.js?v=62';
+import { COMMITTEE_PERSON_IDS, ROTATION_STATUSES, validateCommitteeRotation } from './rota-model.js?v=62';
+import { planCommitteeRotation, reliefCandidates } from './rota-planner.js?v=62';
+import { renderRotationPlanner } from './rota-planner-ui.js?v=62';
+import { createScoreboard } from './scoreboard-controller.js?v=62';
+import { buildDutyOverview } from './rota-overview-model.js?v=62';
+import { renderDutyOverview } from './rota-overview-view.js?v=62';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -59,7 +59,7 @@ const writerAuthority = () => localPreview || sync?.role === 'writer' && sync.st
 const canEdit = () => writerAuthority() && !store.protected && !beforeSync.error;
 const requireWriter = () => { if(writerAuthority())return true; toast('Sign in as the scorekeeper to change shared scores.'); return false; };
 const requireEditor = () => { if(canEdit())return true; toast(store.protected?'Export the protected backup, then import or reset before keeping score.':beforeSync.error?'Recover the original backup in Reset / backup first.':'Sign in as the scorekeeper to change shared scores.'); return false; };
-const response = await fetch('./schedule.json?v=61', {cache:'no-cache'});
+const response = await fetch('./schedule.json?v=62', {cache:'no-cache'});
 if (!response.ok) throw Error('Could not load the approved schedule.');
 const eventDetails = await response.json();
 const schedule = eventDetails.schedule;
@@ -407,7 +407,7 @@ async function recordTugWinner(match,id) {
   affected.forEach(k=>delete state.timers['tug:'+k]);
   save();renderPoster();return true;
 }
-live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange:confirmSharedChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit,showScoreboard:context=>scoreboard.open(context),
+live=createLiveDesk({getState:()=>state,schedule,esc,dot,teamLabel,save,refresh:()=>{if(dialog.open&&!(applyingRemote&&current==='sync'))renderPanel();},toast,confirmChange:confirmSharedChange,recordWinner:recordTugWinner,invalidatePlaces,openPanel,saved:()=>saveAvailable,canEdit,showScoreboard:context=>scoreboard.open(context),onTick:()=>scoreboard.tick(),
   syncStatus:()=>sync?.status||{localPreview:true},preferences:()=>state.preferences,
   savePreference:(key,value)=>{state.preferences[key]=value;save();}
 });
