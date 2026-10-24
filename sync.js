@@ -1,5 +1,5 @@
-import { defaultState, validateState, GAME_IDS } from './model.js?v=60';
-import { changedScoreUnits, scoreUnits, rebaseScoreSnapshot, reanchorScoreIntent, replaceScoreUnits, sameScoreValue } from './sync-merge.js?v=60';
+import { defaultState, validateState, GAME_IDS } from './model.js?v=61';
+import { changedScoreUnits, scoreUnits, rebaseScoreSnapshot, reanchorScoreIntent, replaceScoreUnits, sameScoreValue } from './sync-merge.js?v=61';
 
 // Shared snapshots deliberately omit names of leaders, medical/head-count notes,
 // committee reminders and the free-text explanation of approved placings.

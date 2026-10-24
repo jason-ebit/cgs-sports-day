@@ -57,7 +57,7 @@ export const NOTES=[
  ['CG-IN before registration and the team draw.','Gather everyone so they can hear.'],
 ];
 export const COMMITTEE=[
- ['Arrive at 11:00. Finish setup by 11:40.','1 main judge, 1 assistant and 10–11 helpers, including Warm-up. Total: 12–13, plus team leaders.','Check the field, equipment and water before people arrive.'],
+ ['Arrive at 11:00. Finish setup by 11:40.','Check the duty plan so each committee knows who is on duty and who takes over.','Check the field, equipment and water before people arrive.'],
  ['Prepare enough colour sticks for everyone.','Count each team and add names in Teams.','Ask anyone with health concerns or injuries to speak to first aid in private.'],
  ['Show the stop signal. Point out first aid.','Check the plans for contact games. Keep health details private.'],
  ['Warm-up lead: lead five minutes of light stretching.','Keep it gentle; anyone can sit out.'],

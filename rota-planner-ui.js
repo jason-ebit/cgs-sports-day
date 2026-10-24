@@ -1,5 +1,5 @@
-import { DEPARTMENTS } from './content.js?v=60';
-import { plannerRoster, reliefCandidates } from './rota-planner.js?v=60';
+import { DEPARTMENTS } from './content.js?v=61';
+import { plannerRoster, reliefCandidates } from './rota-planner.js?v=61';
 
 const e=value=>String(value).replace(/[&<>"']/g,character=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const departmentName=id=>DEPARTMENTS.find(department=>department.id===id)?.name||id;

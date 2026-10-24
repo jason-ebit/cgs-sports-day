@@ -1,7 +1,7 @@
-import { TEAM_IDS, COLOURS } from './model.js?v=60';
-import { iconData } from './icons.js?v=60';
-import { EVENT_ICONS, orderedSchedule, scheduleBounds } from './content.js?v=60';
-import { LOCATION } from './location-guide.js?v=60';
+import { TEAM_IDS, COLOURS } from './model.js?v=61';
+import { iconData } from './icons.js?v=61';
+import { EVENT_ICONS, orderedSchedule, scheduleBounds } from './content.js?v=61';
+import { LOCATION } from './location-guide.js?v=61';
 
 export function downloadBlob(blob, filename) {
   const url=URL.createObjectURL(blob), a=document.createElement('a');
